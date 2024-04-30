@@ -4,9 +4,19 @@ message Lobby {
   int32 id = 1;
   string name = 2;
   int32 author_id = 3;
+  int32 players_registered = 4;
+  GameType game_type = 5;
+  GameName game_name = 6;
 }
 
+enum GameName {
+  Holdem = 0;
+}
 
+enum GameType {
+  Tournament = 0;
+  Cash = 1;
+}
 
 message LobbyList {
   repeated Lobby list = 1;

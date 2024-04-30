@@ -26,6 +26,18 @@ export interface Lobby {
      * @generated from protobuf field: int32 author_id = 3;
      */
     authorId: number;
+    /**
+     * @generated from protobuf field: int32 players_registered = 4;
+     */
+    playersRegistered: number;
+    /**
+     * @generated from protobuf field: GameType game_type = 5;
+     */
+    gameType: GameType;
+    /**
+     * @generated from protobuf field: GameName game_name = 6;
+     */
+    gameName: GameName;
 }
 /**
  * @generated from protobuf message LobbyList
@@ -36,13 +48,38 @@ export interface LobbyList {
      */
     list: Lobby[];
 }
+/**
+ * @generated from protobuf enum GameName
+ */
+export enum GameName {
+    /**
+     * @generated from protobuf enum value: Holdem = 0;
+     */
+    Holdem = 0
+}
+/**
+ * @generated from protobuf enum GameType
+ */
+export enum GameType {
+    /**
+     * @generated from protobuf enum value: Tournament = 0;
+     */
+    Tournament = 0,
+    /**
+     * @generated from protobuf enum value: Cash = 1;
+     */
+    Cash = 1
+}
 // @generated message type with reflection information, may provide speed optimized methods
 class Lobby$Type extends MessageType<Lobby> {
     constructor() {
         super("Lobby", [
             { no: 1, name: "id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
             { no: 2, name: "name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
-            { no: 3, name: "author_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+            { no: 3, name: "author_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 4, name: "players_registered", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 5, name: "game_type", kind: "enum", T: () => ["GameType", GameType] },
+            { no: 6, name: "game_name", kind: "enum", T: () => ["GameName", GameName] }
         ]);
     }
     create(value?: PartialMessage<Lobby>): Lobby {
@@ -50,6 +87,9 @@ class Lobby$Type extends MessageType<Lobby> {
         message.id = 0;
         message.name = "";
         message.authorId = 0;
+        message.playersRegistered = 0;
+        message.gameType = 0;
+        message.gameName = 0;
         if (value !== undefined)
             reflectionMergePartial<Lobby>(this, message, value);
         return message;
@@ -67,6 +107,15 @@ class Lobby$Type extends MessageType<Lobby> {
                     break;
                 case /* int32 author_id */ 3:
                     message.authorId = reader.int32();
+                    break;
+                case /* int32 players_registered */ 4:
+                    message.playersRegistered = reader.int32();
+                    break;
+                case /* GameType game_type */ 5:
+                    message.gameType = reader.int32();
+                    break;
+                case /* GameName game_name */ 6:
+                    message.gameName = reader.int32();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -89,6 +138,15 @@ class Lobby$Type extends MessageType<Lobby> {
         /* int32 author_id = 3; */
         if (message.authorId !== 0)
             writer.tag(3, WireType.Varint).int32(message.authorId);
+        /* int32 players_registered = 4; */
+        if (message.playersRegistered !== 0)
+            writer.tag(4, WireType.Varint).int32(message.playersRegistered);
+        /* GameType game_type = 5; */
+        if (message.gameType !== 0)
+            writer.tag(5, WireType.Varint).int32(message.gameType);
+        /* GameName game_name = 6; */
+        if (message.gameName !== 0)
+            writer.tag(6, WireType.Varint).int32(message.gameName);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);

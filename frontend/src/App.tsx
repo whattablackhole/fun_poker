@@ -1,13 +1,25 @@
+import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import GameView from './view/game-view'
+import IndexView from './view/index-view'
 
 function App() {
-  return (
-    <>
-      <div>
-        <GameView></GameView>
-      </div>
-    </>
-  )
-}
+  const router = createBrowserRouter([
+    {
+      path: "/",
+      Component: IndexView
+    },
+    {
+      path: "/new-lobby",
+      element: <div>Not implemented yet</div>,
+    },
+    {
+      path: "/game",
+      Component: GameView
+    }
+  ]);
 
+  return (
+    <RouterProvider router={router} />
+  );
+}
 export default App
