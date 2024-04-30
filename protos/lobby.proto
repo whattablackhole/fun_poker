@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+message Lobby {
+  int32 id = 1;
+  string name = 2;
+  int32 author_id = 3;
+}
+
+
+
+message LobbyList {
+  repeated Lobby list = 1;
+}
+
