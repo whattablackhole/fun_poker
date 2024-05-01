@@ -10,6 +10,8 @@ pub mod lobby;
 
 pub mod player;
 
+pub mod socket_pool;
+
 pub mod postgres_database;
 pub struct ThreadPool {
     workers: Vec<Worker>,
