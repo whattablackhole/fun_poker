@@ -1,0 +1,6 @@
+syntax = "proto3";
+
+message JoinLobbyRequest {
+    int32 lobby_id = 1;
+    int32 player_id = 2;
+}

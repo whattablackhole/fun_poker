@@ -7,18 +7,18 @@ import backImage from '../../assets/symbols/back.png';
 import kingImage from '../../assets/symbols/king.png';
 import jackImage from '../../assets/symbols/jack.png';
 import queenImage from '../../assets/symbols/queen.png';
+import { CardSuit, CardValue } from "../../types/card";
 
 
-import { CardSuit, CardValue } from "../../types";
 
 interface PokerCardProps {
-    cardValue: CardValue;
-    cardSuit: CardSuit;
+    cardValue: CardValue | null;
+    cardSuit: CardSuit | null;
 }
 function PokerCard({ cardSuit, cardValue }: PokerCardProps) {
     return <>
         <div className="poker-card">
-            {cardSuit !== CardSuit.Empty &&
+            {cardSuit !== null &&
                 <div className="poker-card-value" style={{ color: getCardColor(cardSuit) }}>{cardValue}</div>
             }
             <div className="poker-card-image">
@@ -40,15 +40,21 @@ function PokerCard({ cardSuit, cardValue }: PokerCardProps) {
             default: return "";
         }
     }
-    function getCardImage(cardSuit: CardSuit, cardValue: CardValue): string {
+    function getCardImage(cardSuit: CardSuit | null, cardValue: CardValue | null): string {
+        if (cardSuit == null) {
+            return backImage;
+        }
+        if (cardValue == null) {
+            return backImage;
+        }
         switch (cardValue) {
-            case "K": {
+            case CardValue.King: {
                 return kingImage;
             }
-            case "J": {
+            case CardValue.Jack: {
                 return jackImage;
             }
-            case "Q": {
+            case CardValue.Queen: {
                 return queenImage;
             }
         }

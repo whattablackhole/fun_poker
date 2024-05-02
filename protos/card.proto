@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+enum CardValue {
+    Two = 0;
+    Three = 1;
+    Four = 2;
+    Five = 3;
+    Six = 4;
+    Seven = 5;
+    Eight = 6;
+    Nine =7;
+    Ten = 8;
+    Jack = 9;
+    Queen = 10;
+    King = 11;
+    Ace = 12;
+}
+
+
+message Card {
+     CardValue value  = 1;
+     CardSuit suit = 2;
+}
+
+enum CardSuit {
+    Clubs = 0;
+    Spades = 1;
+    Hearts = 2;
+    Diamonds = 3;
+}
+
+message CardPair {
+     Card card1 = 1;
+     Card card2 = 2;
+}
+

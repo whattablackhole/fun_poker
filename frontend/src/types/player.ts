@@ -31,6 +31,53 @@ export interface Player {
      */
     name: string;
 }
+/**
+ * @generated from protobuf message PlayerPayload
+ */
+export interface PlayerPayload {
+    /**
+     * @generated from protobuf field: int32 player_id = 1;
+     */
+    playerId: number;
+    /**
+     * @generated from protobuf field: int32 lobby_id = 2;
+     */
+    lobbyId: number;
+    /**
+     * @generated from protobuf field: PlayerAction action = 3;
+     */
+    action?: PlayerAction;
+}
+/**
+ * @generated from protobuf message PlayerAction
+ */
+export interface PlayerAction {
+    /**
+     * @generated from protobuf field: ActionType action_type = 1;
+     */
+    actionType: ActionType;
+}
+/**
+ * @generated from protobuf enum ActionType
+ */
+export enum ActionType {
+    /**
+     * @generated from protobuf enum value: Fold = 0;
+     */
+    Fold = 0,
+    /**
+     * @generated from protobuf enum value: Call = 1;
+     */
+    Call = 1,
+    /**
+     * @generated from protobuf enum value: Raise = 2;
+     */
+    Raise = 2,
+    /**
+     * @generated from protobuf enum value: Empty = 3;
+     */
+    Empty = 3
+}
 // @generated message type with reflection information, may provide speed optimized methods
 class Player$Type extends MessageType<Player> {
     constructor() {
@@ -102,3 +149,112 @@ class Player$Type extends MessageType<Player> {
  * @generated MessageType for protobuf message Player
  */
 export const Player = new Player$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class PlayerPayload$Type extends MessageType<PlayerPayload> {
+    constructor() {
+        super("PlayerPayload", [
+            { no: 1, name: "player_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "lobby_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 3, name: "action", kind: "message", T: () => PlayerAction }
+        ]);
+    }
+    create(value?: PartialMessage<PlayerPayload>): PlayerPayload {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.playerId = 0;
+        message.lobbyId = 0;
+        if (value !== undefined)
+            reflectionMergePartial<PlayerPayload>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: PlayerPayload): PlayerPayload {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 player_id */ 1:
+                    message.playerId = reader.int32();
+                    break;
+                case /* int32 lobby_id */ 2:
+                    message.lobbyId = reader.int32();
+                    break;
+                case /* PlayerAction action */ 3:
+                    message.action = PlayerAction.internalBinaryRead(reader, reader.uint32(), options, message.action);
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: PlayerPayload, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 player_id = 1; */
+        if (message.playerId !== 0)
+            writer.tag(1, WireType.Varint).int32(message.playerId);
+        /* int32 lobby_id = 2; */
+        if (message.lobbyId !== 0)
+            writer.tag(2, WireType.Varint).int32(message.lobbyId);
+        /* PlayerAction action = 3; */
+        if (message.action)
+            PlayerAction.internalBinaryWrite(message.action, writer.tag(3, WireType.LengthDelimited).fork(), options).join();
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message PlayerPayload
+ */
+export const PlayerPayload = new PlayerPayload$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class PlayerAction$Type extends MessageType<PlayerAction> {
+    constructor() {
+        super("PlayerAction", [
+            { no: 1, name: "action_type", kind: "enum", T: () => ["ActionType", ActionType] }
+        ]);
+    }
+    create(value?: PartialMessage<PlayerAction>): PlayerAction {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.actionType = 0;
+        if (value !== undefined)
+            reflectionMergePartial<PlayerAction>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: PlayerAction): PlayerAction {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* ActionType action_type */ 1:
+                    message.actionType = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: PlayerAction, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* ActionType action_type = 1; */
+        if (message.actionType !== 0)
+            writer.tag(1, WireType.Varint).int32(message.actionType);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message PlayerAction
+ */
+export const PlayerAction = new PlayerAction$Type();

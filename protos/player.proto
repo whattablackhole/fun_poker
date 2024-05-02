@@ -6,4 +6,21 @@ message Player {
     int32 id = 2;
     string country = 3;
     string name = 4; 
-  }
+}
+
+message PlayerPayload {
+  int32 player_id = 1;
+  int32 lobby_id = 2;
+  PlayerAction action = 3;
+}
+
+message PlayerAction {
+  ActionType action_type = 1;
+}
+
+enum ActionType {
+  Fold = 0;
+  Call = 1;
+  Raise = 2;
+  Empty = 3;
+}

@@ -6,9 +6,8 @@ function LobbiesTable() {
     let [lobbyData, setLobbyData] = useState<LobbyList | null>(null)
 
     useEffect(() => {
-        const apiService = new ApiService();
         if (!lobbyData) {
-            apiService.getLobbies().then((lobbyList: LobbyList) => {
+            ApiService.getLobbies().then((lobbyList: LobbyList) => {
                 setLobbyData(lobbyList);
             })
         }

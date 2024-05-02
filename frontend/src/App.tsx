@@ -17,7 +17,6 @@ function App() {
       Component: GameView
     }
   ]);
-
   return (
     <RouterProvider router={router} />
   );

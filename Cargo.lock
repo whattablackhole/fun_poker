@@ -225,6 +225,7 @@ dependencies = [
  "postgres",
  "prost",
  "prost-build",
+ "rand",
  "tungstenite",
 ]
 

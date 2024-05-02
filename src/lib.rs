@@ -8,8 +8,10 @@ use std::{
 
 pub mod lobby;
 
+pub mod card;
+pub mod dealer;
 pub mod player;
-
+pub mod request;
 pub mod socket_pool;
 
 pub mod postgres_database;
@@ -24,7 +26,6 @@ struct Worker {
 }
 impl Worker {
     fn new(id: usize, job: Arc<Mutex<Receiver<Job>>>) -> Worker {
-
         let handle = thread::spawn(move || loop {
             let message = job.lock().unwrap().recv();
 
@@ -65,7 +66,6 @@ impl Drop for ThreadPool {
 }
 
 impl ThreadPool {
-
     pub fn new(quantity: usize) -> Self {
         assert!(quantity > 0);
         let (sender, receiver) = mpsc::channel();

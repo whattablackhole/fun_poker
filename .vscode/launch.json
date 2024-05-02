@@ -11,6 +11,14 @@
             "program": "${workspaceFolder}/target/debug/fun_poker.exe",
             "args": [],
             "cwd": "${workspaceFolder}"
+        },
+        {
+            "protoc": {
+                "path": "/usr/local/bin/protoc",
+                "options": [
+                "--proto_path=${workspaceRoot}/common/proto",
+                ]
+                }
         }
     ]
 }
