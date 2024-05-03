@@ -1,18 +1,53 @@
-use crate::{
-    card::{Card, CardDeck, CardPair},
-    player::{ActionType, PlayerAction, PlayerPayload},
+use std::{
+    collections::{BTreeMap, HashMap},
+    hash::Hash,
 };
 
+use crate::{
+    card::{Card, CardDeck, CardPair},
+    player::{ActionType, Player, PlayerAction, PlayerPayload},
+};
+
+use pokereval_cactus::card::Card as PCard;
+use pokereval_cactus::evaluator;
 pub struct Dealer {
     lobby_id: i32,
     game_state: GameState,
     deck_state: DeckState,
-    player_ids: Vec<i32>,
+    player_state: PlayerState,
+}
+
+struct PlayerState {
+    players: Vec<Player>,
+    bank_map: HashMap<i32, i32>,
+}
+
+impl PlayerState {
+    pub fn new() -> PlayerState {
+        PlayerState {
+            bank_map: HashMap::new(),
+            players: Vec::new(),
+        }
+    }
+
+    pub fn from(players: Vec<Player>, bank_size: i32) -> PlayerState {
+        let mut bank_map = HashMap::new();
+        for player in players.iter() {
+            bank_map.insert(player.id, bank_size);
+        }
+        PlayerState { bank_map, players }
+    }
+
+    pub fn update_player_bank(&mut self, value: i32, id: &i32) {
+        let bank = self.bank_map.get_mut(id).unwrap();
+
+        *bank += value;
+    }
 }
 
 impl Dealer {
-    //
-    pub fn new(lobby_id: i32, player_ids: Vec<i32>) -> Dealer {
+    // TODO: implement game settings for bank size etc..
+    pub fn new(lobby_id: i32, players: Vec<Player>) -> Dealer {
         Dealer {
             deck_state: DeckState {
                 deck: CardDeck::new_random(),
@@ -20,14 +55,14 @@ impl Dealer {
             },
             game_state: GameState::new(),
             lobby_id: lobby_id,
-            player_ids: Vec::from(player_ids),
+            player_state: PlayerState::from(players, 0),
         }
     }
 
     fn deal_cards(&mut self) -> Vec<PlayOutload> {
         let mut result = Vec::new();
         if self.game_state.street.street_status == StreetStatus::Preflop as i32 {
-            for id in &self.player_ids {
+            for player in &self.player_state.players {
                 let c1 = self.deck_state.deck.deck.pop_front().unwrap();
                 let c2 = self.deck_state.deck.deck.pop_front().unwrap();
                 result.push(PlayOutload {
@@ -35,7 +70,7 @@ impl Dealer {
                         card1: c1,
                         card2: c2,
                     },
-                    player_id: *id,
+                    player_id: player.id,
                 })
             }
         } else {
@@ -43,28 +78,33 @@ impl Dealer {
         }
         result
     }
-    pub fn start_new_game(&mut self) -> UpdatedGameState {
+    pub fn start_new_table_loop(&mut self) -> ClientGameState {
+        // self = self is not needed?
         self.deck_state.player_outloads = self.deal_cards();
         self.game_state.status = GameStatus::Active;
         // TODO: implement new for Street... and others structs
-        UpdatedGameState {
+        ClientGameState {
             game_status: self.game_state.status,
-            next_player_id: *self
-                .player_ids
+            next_player_id: self
+                .player_state
+                .players
                 .get(self.game_state.next_player_index as usize)
-                .unwrap(),
+                .unwrap()
+                .id,
             street: Street {
                 street_status: self.game_state.street.street_status,
                 value: self.game_state.street.value.clone(),
             },
             player_out_loads: self.deck_state.player_outloads.clone(),
             lobby_id: self.lobby_id,
+            latest_winners: Vec::new(),
         }
     }
 
-    fn next_game_loop(&mut self) -> UpdatedGameState {
+    fn next_game_loop(&mut self) -> ClientGameState {
         self.to_default_state();
-        return self.start_new_game();
+        let state = self.start_new_table_loop();
+        state
     }
 
     fn to_default_state(&mut self) {
@@ -72,27 +112,116 @@ impl Dealer {
         self.game_state.reset();
     }
 
-    pub fn update_game_state(&mut self, payload: PlayerPayload) -> UpdatedGameState {
+    fn get_client_game_state(&mut self) -> ClientGameState {
+        let state = ClientGameState {
+            game_status: self.game_state.status,
+            next_player_id: self
+                .player_state
+                .players
+                .get(self.game_state.next_player_index as usize)
+                .unwrap()
+                .id,
+            street: Street {
+                street_status: self.game_state.street.street_status,
+                value: self.game_state.street.value.clone(),
+            },
+            player_out_loads: self.deck_state.player_outloads.clone(),
+            lobby_id: self.lobby_id,
+            latest_winners: Vec::new(),
+        };
+        state
+    }
+
+    fn calculate_winner(&mut self) -> Vec<i32> {
+        let mut winners_map: BTreeMap<i32, Vec<i32>> = BTreeMap::new();
+
+        for outload in self.deck_state.player_outloads.clone() {
+            // TODO: will be great to write own 2+2 evaluator;
+            let eval = evaluator::Evaluator::new();
+            let street: Vec<i32> = self
+                .game_state
+                .street
+                .value
+                .iter()
+                .map(|card| PCard::new(card.to_string()))
+                .collect();
+
+            let result = eval.evaluate(
+                vec![
+                    PCard::new(outload.cards.card1.to_string()),
+                    PCard::new(outload.cards.card2.to_string()),
+                ],
+                street,
+            );
+
+            if winners_map.contains_key(&result) {
+                let winners = winners_map.get_mut(&result).unwrap();
+                winners.push(outload.player_id);
+            } else {
+                winners_map.insert(result, vec![outload.player_id]);
+            }
+
+            for (k, winners) in winners_map.iter() {
+                for w in winners {
+                    // TODO:
+                    // Winners {
+                    // sum_bet: i32,
+                    // players
+                    // }
+                    // let win_points =  (player.bet + ((bank - winners.sumbet) / win.length))
+                    // self.state.get_player(w.id).add_bank(win_points);
+                    // self.state.game_state.bank.substract(win_points); module substruction;
+                    // capacity of player = player.bet * player.len
+                    // for player1 capacity = 3000
+                    // for player2 capacity = 900
+                    // first winner.bank = mod(bank - capacity) > 0 : capacity: bank
+                    //bank = mod[bank - capacity] = for player1 result is
+                    // if(bank > 0) {
+                    // goto second winner
+                    // }
+                    // player1 all in = 1000
+                    // player2 all in = 300
+                    // player3 all in = 1000
+                    //  if player2 win
+                    //   he takes max of 300 from each player
+                    // losers foreach
+                    // bet - 300 = 700
+                }
+
+                if self.game_state.bank == 0 {
+                    break;
+                }
+            }
+        }
+        winners_map.pop_first().unwrap().1
+    }
+
+    pub fn update_game_state(&mut self, payload: PlayerPayload) -> ClientGameState {
         if payload.lobby_id != self.lobby_id {
             panic!("Wrong lobby id in payload");
         }
 
         assert!(self
-            .player_ids
+            .player_state
+            .players
             .iter()
-            .any(|id| { *id == payload.player_id }));
-
-        let max_index = self.player_ids.len() - 1;
+            .any(|p| { p.id == payload.player_id }));
+        // TODO: add functionality in case of player folded or sit outed etc.
+        let max_index = self.player_state.players.len() - 1;
         let is_last_player_turn = self.game_state.next_player_index as usize == max_index;
 
         if is_last_player_turn {
             let next_street = self.game_state.street.street_status + 1;
 
             if next_street > StreetStatus::River as i32 {
-                return self.next_game_loop();
+                let winners: Vec<i32> = self.calculate_winner();
+                let mut state = self.next_game_loop();
+                // TODO: set_winner
+                state.latest_winners = winners;
+                return state;
             }
             // TODO: move_button + increase next player index;
-
+            // TODO: refactor to update state using interface;
             self.game_state.next_player_index = 0;
             self.game_state.street.street_status = next_street;
             if next_street == StreetStatus::Flop as i32 {
@@ -130,20 +259,7 @@ impl Dealer {
 
         // TODO: use referenced structure for memory optimization
 
-        let state = UpdatedGameState {
-            game_status: self.game_state.status,
-            next_player_id: *self
-                .player_ids
-                .get(self.game_state.next_player_index as usize)
-                .unwrap(),
-            street: Street {
-                street_status: self.game_state.street.street_status,
-                value: self.game_state.street.value.clone(),
-            },
-            player_out_loads: self.deck_state.player_outloads.clone(),
-            lobby_id: self.lobby_id,
-        };
-        state
+        self.get_client_game_state()
     }
 }
 
@@ -155,6 +271,7 @@ pub struct Street {
     #[prost(message, repeated, tag = "2")]
     pub value: ::prost::alloc::vec::Vec<Card>,
 }
+
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ClientState {
@@ -170,6 +287,8 @@ pub struct ClientState {
     pub street: ::core::option::Option<Street>,
     #[prost(enumeration = "GameStatus", tag = "6")]
     pub game_status: i32,
+    #[prost(int32, repeated, tag = "7")]
+    pub latest_winners: ::prost::alloc::vec::Vec<i32>,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
@@ -259,6 +378,7 @@ struct GameState {
     next_player_index: i32,
     next_button_player_index: i32,
     street: Street,
+    bank: i32,
 }
 
 impl GameState {
@@ -278,6 +398,7 @@ impl GameState {
                 street_status: StreetStatus::Preflop.into(),
                 value: Vec::new(),
             },
+            bank: 0,
         }
     }
 }
@@ -289,12 +410,13 @@ pub struct PlayOutload {
     pub cards: CardPair,
 }
 #[derive(Debug)]
-pub struct UpdatedGameState {
+pub struct ClientGameState {
     pub player_out_loads: Vec<PlayOutload>,
     pub next_player_id: i32,
     pub lobby_id: i32,
     pub street: Street,
     pub game_status: GameStatus,
+    pub latest_winners: Vec<i32>,
 }
 impl Iterator for StreetStatus {
     type Item = StreetStatus;

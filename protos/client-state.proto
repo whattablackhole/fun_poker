@@ -27,4 +27,5 @@ message ClientState {
     int32 lobby_id = 4;
     Street street = 5;
     GameStatus game_status = 6;
+    repeated int32 latest_winners = 7;
 }

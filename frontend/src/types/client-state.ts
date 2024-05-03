@@ -53,6 +53,10 @@ export interface ClientState {
      * @generated from protobuf field: GameStatus game_status = 6;
      */
     gameStatus: GameStatus;
+    /**
+     * @generated from protobuf field: repeated int32 latest_winners = 7;
+     */
+    latestWinners: number[];
 }
 /**
  * @generated from protobuf enum StreetStatus
@@ -156,7 +160,8 @@ class ClientState$Type extends MessageType<ClientState> {
             { no: 3, name: "next_player_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
             { no: 4, name: "lobby_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
             { no: 5, name: "street", kind: "message", T: () => Street },
-            { no: 6, name: "game_status", kind: "enum", T: () => ["GameStatus", GameStatus] }
+            { no: 6, name: "game_status", kind: "enum", T: () => ["GameStatus", GameStatus] },
+            { no: 7, name: "latest_winners", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 5 /*ScalarType.INT32*/ }
         ]);
     }
     create(value?: PartialMessage<ClientState>): ClientState {
@@ -165,6 +170,7 @@ class ClientState$Type extends MessageType<ClientState> {
         message.nextPlayerId = 0;
         message.lobbyId = 0;
         message.gameStatus = 0;
+        message.latestWinners = [];
         if (value !== undefined)
             reflectionMergePartial<ClientState>(this, message, value);
         return message;
@@ -191,6 +197,13 @@ class ClientState$Type extends MessageType<ClientState> {
                     break;
                 case /* GameStatus game_status */ 6:
                     message.gameStatus = reader.int32();
+                    break;
+                case /* repeated int32 latest_winners */ 7:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.latestWinners.push(reader.int32());
+                    else
+                        message.latestWinners.push(reader.int32());
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -222,6 +235,13 @@ class ClientState$Type extends MessageType<ClientState> {
         /* GameStatus game_status = 6; */
         if (message.gameStatus !== 0)
             writer.tag(6, WireType.Varint).int32(message.gameStatus);
+        /* repeated int32 latest_winners = 7; */
+        if (message.latestWinners.length) {
+            writer.tag(7, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.latestWinners.length; i++)
+                writer.int32(message.latestWinners[i]);
+            writer.join();
+        }
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);

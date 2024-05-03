@@ -19,14 +19,14 @@ function PokerCard({ cardSuit, cardValue }: PokerCardProps) {
     return <>
         <div className="poker-card">
             {cardSuit !== null &&
-                <div className="poker-card-value" style={{ color: getCardColor(cardSuit) }}>{cardValue}</div>
+                <div className="poker-card-value" style={{ color: getCardColor(cardSuit) }}>{getCardValue(cardValue)}</div>
             }
             <div className="poker-card-image">
                 <img src={getCardImage(cardSuit, cardValue)} className="poker-card-image"></img>
             </div>
         </div>
     </>
-
+    // TODO: refactor 
     function getCardColor(cardSuit: CardSuit): string {
         switch (cardSuit) {
             case CardSuit.Clubs:
@@ -38,6 +38,26 @@ function PokerCard({ cardSuit, cardValue }: PokerCardProps) {
                 return "red";
             }
             default: return "";
+        }
+    }
+    function getCardValue(cardValue: CardValue | null) {
+        if (cardValue === null) {
+            return "";
+        }
+        switch (cardValue) {
+            case CardValue.King: {
+                return "K";
+            }
+            case CardValue.Jack: {
+                return "J";
+            }
+            case CardValue.Queen: {
+                return "Q";
+            }
+            case CardValue.Ace: {
+                return "A";
+            }
+            default: return (cardValue + 2).toString();
         }
     }
     function getCardImage(cardSuit: CardSuit | null, cardValue: CardValue | null): string {

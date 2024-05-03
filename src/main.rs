@@ -1,6 +1,6 @@
 use fun_poker::{
     dealer::{Dealer, GameStatus},
-    player::PlayerPayload,
+    player::{Player, PlayerPayload},
     request::JoinLobbyRequest,
     socket_pool::{DealerPool, PlayerChannelClient},
     ThreadPool,
@@ -118,12 +118,12 @@ fn handle_http_request(
         // TODO: in future we need to generate tables in lobbies;
         // TODO: move this logic into ~GameOrchestrator
         let ids = socket_pool.get_active_player_ids_by_lobby_id(1);
-
-        let mut cur_player_id = ids.get(0).unwrap().clone();
+        let players: Vec<Player> = repo.get_players_by_ids(ids);
         let cur_lobby_id = 1;
 
-        let mut dealer = Dealer::new(cur_lobby_id, ids);
-        let game_state = dealer.start_new_game();
+        let mut dealer = Dealer::new(cur_lobby_id, players);
+        let game_state = dealer.start_new_table_loop();
+        let mut cur_player_id = game_state.next_player_id;
         socket_pool.update_clients(game_state);
 
         loop {

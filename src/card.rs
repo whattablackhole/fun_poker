@@ -19,6 +19,26 @@ pub enum CardValue {
     Ace = 12,
 }
 impl CardValue {
+    pub fn from_int_to_str(i: i32) -> &'static str {
+        match i {
+            0 => "2",
+            1 => "3",
+            2 => "4",
+            3 => "5",
+            4 => "6",
+            5 => "7",
+            6 => "8",
+            7 => "9",
+            8 => "T",
+            9 => "J",
+            10 => "Q",
+            11 => "K",
+            12 => "A",
+            _ => panic!("specify values from 0(card 2) to 12(card Ace)"),
+        }
+    }
+}
+impl CardValue {
     /// String value of the enum field names used in the ProtoBuf definition.
     ///
     /// The values are not transformed in any way and thus are considered stable
@@ -68,6 +88,20 @@ pub enum CardSuit {
     Hearts = 2,
     Diamonds = 3,
 }
+
+impl CardSuit {
+    pub fn from_int_to_str(val: i32) -> &'static str {
+        match val {
+            0 => "c",
+            1 => "s",
+            2 => "h",
+            3 => "d",
+            _ => panic!(
+                "cant convert provided int to suit string, consider using values from 0 to 3"
+            ),
+        }
+    }
+}
 impl CardSuit {
     /// String value of the enum field names used in the ProtoBuf definition.
     ///
@@ -110,6 +144,14 @@ pub struct CardPair {
     pub card1: Card,
     #[prost(message, required, tag = "2")]
     pub card2: Card,
+}
+impl Card {
+    pub fn to_string(&self) -> String {
+        let mut result = CardValue::from_int_to_str(self.value).to_owned();
+        result.push_str(CardSuit::from_int_to_str(self.suit));
+        println!("res:{}", result);
+        result
+    }
 }
 
 pub struct CardDeck {

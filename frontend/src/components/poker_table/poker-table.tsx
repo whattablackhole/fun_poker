@@ -20,6 +20,9 @@ function PokerTable(init_state: ClientState) {
         const canvas: HTMLCanvasElement = canvasRef.current as HTMLCanvasElement;
         // read about init_state param and useState default arg, is it in sync?
         let subscription = ApiService.clientStateObserver.subscribe((newState: ClientState) => {
+            if (newState.latestWinners.some((w) => w === newState.playerId)) {
+                console.log("You won this!");
+            }
             setState(newState);
         })
         if (canvas) {
@@ -40,7 +43,7 @@ function PokerTable(init_state: ClientState) {
         } else {
             console.error("canvas is null", canvas)
         }
-        return ()=> {
+        return () => {
             ApiService.clientStateObserver.unsubscribe(subscription);
         }
     }, []);

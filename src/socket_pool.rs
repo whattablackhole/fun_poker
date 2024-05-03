@@ -3,7 +3,7 @@ use std::{collections::HashMap, net::TcpStream, sync::Mutex};
 use prost::Message;
 use tungstenite::{Message as TMessage, WebSocket};
 
-use crate::dealer::{ClientState, Dealer, Street, UpdatedGameState};
+use crate::dealer::{ClientGameState, ClientState, Dealer, Street};
 
 pub struct PlayerChannelClient {
     pub player_id: i32,
@@ -103,7 +103,7 @@ impl LobbySocketPool {
         let request = T::decode(&mut reader).unwrap();
         request
     }
-    pub fn update_clients(&self, state: UpdatedGameState) {
+    pub fn update_clients(&self, state: ClientGameState) {
         let mut guard = self.pool.lock().unwrap();
         if let Some(clients) = guard.get_mut(&state.lobby_id) {
             for client in clients {
@@ -123,6 +123,7 @@ impl LobbySocketPool {
                         value: state.street.value.clone(),
                     }),
                     game_status: state.game_status as i32,
+                    latest_winners: state.latest_winners.clone(),
                 };
 
                 let mut buf = Vec::new();

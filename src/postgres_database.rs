@@ -8,6 +8,7 @@ use crate::lobby::GameName;
 use crate::lobby::GameType;
 use crate::lobby::Lobby;
 use crate::lobby::LobbyList;
+use crate::player::Player;
 
 pub struct PostgresDatabase {
     client: Mutex<Client>,
@@ -52,6 +53,32 @@ impl PostgresDatabase {
         Ok(PostgresDatabase {
             client: Mutex::new(client),
         })
+    }
+
+    pub fn get_players_by_ids(&self, ids: Vec<i32>) -> Vec<Player> {
+        let mut guard = self.client.lock().unwrap();
+        let ids_str = ids.iter().map(|id| id.to_string()).collect::<Vec<String>>().join(",");
+
+
+        let query = format!("SELECT * FROM users WHERE id IN ({})", ids_str);
+
+        let rows = guard.query(&query, &[]).unwrap();
+        let mut players = Vec::new();
+
+        for row in rows {
+            let id: i32 = row.get("id");
+            let name: String = row.get("name");
+            let country: String = row.get("country");
+            let email: String = row.get("email");
+
+            players.push(Player {
+                id,
+                name,
+                country,
+                email,
+            });
+        }
+        players
     }
 
     pub fn get_lobbies(&self) -> LobbyList {
