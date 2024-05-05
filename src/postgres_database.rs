@@ -4,11 +4,8 @@ use prost::bytes::Buf;
 use std::io::BufRead;
 use std::sync::Mutex;
 
-use crate::lobby::GameName;
-use crate::lobby::GameType;
-use crate::lobby::Lobby;
-use crate::lobby::LobbyList;
-use crate::player::Player;
+use crate::protos::lobby::{GameName, GameType, Lobby, LobbyList};
+use crate::protos::user::User;
 
 pub struct PostgresDatabase {
     client: Mutex<Client>,
@@ -55,10 +52,13 @@ impl PostgresDatabase {
         })
     }
 
-    pub fn get_players_by_ids(&self, ids: Vec<i32>) -> Vec<Player> {
+    pub fn get_users_by_ids(&self, ids: Vec<i32>) -> Vec<User> {
         let mut guard = self.client.lock().unwrap();
-        let ids_str = ids.iter().map(|id| id.to_string()).collect::<Vec<String>>().join(",");
-
+        let ids_str = ids
+            .iter()
+            .map(|id| id.to_string())
+            .collect::<Vec<String>>()
+            .join(",");
 
         let query = format!("SELECT * FROM users WHERE id IN ({})", ids_str);
 
@@ -71,7 +71,7 @@ impl PostgresDatabase {
             let country: String = row.get("country");
             let email: String = row.get("email");
 
-            players.push(Player {
+            players.push(User {
                 id,
                 name,
                 country,

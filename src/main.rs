@@ -1,12 +1,17 @@
 use fun_poker::{
-    dealer::{Dealer, GameStatus},
-    player::{Player, PlayerPayload},
-    request::JoinLobbyRequest,
+    dealer::Dealer,
+    protos::{
+        self,
+        client_request::JoinLobbyRequest,
+        player::{Player, PlayerPayload},
+        user::User,
+    },
     socket_pool::{DealerPool, PlayerChannelClient},
     ThreadPool,
 };
 use fun_poker::{postgres_database::PostgresDatabase, socket_pool::LobbySocketPool};
 use prost::Message;
+use protos::client_state::GameStatus;
 use std::sync::Arc;
 use std::{
     io::{prelude::*, BufReader},
@@ -118,10 +123,10 @@ fn handle_http_request(
         // TODO: in future we need to generate tables in lobbies;
         // TODO: move this logic into ~GameOrchestrator
         let ids = socket_pool.get_active_player_ids_by_lobby_id(1);
-        let players: Vec<Player> = repo.get_players_by_ids(ids);
+        let users: Vec<User> = repo.get_users_by_ids(ids);
         let cur_lobby_id = 1;
 
-        let mut dealer = Dealer::new(cur_lobby_id, players);
+        let mut dealer = Dealer::new(cur_lobby_id, Player::from_users(users));
         let game_state = dealer.start_new_table_loop();
         let mut cur_player_id = game_state.next_player_id;
         socket_pool.update_clients(game_state);

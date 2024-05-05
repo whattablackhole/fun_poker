@@ -12,13 +12,5 @@
             "args": [],
             "cwd": "${workspaceFolder}"
         },
-        {
-            "protoc": {
-                "path": "/usr/local/bin/protoc",
-                "options": [
-                "--proto_path=${workspaceRoot}/common/proto",
-                ]
-                }
-        }
     ]
 }

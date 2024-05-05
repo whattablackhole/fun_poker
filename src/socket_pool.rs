@@ -3,7 +3,13 @@ use std::{collections::HashMap, net::TcpStream, sync::Mutex};
 use prost::Message;
 use tungstenite::{Message as TMessage, WebSocket};
 
-use crate::dealer::{ClientGameState, ClientState, Dealer, Street};
+use crate::{
+    dealer::{ClientGameState, Dealer},
+    protos::{
+        client_state::{ClientState, Street},
+        player::Player,
+    },
+};
 
 pub struct PlayerChannelClient {
     pub player_id: i32,
@@ -107,23 +113,45 @@ impl LobbySocketPool {
         let mut guard = self.pool.lock().unwrap();
         if let Some(clients) = guard.get_mut(&state.lobby_id) {
             for client in clients {
-                let play_outload = state
-                    .player_out_loads
+                let player = state
+                    .players
                     .iter()
-                    .find(|play_outload| play_outload.player_id == client.player_id)
+                    .find(|p| p.user_id == client.player_id)
                     .expect("Failed to find PlayOutload for client's player_id");
-
+                let pl: Vec<Player> = state
+                    .players
+                    .clone()
+                    .iter_mut()
+                    .map(|p| {
+                        let mut cloned_player = p.clone();
+                        cloned_player.cards = None;
+                        cloned_player
+                    })
+                    .collect();
                 let client_state = ClientState {
+                    players: pl,
                     player_id: client.player_id,
-                    cards: Some(play_outload.cards.clone()),
+                    // send cards in another msg
+                    cards: player.cards.clone(),
                     next_player_id: state.next_player_id,
                     lobby_id: state.lobby_id,
                     street: Some(Street {
                         street_status: state.street.street_status,
-                        value: state.street.value.clone(),
+                        cards: state.street.cards.clone(),
                     }),
                     game_status: state.game_status as i32,
-                    latest_winners: state.latest_winners.clone(),
+                    latest_winners: state
+                        .latest_winners
+                        .clone()
+                        .iter_mut()
+                        .map(|p| {
+                            // there are many cases, where we might need to show enemies cards
+                            // TODO: evaluate these scenarios and handle in a proper way
+                            let mut cloned_player = p.clone();
+                            cloned_player.cards = None;
+                            cloned_player
+                        })
+                        .collect(),
                 };
 
                 let mut buf = Vec::new();

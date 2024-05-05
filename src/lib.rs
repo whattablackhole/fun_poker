@@ -10,11 +10,40 @@ pub mod lobby;
 
 pub mod card;
 pub mod dealer;
-pub mod player;
-pub mod request;
 pub mod socket_pool;
-
 pub mod postgres_database;
+pub mod player;
+
+pub mod protos {
+    pub mod client_state {
+        include!("protos_rs/client_state.rs");
+    }
+
+    pub mod lobby {
+        include!("protos_rs/lobby.rs");
+    }
+
+    pub mod empty {
+        include!("protos_rs/empty.rs");
+    }
+ 
+    pub mod player {
+        include!("protos_rs/player.rs");
+    }
+ 
+    pub mod user {
+        include!("protos_rs/user.rs");
+    }
+
+    pub mod card {
+        include!("protos_rs/card.rs");
+    }
+
+    pub mod client_request {
+        include!("protos_rs/client_request.rs");
+    }
+}
+
 pub struct ThreadPool {
     workers: Vec<Worker>,
     sender: Option<mpsc::Sender<Job>>,

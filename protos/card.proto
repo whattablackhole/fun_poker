@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+package card;
+
 enum CardValue {
     Two =  0;
     Three = 1;
@@ -33,4 +35,5 @@ message CardPair {
      Card card1 = 1;
      Card card2 = 2;
 }
+
 

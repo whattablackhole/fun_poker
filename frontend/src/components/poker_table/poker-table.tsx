@@ -1,4 +1,4 @@
-import { RefObject, useEffect, useRef, useState } from 'react';
+import { MouseEvent, RefObject, useEffect, useRef, useState } from 'react';
 import PokerCard from '../poker_card/poker-card.tsx';
 import { ClientState } from '../../types/client-state.ts';
 import { CardValue } from '../../types/card.ts';
@@ -7,6 +7,7 @@ import { ActionType, PlayerPayload } from '../../types/player.ts';
 
 function PokerTable(init_state: ClientState) {
     const canvasRef: RefObject<HTMLCanvasElement> = useRef(null);
+    const betInputRef: RefObject<HTMLInputElement> = useRef(null);
     const [state, setState] = useState(init_state);
     let canvas_width = 1000;
     let canvas_height = 1000;
@@ -20,7 +21,8 @@ function PokerTable(init_state: ClientState) {
         const canvas: HTMLCanvasElement = canvasRef.current as HTMLCanvasElement;
         // read about init_state param and useState default arg, is it in sync?
         let subscription = ApiService.clientStateObserver.subscribe((newState: ClientState) => {
-            if (newState.latestWinners.some((w) => w === newState.playerId)) {
+            console.log(newState);
+            if (newState.latestWinners.some((w) => w.userId === newState.playerId)) {
                 console.log("You won this!");
             }
             setState(newState);
@@ -57,9 +59,19 @@ function PokerTable(init_state: ClientState) {
         { suit: 0, value: CardValue.Ace },
         { suit: 0, value: CardValue.Queen }
     ];
-    const nextStepHandler = () => {
-        let payload = PlayerPayload.create({ action: { actionType: ActionType.Raise }, lobbyId: state.lobbyId, playerId: state.playerId });
-        ApiService.sendMessage(payload);
+    const betClickHandler = (event: MouseEvent<HTMLButtonElement, globalThis.MouseEvent>, action: ActionType) => {
+        event.preventDefault(); // Prevent default button behavior
+        nextStepHandler(action);
+    };
+    const nextStepHandler = (type: ActionType) => {
+        console.log(betInputRef.current?.value);
+        let value = Number.parseInt(!!betInputRef.current?.value.length ? betInputRef.current?.value : "0");
+        console.log(value);
+            let payload = PlayerPayload.create({ action: { actionType: type, bet: value }, lobbyId: state.lobbyId, playerId: state.playerId });
+            console.log(payload);
+
+            ApiService.sendMessage(payload);
+
     }
     return (
         <div style={{ position: 'relative' }}>
@@ -69,12 +81,36 @@ function PokerTable(init_state: ClientState) {
                         return <PokerCard cardSuit={index === 0 ? suit : null} cardValue={index === 0 ? value : null} />
                     })}
                     {index === 0 ? (
-                        <button disabled={state?.nextPlayerId !== state?.playerId} style={{ width: "100px", height: "50px", alignSelf: 'flex-end' }} onClick={nextStepHandler}>NEXT STEP</button>
+                        <form style={{ display: "flex", alignItems: "flex-end" }}>
+                            <input ref={betInputRef} type="number" min="0" max={state?.players.find((p) => p.userId == state.playerId)?.bank || 0}></input>
+                            <button
+                                disabled={state?.nextPlayerId !== state?.playerId}
+                                style={{ width: "100px", height: "50px", alignSelf: "flex-end" }}
+                                onClick={(e) => betClickHandler(e, ActionType.Fold)}
+                            >
+                                Fold
+                            </button>
+                            <button
+                                disabled={state?.nextPlayerId !== state?.playerId}
+                                style={{ width: "100px", height: "50px", alignSelf: "flex-end" }}
+                                onClick={(e) => betClickHandler(e, ActionType.Call)}
+                            >
+                                Call
+                            </button>
+                            <button
+                                disabled={state?.nextPlayerId !== state?.playerId}
+                                style={{ width: "100px", height: "50px", alignSelf: "flex-end" }}
+                                onClick={(e) => betClickHandler(e, ActionType.Raise)}
+                            >
+                                Raise
+                            </button>
+                        </form>
+
                     ) : null}
                 </div>
             ))}
             <div style={{ position: 'absolute', top: centerY / scaleY, left: centerX / scaleX, display: 'flex' }}>
-                {state.street?.cards.map(({ suit, value }) => {
+                {state?.street?.cards.map(({ suit, value }) => {
                     return <PokerCard cardSuit={suit} cardValue={value} />
                 })}
             </div>

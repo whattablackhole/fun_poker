@@ -1,15 +1,16 @@
-use std::{
-    collections::{BTreeMap, HashMap},
-    hash::Hash,
-};
-
-use crate::{
-    card::{Card, CardDeck, CardPair},
-    player::{ActionType, Player, PlayerAction, PlayerPayload},
-};
-
+use std::collections::{BTreeMap, HashMap};
 use pokereval_cactus::card::Card as PCard;
 use pokereval_cactus::evaluator;
+
+use crate::{
+    card::CardDeck,
+    protos::{
+        card::CardPair,
+        client_state::{GameStatus, Street, StreetStatus},
+        player::{ActionType, Player, PlayerAction, PlayerPayload},
+    },
+};
+
 pub struct Dealer {
     lobby_id: i32,
     game_state: GameState,
@@ -30,10 +31,11 @@ impl PlayerState {
         }
     }
 
-    pub fn from(players: Vec<Player>, bank_size: i32) -> PlayerState {
+    pub fn from(mut players: Vec<Player>, bank_size: i32) -> PlayerState {
         let mut bank_map = HashMap::new();
-        for player in players.iter() {
-            bank_map.insert(player.id, bank_size);
+        for player in players.iter_mut() {
+            player.bank = bank_size;
+            bank_map.insert(player.user_id, bank_size);
         }
         PlayerState { bank_map, players }
     }
@@ -45,319 +47,10 @@ impl PlayerState {
     }
 }
 
-impl Dealer {
-    // TODO: implement game settings for bank size etc..
-    pub fn new(lobby_id: i32, players: Vec<Player>) -> Dealer {
-        Dealer {
-            deck_state: DeckState {
-                deck: CardDeck::new_random(),
-                player_outloads: Vec::new(),
-            },
-            game_state: GameState::new(),
-            lobby_id: lobby_id,
-            player_state: PlayerState::from(players, 0),
-        }
-    }
-
-    fn deal_cards(&mut self) -> Vec<PlayOutload> {
-        let mut result = Vec::new();
-        if self.game_state.street.street_status == StreetStatus::Preflop as i32 {
-            for player in &self.player_state.players {
-                let c1 = self.deck_state.deck.deck.pop_front().unwrap();
-                let c2 = self.deck_state.deck.deck.pop_front().unwrap();
-                result.push(PlayOutload {
-                    cards: CardPair {
-                        card1: c1,
-                        card2: c2,
-                    },
-                    player_id: player.id,
-                })
-            }
-        } else {
-            panic!("Can't deal cards on other street!");
-        }
-        result
-    }
-    pub fn start_new_table_loop(&mut self) -> ClientGameState {
-        // self = self is not needed?
-        self.deck_state.player_outloads = self.deal_cards();
-        self.game_state.status = GameStatus::Active;
-        // TODO: implement new for Street... and others structs
-        ClientGameState {
-            game_status: self.game_state.status,
-            next_player_id: self
-                .player_state
-                .players
-                .get(self.game_state.next_player_index as usize)
-                .unwrap()
-                .id,
-            street: Street {
-                street_status: self.game_state.street.street_status,
-                value: self.game_state.street.value.clone(),
-            },
-            player_out_loads: self.deck_state.player_outloads.clone(),
-            lobby_id: self.lobby_id,
-            latest_winners: Vec::new(),
-        }
-    }
-
-    fn next_game_loop(&mut self) -> ClientGameState {
-        self.to_default_state();
-        let state = self.start_new_table_loop();
-        state
-    }
-
-    fn to_default_state(&mut self) {
-        self.deck_state.reset();
-        self.game_state.reset();
-    }
-
-    fn get_client_game_state(&mut self) -> ClientGameState {
-        let state = ClientGameState {
-            game_status: self.game_state.status,
-            next_player_id: self
-                .player_state
-                .players
-                .get(self.game_state.next_player_index as usize)
-                .unwrap()
-                .id,
-            street: Street {
-                street_status: self.game_state.street.street_status,
-                value: self.game_state.street.value.clone(),
-            },
-            player_out_loads: self.deck_state.player_outloads.clone(),
-            lobby_id: self.lobby_id,
-            latest_winners: Vec::new(),
-        };
-        state
-    }
-
-    fn calculate_winner(&mut self) -> Vec<i32> {
-        let mut winners_map: BTreeMap<i32, Vec<i32>> = BTreeMap::new();
-
-        for outload in self.deck_state.player_outloads.clone() {
-            // TODO: will be great to write own 2+2 evaluator;
-            let eval = evaluator::Evaluator::new();
-            let street: Vec<i32> = self
-                .game_state
-                .street
-                .value
-                .iter()
-                .map(|card| PCard::new(card.to_string()))
-                .collect();
-
-            let result = eval.evaluate(
-                vec![
-                    PCard::new(outload.cards.card1.to_string()),
-                    PCard::new(outload.cards.card2.to_string()),
-                ],
-                street,
-            );
-
-            if winners_map.contains_key(&result) {
-                let winners = winners_map.get_mut(&result).unwrap();
-                winners.push(outload.player_id);
-            } else {
-                winners_map.insert(result, vec![outload.player_id]);
-            }
-
-            for (k, winners) in winners_map.iter() {
-                for w in winners {
-                    // TODO:
-                    // Winners {
-                    // sum_bet: i32,
-                    // players
-                    // }
-                    // let win_points =  (player.bet + ((bank - winners.sumbet) / win.length))
-                    // self.state.get_player(w.id).add_bank(win_points);
-                    // self.state.game_state.bank.substract(win_points); module substruction;
-                    // capacity of player = player.bet * player.len
-                    // for player1 capacity = 3000
-                    // for player2 capacity = 900
-                    // first winner.bank = mod(bank - capacity) > 0 : capacity: bank
-                    //bank = mod[bank - capacity] = for player1 result is
-                    // if(bank > 0) {
-                    // goto second winner
-                    // }
-                    // player1 all in = 1000
-                    // player2 all in = 300
-                    // player3 all in = 1000
-                    //  if player2 win
-                    //   he takes max of 300 from each player
-                    // losers foreach
-                    // bet - 300 = 700
-                }
-
-                if self.game_state.bank == 0 {
-                    break;
-                }
-            }
-        }
-        winners_map.pop_first().unwrap().1
-    }
-
-    pub fn update_game_state(&mut self, payload: PlayerPayload) -> ClientGameState {
-        if payload.lobby_id != self.lobby_id {
-            panic!("Wrong lobby id in payload");
-        }
-
-        assert!(self
-            .player_state
-            .players
-            .iter()
-            .any(|p| { p.id == payload.player_id }));
-        // TODO: add functionality in case of player folded or sit outed etc.
-        let max_index = self.player_state.players.len() - 1;
-        let is_last_player_turn = self.game_state.next_player_index as usize == max_index;
-
-        if is_last_player_turn {
-            let next_street = self.game_state.street.street_status + 1;
-
-            if next_street > StreetStatus::River as i32 {
-                let winners: Vec<i32> = self.calculate_winner();
-                let mut state = self.next_game_loop();
-                // TODO: set_winner
-                state.latest_winners = winners;
-                return state;
-            }
-            // TODO: move_button + increase next player index;
-            // TODO: refactor to update state using interface;
-            self.game_state.next_player_index = 0;
-            self.game_state.street.street_status = next_street;
-            if next_street == StreetStatus::Flop as i32 {
-                // maybe not needed, TODO: refactor
-                self.game_state.street.value.clear();
-
-                self.game_state
-                    .street
-                    .value
-                    .push(self.deck_state.deck.deck.pop_front().unwrap());
-                self.game_state
-                    .street
-                    .value
-                    .push(self.deck_state.deck.deck.pop_front().unwrap());
-                self.game_state
-                    .street
-                    .value
-                    .push(self.deck_state.deck.deck.pop_front().unwrap());
-            } else {
-                self.game_state
-                    .street
-                    .value
-                    .push(self.deck_state.deck.deck.pop_front().unwrap());
-            }
-        } else {
-            self.game_state.next_player_index += 1;
-        }
-
-        match ActionType::try_from(payload.action.unwrap().action_type).unwrap() {
-            ActionType::Fold => println!("Fold"),
-            ActionType::Call => println!("Call"),
-            ActionType::Raise => println!("Raise"),
-            ActionType::Empty => println!("Empty"),
-        }
-
-        // TODO: use referenced structure for memory optimization
-
-        self.get_client_game_state()
-    }
-}
-
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Street {
-    #[prost(enumeration = "StreetStatus", tag = "1")]
-    pub street_status: i32,
-    #[prost(message, repeated, tag = "2")]
-    pub value: ::prost::alloc::vec::Vec<Card>,
-}
-
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ClientState {
-    #[prost(int32, tag = "1")]
-    pub player_id: i32,
-    #[prost(message, optional, tag = "2")]
-    pub cards: ::core::option::Option<CardPair>,
-    #[prost(int32, tag = "3")]
-    pub next_player_id: i32,
-    #[prost(int32, tag = "4")]
-    pub lobby_id: i32,
-    #[prost(message, optional, tag = "5")]
-    pub street: ::core::option::Option<Street>,
-    #[prost(enumeration = "GameStatus", tag = "6")]
-    pub game_status: i32,
-    #[prost(int32, repeated, tag = "7")]
-    pub latest_winners: ::prost::alloc::vec::Vec<i32>,
-}
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
-#[repr(i32)]
-pub enum StreetStatus {
-    Preflop = 0,
-    Flop = 1,
-    Turn = 2,
-    River = 3,
-}
-
-impl StreetStatus {
-    /// String value of the enum field names used in the ProtoBuf definition.
-    ///
-    /// The values are not transformed in any way and thus are considered stable
-    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
-    pub fn as_str_name(&self) -> &'static str {
-        match self {
-            StreetStatus::Preflop => "Preflop",
-            StreetStatus::Flop => "Flop",
-            StreetStatus::Turn => "Turn",
-            StreetStatus::River => "River",
-        }
-    }
-    /// Creates an enum from field names used in the ProtoBuf definition.
-    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
-        match value {
-            "Preflop" => Some(Self::Preflop),
-            "Flop" => Some(Self::Flop),
-            "Turn" => Some(Self::Turn),
-            "River" => Some(Self::River),
-            _ => None,
-        }
-    }
-}
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
-#[repr(i32)]
-pub enum GameStatus {
-    Pause = 0,
-    None = 1,
-    Active = 2,
-}
-impl GameStatus {
-    /// String value of the enum field names used in the ProtoBuf definition.
-    ///
-    /// The values are not transformed in any way and thus are considered stable
-    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
-    pub fn as_str_name(&self) -> &'static str {
-        match self {
-            GameStatus::Pause => "Pause",
-            GameStatus::None => "None",
-            GameStatus::Active => "Active",
-        }
-    }
-    /// Creates an enum from field names used in the ProtoBuf definition.
-    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
-        match value {
-            "Pause" => Some(Self::Pause),
-            "None" => Some(Self::None),
-            "Active" => Some(Self::Active),
-            _ => None,
-        }
-    }
-}
-
 // it happens that to get deck we need duplicate field: deckstate.deck.deck
 // TODO: refactor
 pub struct DeckState {
     deck: CardDeck,
-    pub player_outloads: Vec<PlayOutload>,
 }
 
 impl DeckState {
@@ -366,10 +59,7 @@ impl DeckState {
     }
 
     pub fn new(deck: CardDeck) -> DeckState {
-        DeckState {
-            deck,
-            player_outloads: Vec::new(),
-        }
+        DeckState { deck }
     }
 }
 struct GameState {
@@ -379,6 +69,8 @@ struct GameState {
     next_button_player_index: i32,
     street: Street,
     bank: i32,
+    big_blind: i32,
+    raise_amount: i32,
 }
 
 impl GameState {
@@ -389,6 +81,7 @@ impl GameState {
         GameState {
             last_action: PlayerAction {
                 action_type: ActionType::Empty.into(),
+                bet: 0,
             },
             status: GameStatus::None,
             next_player_index: 0,
@@ -396,27 +89,24 @@ impl GameState {
             next_button_player_index: 0,
             street: Street {
                 street_status: StreetStatus::Preflop.into(),
-                value: Vec::new(),
+                cards: Vec::new(),
             },
             bank: 0,
+            // from settings
+            big_blind: 10,
+            raise_amount: 0,
         }
     }
 }
 
-// change name
-#[derive(Clone, Debug)]
-pub struct PlayOutload {
-    pub player_id: i32,
-    pub cards: CardPair,
-}
 #[derive(Debug)]
 pub struct ClientGameState {
-    pub player_out_loads: Vec<PlayOutload>,
     pub next_player_id: i32,
     pub lobby_id: i32,
     pub street: Street,
     pub game_status: GameStatus,
-    pub latest_winners: Vec<i32>,
+    pub latest_winners: Vec<Player>,
+    pub players: Vec<Player>,
 }
 impl Iterator for StreetStatus {
     type Item = StreetStatus;
@@ -441,5 +131,362 @@ impl Iterator for StreetStatus {
                 Some(River)
             }
         }
+    }
+}
+
+impl Dealer {
+    // TODO: implement game settings for bank size etc..
+    pub fn new(lobby_id: i32, players: Vec<Player>) -> Dealer {
+        Dealer {
+            deck_state: DeckState {
+                deck: CardDeck::new_random(),
+            },
+            game_state: GameState::new(),
+            lobby_id: lobby_id,
+            player_state: PlayerState::from(players, 1000),
+        }
+    }
+
+    fn deal_cards(&mut self) {
+        if self.game_state.street.street_status == StreetStatus::Preflop as i32 {
+            for player in self.player_state.players.iter_mut() {
+                let c1 = self.deck_state.deck.cards.pop_front().unwrap();
+                let c2 = self.deck_state.deck.cards.pop_front().unwrap();
+                player.cards = Some(CardPair {
+                    card1: Some(c1),
+                    card2: Some(c2),
+                })
+            }
+        } else {
+            panic!("Can't deal cards on other street!");
+        }
+    }
+
+    pub fn start_new_table_loop(&mut self) -> ClientGameState {
+        // self = self is not needed?
+        self.deal_cards();
+        self.game_state.status = GameStatus::Active;
+        // TODO: implement new for Street... and others structs
+        ClientGameState {
+            players: self.player_state.players.clone(),
+            game_status: self.game_state.status,
+            next_player_id: self
+                .player_state
+                .players
+                .get(self.game_state.next_player_index as usize)
+                .unwrap()
+                .user_id,
+            street: Street {
+                street_status: self.game_state.street.street_status,
+                cards: self.game_state.street.cards.clone(),
+            },
+            lobby_id: self.lobby_id,
+            latest_winners: Vec::new(),
+        }
+    }
+
+    fn next_game_loop(&mut self) -> ClientGameState {
+        self.to_default_state();
+        let state = self.start_new_table_loop();
+        state
+    }
+
+    fn to_default_state(&mut self) {
+        self.deck_state.reset();
+        self.player_state
+            .players
+            .iter_mut()
+            .for_each(|p| p.bet_in_current_seed = 0);
+        self.game_state.reset();
+    }
+
+    fn get_client_game_state(&mut self) -> ClientGameState {
+        let state = ClientGameState {
+            players: self.player_state.players.clone(),
+            game_status: self.game_state.status,
+            next_player_id: self
+                .player_state
+                .players
+                .get(self.game_state.next_player_index as usize)
+                .unwrap()
+                .user_id,
+            street: Street {
+                street_status: self.game_state.street.street_status,
+                cards: self.game_state.street.cards.clone(),
+            },
+            lobby_id: self.lobby_id,
+            latest_winners: Vec::new(),
+        };
+        state
+    }
+
+    fn calculate_winner(&mut self) -> Vec<Player> {
+        let mut win_result: Vec<Player> = Vec::new();
+        let mut winners_map: BTreeMap<i32, Vec<&mut Player>> = BTreeMap::new();
+
+        for player in self.player_state.players.iter_mut() {
+            // TODO: will be great to write own 2+2 evaluator;
+            let eval = evaluator::Evaluator::new();
+            let street: Vec<i32> = self
+                .game_state
+                .street
+                .cards
+                .iter()
+                .map(|card| PCard::new(card.to_string()))
+                .collect();
+
+            let result = eval.evaluate(
+                vec![
+                    PCard::new(
+                        player
+                            .cards
+                            .as_ref()
+                            .unwrap()
+                            .card1
+                            .as_ref()
+                            .unwrap()
+                            .to_string(),
+                    ),
+                    PCard::new(
+                        player
+                            .cards
+                            .as_ref()
+                            .unwrap()
+                            .card2
+                            .as_ref()
+                            .unwrap()
+                            .to_string(),
+                    ),
+                ],
+                street,
+            );
+
+            if winners_map.contains_key(&result) {
+                let winners = winners_map.get_mut(&result).unwrap();
+                winners.push(player);
+            } else {
+                winners_map.insert(result, vec![player]);
+            }
+        }
+        for winners in winners_map.values_mut() {
+            let sum_of_winners_bets: i32 = winners.iter().map(|w| w.bet_in_current_seed).sum();
+            let winners_amount = winners.len() as i32;
+            for w in winners {
+                let win_points = w.bet_in_current_seed
+                    + ((self.game_state.bank - sum_of_winners_bets) / winners_amount);
+                w.bank += win_points;
+
+                let remainder = if self.game_state.bank != 0 {
+                    win_points % self.game_state.bank
+                } else {
+                    0
+                };
+                if (remainder > 0) {
+                    self.game_state.bank -= remainder;
+                } else {
+                    self.game_state.bank = 0;
+                }
+
+                win_result.push((*w).clone());
+            }
+            if self.game_state.bank == 0 {
+                break;
+            }
+        }
+        win_result
+    }
+
+    pub fn check_winner(&self) -> Option<&Player> {
+        let mut valid_players = self.player_state.players.iter().filter(|p| {
+            p.action.is_some() && p.action.as_ref().unwrap().action_type != ActionType::Fold.into()
+        });
+        match (valid_players.next(), valid_players.next()) {
+            (Some(player), None) => Some(player),
+            _ => None,
+        }
+    }
+
+    pub fn update_game_state(&mut self, payload: PlayerPayload) -> ClientGameState {
+        if payload.lobby_id != self.lobby_id {
+            panic!("Wrong lobby id in payload");
+        }
+
+        assert!(self
+            .player_state
+            .players
+            .iter()
+            .any(|p| { p.user_id == payload.player_id }));
+        // TODO: Reset player action on new game loop
+
+        match ActionType::try_from(payload.action.as_ref().unwrap().action_type).unwrap() {
+            ActionType::Fold => {
+                self.process_fold_action(payload.player_id);
+                let result = self.check_winner();
+                if result.is_some() == true {
+                    // TODO: set_winner
+                    let latest_winners = vec![result.unwrap().clone()];
+                    let mut state = self.next_game_loop();
+                    state.latest_winners = latest_winners;
+                    return state;
+                }
+            }
+            ActionType::Call => {
+                self.process_call_action(payload.player_id, payload.action.unwrap().bet);
+            }
+            ActionType::Raise => {
+                self.process_raise_action(payload.player_id, payload.action.unwrap().bet)
+            }
+            ActionType::Empty => println!("Empty"),
+        }
+        // TODO: add functionality in case of player folded or sit outed etc.
+        let max_index = self.player_state.players.len() - 1;
+        let is_last_player_turn = self.game_state.next_player_index as usize == max_index;
+
+        if is_last_player_turn {
+            let next_street = self.game_state.street.street_status + 1;
+
+            if next_street > StreetStatus::River as i32 {
+                let winners: Vec<Player> = self.calculate_winner();
+                let mut state = self.next_game_loop();
+                // TODO: set_winner
+                state.latest_winners = winners;
+                return state;
+            }
+            // TODO: move_button + increase next player index;
+            // TODO: refactor to update state using interface;
+            // Implement Searching next player id depending on Raise and Folds Actions
+            self.game_state.next_player_index = 0;
+            self.game_state.street.street_status = next_street;
+            if next_street == StreetStatus::Flop as i32 {
+                // maybe not needed, TODO: refactor
+                self.game_state.street.cards.clear();
+
+                self.game_state
+                    .street
+                    .cards
+                    .push(self.deck_state.deck.cards.pop_front().unwrap());
+                self.game_state
+                    .street
+                    .cards
+                    .push(self.deck_state.deck.cards.pop_front().unwrap());
+                self.game_state
+                    .street
+                    .cards
+                    .push(self.deck_state.deck.cards.pop_front().unwrap());
+            } else {
+                self.game_state
+                    .street
+                    .cards
+                    .push(self.deck_state.deck.cards.pop_front().unwrap());
+            }
+        } else {
+            // Implement Searching next player id depending on Raise and Folds Actions
+            self.game_state.next_player_index += 1;
+        }
+
+        // TODO: use referenced structure for memory optimization
+
+        self.get_client_game_state()
+    }
+
+    fn process_fold_action(&mut self, player_id: i32) {
+        let player = self
+            .player_state
+            .players
+            .iter_mut()
+            .find(|p| p.user_id == player_id)
+            .expect("user not found");
+
+        if player.action.as_ref().unwrap().action_type == ActionType::Fold.into() {
+            println!("Player has folded already and cannot fold again");
+            return;
+        }
+        player.action = Some(PlayerAction {
+            action_type: ActionType::Fold.into(),
+            bet: 0,
+        });
+        self.game_state.last_action = PlayerAction {
+            action_type: ActionType::Fold.into(),
+            bet: 0,
+        };
+    }
+
+    fn process_call_action(&mut self, player_id: i32, bet_amount: i32) {
+        let player = self
+            .player_state
+            .players
+            .iter_mut()
+            .find(|p| p.user_id == player_id)
+            .expect("user not found");
+
+        if player.action.as_ref().unwrap().action_type == ActionType::Fold.into() {
+            println!("Player has folded already and cannot call");
+            return;
+        }
+
+        if player.bank < bet_amount {
+            println!("Player does not have enough points!");
+            return;
+        }
+
+        player.bet_in_current_seed += bet_amount;
+        player.bank -= bet_amount;
+        self.game_state.last_action = PlayerAction {
+            action_type: ActionType::Call.into(),
+            bet: bet_amount,
+        };
+        player.action = Some(PlayerAction {
+            action_type: ActionType::Call.into(),
+            bet: bet_amount,
+        });
+        self.game_state.bank += bet_amount;
+    }
+
+    fn process_raise_action(&mut self, player_id: i32, bet_amount: i32) {
+        let player = self
+            .player_state
+            .players
+            .iter_mut()
+            .find(|p| p.user_id == player_id)
+            .expect("user not found");
+        // TODO: implement raise rules validation
+
+        if player.action.as_ref().unwrap().action_type == ActionType::Fold.into() {
+            println!("Player has folded already and cannot raise");
+            return;
+        }
+
+        if player.bank < bet_amount {
+            println!("Player does not have enough points!");
+            return;
+        }
+
+        let valid_min_raise = if self.game_state.raise_amount == 0 {
+            self.game_state.big_blind * 2
+        } else {
+            self.game_state.last_action.bet + self.game_state.raise_amount
+        };
+
+        if bet_amount < valid_min_raise {
+            println!("Player raise amount is not valid");
+            return;
+        }
+
+        player.bet_in_current_seed += bet_amount;
+        player.bank -= bet_amount;
+        self.game_state.bank += bet_amount;
+        self.game_state.raise_amount = if self.game_state.raise_amount == 0 {
+            bet_amount - self.game_state.big_blind
+        } else {
+            bet_amount - self.game_state.raise_amount
+        };
+        self.game_state.last_action = PlayerAction {
+            action_type: ActionType::Raise.into(),
+            bet: bet_amount,
+        };
+        player.action = Some(PlayerAction {
+            action_type: ActionType::Raise.into(),
+            bet: bet_amount,
+        });
     }
 }

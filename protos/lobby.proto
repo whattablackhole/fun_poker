@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+package lobby;
+
 message Lobby {
   int32 id = 1;
   string name = 2;

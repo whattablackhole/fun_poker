@@ -1,5 +1,8 @@
 syntax = "proto3";
 
+package client_state; 
+
+import "protos/player.proto";
 import "protos/card.proto";
 
 enum StreetStatus {
@@ -17,15 +20,16 @@ enum GameStatus {
 
 message Street {
     StreetStatus street_status = 1;
-    repeated Card cards = 2;
+    repeated card.Card cards = 2;
 }
 
 message ClientState {
     int32 player_id = 1;
-    CardPair cards = 2;
+    card.CardPair cards = 2;
     int32 next_player_id = 3;
     int32 lobby_id = 4;
     Street street = 5;
     GameStatus game_status = 6;
-    repeated int32 latest_winners = 7;
+    repeated player.Player players = 7;
+    repeated player.Player latest_winners = 8;
 }
