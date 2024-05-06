@@ -32,4 +32,6 @@ message ClientState {
     GameStatus game_status = 6;
     repeated player.Player players = 7;
     repeated player.Player latest_winners = 8;
+    int32 min_amount_to_call = 9;
+    int32 min_amount_to_raise = 10;
 }

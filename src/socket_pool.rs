@@ -3,13 +3,7 @@ use std::{collections::HashMap, net::TcpStream, sync::Mutex};
 use prost::Message;
 use tungstenite::{Message as TMessage, WebSocket};
 
-use crate::{
-    dealer::{ClientGameState, Dealer},
-    protos::{
-        client_state::{ClientState, Street},
-        player::Player,
-    },
-};
+use crate::{dealer::Dealer, protos::client_state::ClientState};
 
 pub struct PlayerChannelClient {
     pub player_id: i32,
@@ -109,58 +103,19 @@ impl LobbySocketPool {
         let request = T::decode(&mut reader).unwrap();
         request
     }
-    pub fn update_clients(&self, state: ClientGameState) {
-        let mut guard = self.pool.lock().unwrap();
-        if let Some(clients) = guard.get_mut(&state.lobby_id) {
-            for client in clients {
-                let player = state
-                    .players
-                    .iter()
-                    .find(|p| p.user_id == client.player_id)
-                    .expect("Failed to find PlayOutload for client's player_id");
-                let pl: Vec<Player> = state
-                    .players
-                    .clone()
-                    .iter_mut()
-                    .map(|p| {
-                        let mut cloned_player = p.clone();
-                        cloned_player.cards = None;
-                        cloned_player
-                    })
-                    .collect();
-                let client_state = ClientState {
-                    players: pl,
-                    player_id: client.player_id,
-                    // send cards in another msg
-                    cards: player.cards.clone(),
-                    next_player_id: state.next_player_id,
-                    lobby_id: state.lobby_id,
-                    street: Some(Street {
-                        street_status: state.street.street_status,
-                        cards: state.street.cards.clone(),
-                    }),
-                    game_status: state.game_status as i32,
-                    latest_winners: state
-                        .latest_winners
-                        .clone()
-                        .iter_mut()
-                        .map(|p| {
-                            // there are many cases, where we might need to show enemies cards
-                            // TODO: evaluate these scenarios and handle in a proper way
-                            let mut cloned_player = p.clone();
-                            cloned_player.cards = None;
-                            cloned_player
-                        })
-                        .collect(),
-                };
 
+    pub fn update_clients(&self, states: Vec<ClientState>, lobby_id: i32) {
+        let mut guard = self.pool.lock().unwrap();
+        if let Some(clients) = guard.get_mut(&lobby_id) {
+            for client in clients {
+                let state = states
+                    .iter()
+                    .find(|s| s.player_id == client.player_id)
+                    .expect("Failed to find the client state in the pool");
                 let mut buf = Vec::new();
-                client_state.encode(&mut buf).unwrap();
+                state.encode(&mut buf).unwrap();
                 client.socket.send(TMessage::binary(buf)).unwrap();
             }
-        } else {
-            // TODO: sync UpdatedGameState with ClientState and GameState structs
-            // it has to be simplified in a single struct
         }
     }
 }

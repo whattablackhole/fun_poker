@@ -26,6 +26,10 @@ pub struct ClientState {
     pub players: ::prost::alloc::vec::Vec<super::player::Player>,
     #[prost(message, repeated, tag = "8")]
     pub latest_winners: ::prost::alloc::vec::Vec<super::player::Player>,
+    #[prost(int32, tag = "9")]
+    pub min_amount_to_call: i32,
+    #[prost(int32, tag = "10")]
+    pub min_amount_to_raise: i32,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]

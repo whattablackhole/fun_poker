@@ -11,7 +11,6 @@ use fun_poker::{
 };
 use fun_poker::{postgres_database::PostgresDatabase, socket_pool::LobbySocketPool};
 use prost::Message;
-use protos::client_state::GameStatus;
 use std::sync::Arc;
 use std::{
     io::{prelude::*, BufReader},
@@ -127,24 +126,24 @@ fn handle_http_request(
         let cur_lobby_id = 1;
 
         let mut dealer = Dealer::new(cur_lobby_id, Player::from_users(users));
-        let game_state = dealer.start_new_table_loop();
-        let mut cur_player_id = game_state.next_player_id;
-        socket_pool.update_clients(game_state);
+
+        let game_state = dealer.start_new_game();
+
+        socket_pool.update_clients(game_state, cur_lobby_id);
 
         loop {
             //TODO: handle the cases where a client is not responding, or has closed the connection;
             let request: PlayerPayload =
-                socket_pool.read_client_message(cur_player_id, cur_lobby_id);
+                socket_pool.read_client_message(dealer.get_next_player_id(), cur_lobby_id);
 
             let game_state = dealer.update_game_state(request);
 
-            if game_state.game_status == GameStatus::None {
-                break;
-            }
+            // use dealer api instead
+            // if game_state.game_status == GameStatus::None {
+            //     break;
+            // }
 
-            cur_player_id = game_state.next_player_id;
-
-            socket_pool.update_clients(game_state);
+            socket_pool.update_clients(game_state, cur_lobby_id);
         }
     }
 

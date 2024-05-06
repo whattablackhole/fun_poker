@@ -1,19 +1,25 @@
 import { MouseEvent, RefObject, useEffect, useRef, useState } from 'react';
 import PokerCard from '../poker_card/poker-card.tsx';
-import { ClientState } from '../../types/client-state.ts';
-import { CardValue } from '../../types/card.ts';
+import { ClientState, Street } from '../../types/client-state.ts';
+import { Card, CardPair, CardValue } from '../../types/card.ts';
 import ApiService from '../../services/api.service.ts';
 import { ActionType, PlayerPayload } from '../../types/player.ts';
+import mockState from '../../mocks/client-state.mock.ts';
+import TimerBanner from '../timer_banner/timer-banner.tsx';
+
 
 function PokerTable(init_state: ClientState) {
     const canvasRef: RefObject<HTMLCanvasElement> = useRef(null);
     const betInputRef: RefObject<HTMLInputElement> = useRef(null);
     const [state, setState] = useState(init_state);
+
+
+
     let canvas_width = 1000;
-    let canvas_height = 700;
+    let canvas_height = 800;
     const centerX = canvas_width / 2;
     const centerY = canvas_height / 2;
-    const radius = 150;
+    const radius = 200;
     const scaleX = 1.7;
     const scaleY = 1.2;
     let scaledX = centerX / scaleX;
@@ -28,6 +34,8 @@ function PokerTable(init_state: ClientState) {
             }
             setState(newState);
         })
+        // setState(mockState);
+
         if (canvas) {
             const ctx = canvas.getContext('2d');
 
@@ -41,13 +49,18 @@ function PokerTable(init_state: ClientState) {
                 ctx.strokeStyle = 'green';
                 ctx.lineWidth = 10;
                 ctx.stroke();
+                // const players_amount = mockState?.players.length;
+                // console.log(state);
+                // mockState?.players.forEach((p, index) => {
+                //     console.log(p)
+                //     if ((p.action?.bet ?? 0) > 0) {
+                //         console.log('hello');
+                //         const angle = ((2 * Math.PI) * index) / players_amount + Math.PI / 2;
+                //         drawChips(scaledX, scaledY, p.action!.bet, angle, ctx);
+                //     }
+                // })
 
-                // for test
-                const players = 9;
-                const player_index = 3;
-                const bet_points = 400;
-                const angle = ((2 * Math.PI) * player_index) / players + Math.PI / 2;
-                drawChips(scaledX, scaledY, bet_points, angle, ctx);
+
             }
         } else {
             console.error("canvas is null", canvas)
@@ -56,7 +69,11 @@ function PokerTable(init_state: ClientState) {
             ApiService.clientStateObserver.unsubscribe(subscription);
         }
     }, []);
+    if (!state) {
+        return <div>Loading...</div>
+    }
 
+    console.log(state);
     const playerPositions = calculatePlayerPositionsFromCanvas(radius, centerX, centerY, scaleX, scaleY);
     // for debug purposes i mocking it if state empty;
     let cards = state ? [
@@ -97,6 +114,12 @@ function PokerTable(init_state: ClientState) {
                             <div>
                                 {state?.players[index]?.userName ?? "NickName"}
                             </div>
+                            {state && state.players[index]?.userId === state.nextPlayerId ?
+                                <div>
+                                    <TimerBanner timeLeft={100} />
+                                </div>
+
+                                : null}
                         </div>
                     </div>
 
@@ -142,8 +165,8 @@ function PokerTable(init_state: ClientState) {
     );
 }
 function drawChips(centerX: number, centerY: number, points: number, angle: number, ctx: CanvasRenderingContext2D) {
-    const x = centerX + Math.cos(angle) * 120;
-    const y = centerY + Math.sin(angle) * 120;
+    const x = centerX + Math.cos(angle) * 150;
+    const y = centerY + Math.sin(angle) * 150;
     // TODO: parse points into digit groups and draw them accordingly 
     drawChip(x, y, ctx);
     drawChip(x, y - 3, ctx);

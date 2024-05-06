@@ -62,6 +62,14 @@ export interface ClientState {
      * @generated from protobuf field: repeated player.Player latest_winners = 8;
      */
     latestWinners: Player[];
+    /**
+     * @generated from protobuf field: int32 min_amount_to_call = 9;
+     */
+    minAmountToCall: number;
+    /**
+     * @generated from protobuf field: int32 min_amount_to_raise = 10;
+     */
+    minAmountToRaise: number;
 }
 /**
  * @generated from protobuf enum client_state.StreetStatus
@@ -167,7 +175,9 @@ class ClientState$Type extends MessageType<ClientState> {
             { no: 5, name: "street", kind: "message", T: () => Street },
             { no: 6, name: "game_status", kind: "enum", T: () => ["client_state.GameStatus", GameStatus] },
             { no: 7, name: "players", kind: "message", repeat: 1 /*RepeatType.PACKED*/, T: () => Player },
-            { no: 8, name: "latest_winners", kind: "message", repeat: 1 /*RepeatType.PACKED*/, T: () => Player }
+            { no: 8, name: "latest_winners", kind: "message", repeat: 1 /*RepeatType.PACKED*/, T: () => Player },
+            { no: 9, name: "min_amount_to_call", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 10, name: "min_amount_to_raise", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
         ]);
     }
     create(value?: PartialMessage<ClientState>): ClientState {
@@ -178,6 +188,8 @@ class ClientState$Type extends MessageType<ClientState> {
         message.gameStatus = 0;
         message.players = [];
         message.latestWinners = [];
+        message.minAmountToCall = 0;
+        message.minAmountToRaise = 0;
         if (value !== undefined)
             reflectionMergePartial<ClientState>(this, message, value);
         return message;
@@ -210,6 +222,12 @@ class ClientState$Type extends MessageType<ClientState> {
                     break;
                 case /* repeated player.Player latest_winners */ 8:
                     message.latestWinners.push(Player.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                case /* int32 min_amount_to_call */ 9:
+                    message.minAmountToCall = reader.int32();
+                    break;
+                case /* int32 min_amount_to_raise */ 10:
+                    message.minAmountToRaise = reader.int32();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -247,6 +265,12 @@ class ClientState$Type extends MessageType<ClientState> {
         /* repeated player.Player latest_winners = 8; */
         for (let i = 0; i < message.latestWinners.length; i++)
             Player.internalBinaryWrite(message.latestWinners[i], writer.tag(8, WireType.LengthDelimited).fork(), options).join();
+        /* int32 min_amount_to_call = 9; */
+        if (message.minAmountToCall !== 0)
+            writer.tag(9, WireType.Varint).int32(message.minAmountToCall);
+        /* int32 min_amount_to_raise = 10; */
+        if (message.minAmountToRaise !== 0)
+            writer.tag(10, WireType.Varint).int32(message.minAmountToRaise);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);

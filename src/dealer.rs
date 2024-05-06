@@ -6,7 +6,7 @@ use crate::{
     card::CardDeck,
     protos::{
         card::CardPair,
-        client_state::{GameStatus, Street, StreetStatus},
+        client_state::{ClientState, GameStatus, Street, StreetStatus},
         player::{ActionType, Player, PlayerAction, PlayerPayload},
     },
 };
@@ -101,15 +101,6 @@ impl GameState {
     }
 }
 
-#[derive(Debug)]
-pub struct ClientGameState {
-    pub next_player_id: i32,
-    pub lobby_id: i32,
-    pub street: Street,
-    pub game_status: GameStatus,
-    pub latest_winners: Vec<Player>,
-    pub players: Vec<Player>,
-}
 impl Iterator for StreetStatus {
     type Item = StreetStatus;
 
@@ -164,62 +155,86 @@ impl Dealer {
         }
     }
 
-    pub fn start_new_table_loop(&mut self) -> ClientGameState {
-        // self = self is not needed?
-        self.deal_cards();
-        self.game_state.status = GameStatus::Active;
-        // TODO: implement new for Street... and others structs
-        ClientGameState {
-            players: self.player_state.players.clone(),
-            game_status: self.game_state.status,
-            next_player_id: self
-                .player_state
-                .players
-                .get(self.game_state.next_player_index as usize)
-                .unwrap()
-                .user_id,
-            street: Street {
-                street_status: self.game_state.street.street_status,
-                cards: self.game_state.street.cards.clone(),
-            },
-            lobby_id: self.lobby_id,
-            latest_winners: Vec::new(),
-        }
+    fn calculate_min_call(&self, p: &Player) -> i32 {
+        // TODO
+        0
     }
 
-    fn next_game_loop(&mut self) -> ClientGameState {
-        self.to_default_state();
-        let state = self.start_new_table_loop();
+    fn calculate_min_raise(&self, p: &Player) -> i32 {
+        // TODO
+        0
+    }
+
+    pub fn get_next_player_id(&self) -> i32 {
+        self.player_state
+            .players
+            .get(self.game_state.next_player_index as usize)
+            .unwrap()
+            .user_id
+    }
+
+    fn filter_player_cards(mut player: Player) -> Player {
+        player.cards = None;
+        player
+    }
+
+    fn get_filtered_players(&self) -> Vec<Player> {
+        let players: Vec<Player> = self
+            .player_state
+            .players
+            .iter()
+            .map(|player| Dealer::filter_player_cards(player.clone()))
+            .collect();
+        players
+    }
+
+    pub fn start_new_game(&mut self) -> Vec<ClientState> {
+        self.next_game_loop();
+        let state = self.create_client_state(Vec::new());
+
         state
+    }
+
+    fn create_client_state(&mut self, winners: Vec<Player>) -> Vec<ClientState> {
+        let filtered_players = self.get_filtered_players();
+
+        let states = self
+            .player_state
+            .players
+            .iter()
+            .map(|p| {
+                let client = ClientState {
+                    player_id: p.user_id,
+                    cards: p.cards.clone(),
+                    min_amount_to_call: self.calculate_min_call(p),
+                    min_amount_to_raise: self.calculate_min_raise(p),
+                    players: filtered_players.clone(),
+                    game_status: self.game_state.status.into(),
+                    next_player_id: self.get_next_player_id(),
+                    street: Some(self.game_state.street.clone()),
+                    lobby_id: self.lobby_id,
+                    latest_winners: winners.clone(),
+                };
+
+                client
+            })
+            .collect();
+
+        states
+    }
+
+    fn next_game_loop(&mut self) {
+        self.to_default_state();
+        self.deal_cards();
     }
 
     fn to_default_state(&mut self) {
         self.deck_state.reset();
-        self.player_state
-            .players
-            .iter_mut()
-            .for_each(|p| p.bet_in_current_seed = 0);
+        self.player_state.players.iter_mut().for_each(|p| {
+            p.bet_in_current_seed = 0;
+            p.action = Some(PlayerAction::new())
+        });
         self.game_state.reset();
-    }
-
-    fn get_client_game_state(&mut self) -> ClientGameState {
-        let state = ClientGameState {
-            players: self.player_state.players.clone(),
-            game_status: self.game_state.status,
-            next_player_id: self
-                .player_state
-                .players
-                .get(self.game_state.next_player_index as usize)
-                .unwrap()
-                .user_id,
-            street: Street {
-                street_status: self.game_state.street.street_status,
-                cards: self.game_state.street.cards.clone(),
-            },
-            lobby_id: self.lobby_id,
-            latest_winners: Vec::new(),
-        };
-        state
     }
 
     fn calculate_winner(&mut self) -> Vec<Player> {
@@ -283,7 +298,7 @@ impl Dealer {
                 } else {
                     0
                 };
-                if (remainder > 0) {
+                if remainder > 0 {
                     self.game_state.bank -= remainder;
                 } else {
                     self.game_state.bank = 0;
@@ -298,7 +313,7 @@ impl Dealer {
         win_result
     }
 
-    pub fn can_determine_winner(&self) -> Option<bool> {
+    fn can_determine_winner(&self) -> Option<bool> {
         let mut remaining_players = self.player_state.players.iter().filter(|p| {
             p.action.is_some() && p.action.as_ref().unwrap().action_type != ActionType::Fold.into()
         });
@@ -363,7 +378,7 @@ impl Dealer {
         self.game_state.raiser_index.is_some()
     }
 
-    pub fn update_game_state(&mut self, payload: PlayerPayload) -> ClientGameState {
+    pub fn update_game_state(&mut self, payload: PlayerPayload) -> Vec<ClientState> {
         if payload.lobby_id != self.lobby_id {
             panic!("Wrong lobby id in payload");
         }
@@ -384,8 +399,10 @@ impl Dealer {
                     // TODO: set_winner
                     let winners = self.calculate_winner();
                     // in future: add checks when players are elimanated;
-                    let mut state = self.next_game_loop();
-                    state.latest_winners = winners;
+
+                    self.next_game_loop();
+
+                    let state = self.create_client_state(winners);
                     return state;
                 }
             }
@@ -412,16 +429,15 @@ impl Dealer {
 
             if curr_street == StreetStatus::River as i32 {
                 let winners: Vec<Player> = self.calculate_winner();
-                let mut state = self.next_game_loop();
-                // TODO: set_winner
-                state.latest_winners = winners;
+                self.next_game_loop();
+                let state = self.create_client_state(winners);
                 return state;
             }
             self.update_next_player_index(true);
             self.deal_new_street(curr_street + 1);
         }
 
-        self.get_client_game_state()
+        self.create_client_state(Vec::new())
     }
 
     fn process_fold_action(&mut self, player_id: i32) {
