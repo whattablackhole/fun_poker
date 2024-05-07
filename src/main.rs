@@ -127,7 +127,7 @@ fn handle_http_request(
 
         let mut dealer = Dealer::new(cur_lobby_id, Player::from_users(users));
 
-        let game_state = dealer.start_new_game();
+        let game_state = dealer.start_new_game().unwrap();
 
         socket_pool.update_clients(game_state, cur_lobby_id);
 
