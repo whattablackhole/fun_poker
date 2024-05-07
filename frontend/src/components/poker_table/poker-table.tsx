@@ -1,10 +1,9 @@
 import { MouseEvent, RefObject, useEffect, useRef, useState } from 'react';
 import PokerCard from '../poker_card/poker-card.tsx';
-import { ClientState, Street } from '../../types/client-state.ts';
-import { Card, CardPair, CardValue } from '../../types/card.ts';
+import { ClientState } from '../../types/client-state.ts';
+import { CardValue } from '../../types/card.ts';
 import ApiService from '../../services/api.service.ts';
-import { ActionType, PlayerPayload } from '../../types/player.ts';
-import mockState from '../../mocks/client-state.mock.ts';
+import { ActionType, Player, PlayerPayload } from '../../types/player.ts';
 import TimerBanner from '../timer_banner/timer-banner.tsx';
 
 
@@ -12,8 +11,7 @@ function PokerTable(init_state: ClientState) {
     const canvasRef: RefObject<HTMLCanvasElement> = useRef(null);
     const betInputRef: RefObject<HTMLInputElement> = useRef(null);
     const [state, setState] = useState(init_state);
-
-
+    const [canvas, setCanvas] = useState<CanvasRenderingContext2D | null>(null);
 
     let canvas_width = 1000;
     let canvas_height = 800;
@@ -22,10 +20,28 @@ function PokerTable(init_state: ClientState) {
     const radius = 200;
     const scaleX = 1.7;
     const scaleY = 1.2;
-    let scaledX = centerX / scaleX;
-    let scaledY = centerY / scaleY;
+    let descaledX = centerX / scaleX;
+    let descaledY = centerY / scaleY;
     useEffect(() => {
         const canvas: HTMLCanvasElement = canvasRef.current as HTMLCanvasElement;
+
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            setCanvas(ctx);
+            if (ctx) {
+                canvas.width = canvas_width;
+                canvas.height = canvas_height;
+                ctx.save();
+                ctx.scale(scaleX, scaleY);
+                ctx.beginPath();
+                ctx.arc(descaledX, descaledY, radius, 0, Math.PI * 2);
+                ctx.strokeStyle = 'green';
+                ctx.lineWidth = 10;
+                ctx.stroke();
+            }
+        } else {
+            console.error("canvas is null", canvas)
+        }
         // read about init_state param and useState default arg, is it in sync?
         let subscription = ApiService.clientStateObserver.subscribe((newState: ClientState) => {
             console.log(newState);
@@ -34,47 +50,18 @@ function PokerTable(init_state: ClientState) {
             }
             setState(newState);
         })
-        // setState(mockState);
 
-        if (canvas) {
-            const ctx = canvas.getContext('2d');
-
-            if (ctx) {
-                canvas.width = canvas_width;
-                canvas.height = canvas_height;
-
-                ctx.scale(scaleX, scaleY);
-                ctx.beginPath();
-                ctx.arc(scaledX, scaledY, radius, 0, Math.PI * 2);
-                ctx.strokeStyle = 'green';
-                ctx.lineWidth = 10;
-                ctx.stroke();
-                // const players_amount = mockState?.players.length;
-                // console.log(state);
-                // mockState?.players.forEach((p, index) => {
-                //     console.log(p)
-                //     if ((p.action?.bet ?? 0) > 0) {
-                //         console.log('hello');
-                //         const angle = ((2 * Math.PI) * index) / players_amount + Math.PI / 2;
-                //         drawChips(scaledX, scaledY, p.action!.bet, angle, ctx);
-                //     }
-                // })
-
-
-            }
-        } else {
-            console.error("canvas is null", canvas)
-        }
         return () => {
             ApiService.clientStateObserver.unsubscribe(subscription);
         }
     }, []);
+
     if (!state) {
         return <div>Loading...</div>
     }
 
-    console.log(state);
     const playerPositions = calculatePlayerPositionsFromCanvas(radius, centerX, centerY, scaleX, scaleY);
+
     // for debug purposes i mocking it if state empty;
     let cards = state ? [
         state.cards!.card1!,
@@ -94,6 +81,31 @@ function PokerTable(init_state: ClientState) {
         ApiService.sendMessage(payload);
 
     }
+    const players = center_players_by_self(state);
+
+    if (canvas) {
+        let button_player_index = get_index_by_player_id(players, state.currButtonId);
+        let step = Math.PI * 2 / 9;
+        let angle = step * button_player_index + Math.PI / 2;
+        let x = centerX + Math.cos(angle) * (radius - 40) * scaleX;
+        let y = centerY + Math.sin(angle) * (radius - 40) * scaleY;
+        drawButton(x, y, canvas, 14);
+    }
+
+    const selfPlayer = players[0];
+
+
+    const players_amount = 9;
+
+    players.forEach((p, index) => {
+        if (canvas) {
+            if ((p.action?.bet ?? 0) > 0) {
+                const angle = ((2 * Math.PI) * index) / players_amount + Math.PI / 2;
+                drawChips(descaledX, descaledY, p.action!.bet, angle, canvas);
+            }
+        }
+        
+    })
     return (
         <div style={{ position: 'relative', marginLeft: '200px' }}>
             {playerPositions.map((position, index) => (
@@ -109,12 +121,12 @@ function PokerTable(init_state: ClientState) {
 
                         <div style={{ alignSelf: 'center', width: "100%", textAlign: "center", backgroundColor: 'wheat', marginTop: '-20px', }}>
                             <div>
-                                {(state?.players[index]?.bank ?? "100 000") + " chips"}
+                                {(players[index]?.bank ?? "100 000") + " chips"}
                             </div>
                             <div>
-                                {state?.players[index]?.userName ?? "NickName"}
+                                {players[index]?.userName ?? "NickName"}
                             </div>
-                            {state && state.players[index]?.userId === state.nextPlayerId ?
+                            {state && players[index]?.userId === state.currPlayerId ?
                                 <div>
                                     <TimerBanner timeLeft={100} />
                                 </div>
@@ -125,23 +137,23 @@ function PokerTable(init_state: ClientState) {
 
                     {index === 0 ? (
                         <form style={{ display: "flex", alignItems: "flex-end" }}>
-                            <input ref={betInputRef} type="number" min="0" max={state?.players.find((p) => p.userId == state.playerId)?.bank || 0}></input>
+                            <input ref={betInputRef} type="number" min="0" max={selfPlayer.bank || 0}></input>
                             <button
-                                disabled={state?.nextPlayerId !== state?.playerId}
+                                disabled={state?.currPlayerId !== selfPlayer.userId}
                                 style={{ width: "100px", height: "50px", alignSelf: "flex-end" }}
                                 onClick={(e) => betClickHandler(e, ActionType.Fold)}
                             >
                                 Fold
                             </button>
                             <button
-                                disabled={state?.nextPlayerId !== state?.playerId}
+                                disabled={state?.currPlayerId !== selfPlayer.userId}
                                 style={{ width: "100px", height: "50px", alignSelf: "flex-end" }}
                                 onClick={(e) => betClickHandler(e, ActionType.Call)}
                             >
                                 Call
                             </button>
                             <button
-                                disabled={state?.nextPlayerId !== state?.playerId}
+                                disabled={state?.currPlayerId !== selfPlayer.userId}
                                 style={{ width: "100px", height: "50px", alignSelf: "flex-end" }}
                                 onClick={(e) => betClickHandler(e, ActionType.Raise)}
                             >
@@ -152,7 +164,7 @@ function PokerTable(init_state: ClientState) {
                     ) : null}
                 </div>
             ))}
-            <div style={{ position: 'absolute', top: scaledY, left: scaledX, display: 'flex' }}>
+            <div style={{ position: 'absolute', top: descaledY, left: descaledX, display: 'flex' }}>
                 {state?.street?.cards.map(({ suit, value }) => {
                     return <PokerCard cardSuit={suit} cardValue={value} />
                 })}
@@ -164,6 +176,63 @@ function PokerTable(init_state: ClientState) {
         </div>
     );
 }
+
+
+
+function center_players_by_self(state: ClientState): Player[] {
+    let index = get_index_by_player_id(state.players, state.playerId);
+
+    if (index !== -1) {
+        return [...state.players.slice(index), ...state.players.slice(0, index)];
+
+    } else {
+        return [];
+    }
+}
+
+function get_index_by_player_id(players: Player[], id: number): number {
+    return players.findIndex((p) => p.userId == id)
+}
+
+function drawButton(x: number, y: number, ctx: CanvasRenderingContext2D, rad: number = 10) {
+    const shadowColor = '#D5B60A';
+    const buttonColor = '#FFCC00 ';
+    ctx.restore();
+    ctx.beginPath();
+    ctx.save();
+    ctx.scale(1.1, 0.8)
+
+
+    let descaledX = x / 1.1
+    let descaledY = y / 0.8;
+    ctx.arc(descaledX, descaledY + 5, rad, 0, Math.PI * 2);
+    ctx.fillStyle = shadowColor;
+    ctx.fill();
+    ctx.closePath();
+
+    ctx.beginPath();
+
+    ctx.arc(x / 1.1, y / 0.8, rad, 0, Math.PI * 2);
+    ctx.strokeStyle = buttonColor;
+    ctx.lineWidth = 1;
+    ctx.fillStyle = buttonColor;
+    ctx.fill('evenodd');
+    ctx.stroke();
+    const gradient = ctx.createRadialGradient(descaledX, descaledY, 0, descaledX, descaledY, rad);
+    gradient.addColorStop(0, buttonColor);
+    gradient.addColorStop(1, '#FFE066');
+    ctx.fillStyle = gradient;
+    ctx.fill();
+    ctx.fillStyle = 'black';
+    ctx.font = 'bold 15pt Courier';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`D`, x / 1.1, y / 0.8,);
+
+
+    ctx.closePath();
+}
+
 function drawChips(centerX: number, centerY: number, points: number, angle: number, ctx: CanvasRenderingContext2D) {
     const x = centerX + Math.cos(angle) * 150;
     const y = centerY + Math.sin(angle) * 150;

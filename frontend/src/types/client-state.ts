@@ -39,35 +39,47 @@ export interface ClientState {
      */
     cards?: CardPair;
     /**
-     * @generated from protobuf field: int32 next_player_id = 3;
+     * @generated from protobuf field: int32 curr_player_id = 3;
      */
-    nextPlayerId: number;
+    currPlayerId: number;
     /**
-     * @generated from protobuf field: int32 lobby_id = 4;
+     * @generated from protobuf field: int32 curr_button_id = 4;
+     */
+    currButtonId: number;
+    /**
+     * @generated from protobuf field: int32 curr_small_blind_id = 5;
+     */
+    currSmallBlindId: number;
+    /**
+     * @generated from protobuf field: int32 curr_big_blind_id = 6;
+     */
+    currBigBlindId: number;
+    /**
+     * @generated from protobuf field: int32 lobby_id = 7;
      */
     lobbyId: number;
     /**
-     * @generated from protobuf field: client_state.Street street = 5;
+     * @generated from protobuf field: client_state.Street street = 8;
      */
     street?: Street;
     /**
-     * @generated from protobuf field: client_state.GameStatus game_status = 6;
+     * @generated from protobuf field: client_state.GameStatus game_status = 9;
      */
     gameStatus: GameStatus;
     /**
-     * @generated from protobuf field: repeated player.Player players = 7;
+     * @generated from protobuf field: repeated player.Player players = 10;
      */
     players: Player[];
     /**
-     * @generated from protobuf field: repeated player.Player latest_winners = 8;
+     * @generated from protobuf field: repeated player.Player latest_winners = 11;
      */
     latestWinners: Player[];
     /**
-     * @generated from protobuf field: int32 min_amount_to_call = 9;
+     * @generated from protobuf field: int32 min_amount_to_call = 12;
      */
     minAmountToCall: number;
     /**
-     * @generated from protobuf field: int32 min_amount_to_raise = 10;
+     * @generated from protobuf field: int32 min_amount_to_raise = 13;
      */
     minAmountToRaise: number;
 }
@@ -170,20 +182,26 @@ class ClientState$Type extends MessageType<ClientState> {
         super("client_state.ClientState", [
             { no: 1, name: "player_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
             { no: 2, name: "cards", kind: "message", T: () => CardPair },
-            { no: 3, name: "next_player_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
-            { no: 4, name: "lobby_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
-            { no: 5, name: "street", kind: "message", T: () => Street },
-            { no: 6, name: "game_status", kind: "enum", T: () => ["client_state.GameStatus", GameStatus] },
-            { no: 7, name: "players", kind: "message", repeat: 1 /*RepeatType.PACKED*/, T: () => Player },
-            { no: 8, name: "latest_winners", kind: "message", repeat: 1 /*RepeatType.PACKED*/, T: () => Player },
-            { no: 9, name: "min_amount_to_call", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
-            { no: 10, name: "min_amount_to_raise", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+            { no: 3, name: "curr_player_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 4, name: "curr_button_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 5, name: "curr_small_blind_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 6, name: "curr_big_blind_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 7, name: "lobby_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 8, name: "street", kind: "message", T: () => Street },
+            { no: 9, name: "game_status", kind: "enum", T: () => ["client_state.GameStatus", GameStatus] },
+            { no: 10, name: "players", kind: "message", repeat: 1 /*RepeatType.PACKED*/, T: () => Player },
+            { no: 11, name: "latest_winners", kind: "message", repeat: 1 /*RepeatType.PACKED*/, T: () => Player },
+            { no: 12, name: "min_amount_to_call", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 13, name: "min_amount_to_raise", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
         ]);
     }
     create(value?: PartialMessage<ClientState>): ClientState {
         const message = globalThis.Object.create((this.messagePrototype!));
         message.playerId = 0;
-        message.nextPlayerId = 0;
+        message.currPlayerId = 0;
+        message.currButtonId = 0;
+        message.currSmallBlindId = 0;
+        message.currBigBlindId = 0;
         message.lobbyId = 0;
         message.gameStatus = 0;
         message.players = [];
@@ -205,28 +223,37 @@ class ClientState$Type extends MessageType<ClientState> {
                 case /* card.CardPair cards */ 2:
                     message.cards = CardPair.internalBinaryRead(reader, reader.uint32(), options, message.cards);
                     break;
-                case /* int32 next_player_id */ 3:
-                    message.nextPlayerId = reader.int32();
+                case /* int32 curr_player_id */ 3:
+                    message.currPlayerId = reader.int32();
                     break;
-                case /* int32 lobby_id */ 4:
+                case /* int32 curr_button_id */ 4:
+                    message.currButtonId = reader.int32();
+                    break;
+                case /* int32 curr_small_blind_id */ 5:
+                    message.currSmallBlindId = reader.int32();
+                    break;
+                case /* int32 curr_big_blind_id */ 6:
+                    message.currBigBlindId = reader.int32();
+                    break;
+                case /* int32 lobby_id */ 7:
                     message.lobbyId = reader.int32();
                     break;
-                case /* client_state.Street street */ 5:
+                case /* client_state.Street street */ 8:
                     message.street = Street.internalBinaryRead(reader, reader.uint32(), options, message.street);
                     break;
-                case /* client_state.GameStatus game_status */ 6:
+                case /* client_state.GameStatus game_status */ 9:
                     message.gameStatus = reader.int32();
                     break;
-                case /* repeated player.Player players */ 7:
+                case /* repeated player.Player players */ 10:
                     message.players.push(Player.internalBinaryRead(reader, reader.uint32(), options));
                     break;
-                case /* repeated player.Player latest_winners */ 8:
+                case /* repeated player.Player latest_winners */ 11:
                     message.latestWinners.push(Player.internalBinaryRead(reader, reader.uint32(), options));
                     break;
-                case /* int32 min_amount_to_call */ 9:
+                case /* int32 min_amount_to_call */ 12:
                     message.minAmountToCall = reader.int32();
                     break;
-                case /* int32 min_amount_to_raise */ 10:
+                case /* int32 min_amount_to_raise */ 13:
                     message.minAmountToRaise = reader.int32();
                     break;
                 default:
@@ -247,30 +274,39 @@ class ClientState$Type extends MessageType<ClientState> {
         /* card.CardPair cards = 2; */
         if (message.cards)
             CardPair.internalBinaryWrite(message.cards, writer.tag(2, WireType.LengthDelimited).fork(), options).join();
-        /* int32 next_player_id = 3; */
-        if (message.nextPlayerId !== 0)
-            writer.tag(3, WireType.Varint).int32(message.nextPlayerId);
-        /* int32 lobby_id = 4; */
+        /* int32 curr_player_id = 3; */
+        if (message.currPlayerId !== 0)
+            writer.tag(3, WireType.Varint).int32(message.currPlayerId);
+        /* int32 curr_button_id = 4; */
+        if (message.currButtonId !== 0)
+            writer.tag(4, WireType.Varint).int32(message.currButtonId);
+        /* int32 curr_small_blind_id = 5; */
+        if (message.currSmallBlindId !== 0)
+            writer.tag(5, WireType.Varint).int32(message.currSmallBlindId);
+        /* int32 curr_big_blind_id = 6; */
+        if (message.currBigBlindId !== 0)
+            writer.tag(6, WireType.Varint).int32(message.currBigBlindId);
+        /* int32 lobby_id = 7; */
         if (message.lobbyId !== 0)
-            writer.tag(4, WireType.Varint).int32(message.lobbyId);
-        /* client_state.Street street = 5; */
+            writer.tag(7, WireType.Varint).int32(message.lobbyId);
+        /* client_state.Street street = 8; */
         if (message.street)
-            Street.internalBinaryWrite(message.street, writer.tag(5, WireType.LengthDelimited).fork(), options).join();
-        /* client_state.GameStatus game_status = 6; */
+            Street.internalBinaryWrite(message.street, writer.tag(8, WireType.LengthDelimited).fork(), options).join();
+        /* client_state.GameStatus game_status = 9; */
         if (message.gameStatus !== 0)
-            writer.tag(6, WireType.Varint).int32(message.gameStatus);
-        /* repeated player.Player players = 7; */
+            writer.tag(9, WireType.Varint).int32(message.gameStatus);
+        /* repeated player.Player players = 10; */
         for (let i = 0; i < message.players.length; i++)
-            Player.internalBinaryWrite(message.players[i], writer.tag(7, WireType.LengthDelimited).fork(), options).join();
-        /* repeated player.Player latest_winners = 8; */
+            Player.internalBinaryWrite(message.players[i], writer.tag(10, WireType.LengthDelimited).fork(), options).join();
+        /* repeated player.Player latest_winners = 11; */
         for (let i = 0; i < message.latestWinners.length; i++)
-            Player.internalBinaryWrite(message.latestWinners[i], writer.tag(8, WireType.LengthDelimited).fork(), options).join();
-        /* int32 min_amount_to_call = 9; */
+            Player.internalBinaryWrite(message.latestWinners[i], writer.tag(11, WireType.LengthDelimited).fork(), options).join();
+        /* int32 min_amount_to_call = 12; */
         if (message.minAmountToCall !== 0)
-            writer.tag(9, WireType.Varint).int32(message.minAmountToCall);
-        /* int32 min_amount_to_raise = 10; */
+            writer.tag(12, WireType.Varint).int32(message.minAmountToCall);
+        /* int32 min_amount_to_raise = 13; */
         if (message.minAmountToRaise !== 0)
-            writer.tag(10, WireType.Varint).int32(message.minAmountToRaise);
+            writer.tag(13, WireType.Varint).int32(message.minAmountToRaise);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
