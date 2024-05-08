@@ -36,13 +36,15 @@ pub struct PlayerAction {
     #[prost(int32, tag = "2")]
     pub bet: i32,
 }
+/// remove last two??
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum ActionType {
     Fold = 0,
     Call = 1,
     Raise = 2,
-    Empty = 3,
+    Blind = 3,
+    Empty = 4,
 }
 impl ActionType {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -54,6 +56,7 @@ impl ActionType {
             ActionType::Fold => "Fold",
             ActionType::Call => "Call",
             ActionType::Raise => "Raise",
+            ActionType::Blind => "Blind",
             ActionType::Empty => "Empty",
         }
     }
@@ -63,6 +66,7 @@ impl ActionType {
             "Fold" => Some(Self::Fold),
             "Call" => Some(Self::Call),
             "Raise" => Some(Self::Raise),
+            "Blind" => Some(Self::Blind),
             "Empty" => Some(Self::Empty),
             _ => None,
         }

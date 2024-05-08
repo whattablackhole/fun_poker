@@ -15,20 +15,26 @@ pub struct ClientState {
     #[prost(message, optional, tag = "2")]
     pub cards: ::core::option::Option<super::card::CardPair>,
     #[prost(int32, tag = "3")]
-    pub next_player_id: i32,
+    pub curr_player_id: i32,
     #[prost(int32, tag = "4")]
+    pub curr_button_id: i32,
+    #[prost(int32, tag = "5")]
+    pub curr_small_blind_id: i32,
+    #[prost(int32, tag = "6")]
+    pub curr_big_blind_id: i32,
+    #[prost(int32, tag = "7")]
     pub lobby_id: i32,
-    #[prost(message, optional, tag = "5")]
+    #[prost(message, optional, tag = "8")]
     pub street: ::core::option::Option<Street>,
-    #[prost(enumeration = "GameStatus", tag = "6")]
+    #[prost(enumeration = "GameStatus", tag = "9")]
     pub game_status: i32,
-    #[prost(message, repeated, tag = "7")]
+    #[prost(message, repeated, tag = "10")]
     pub players: ::prost::alloc::vec::Vec<super::player::Player>,
-    #[prost(message, repeated, tag = "8")]
+    #[prost(message, repeated, tag = "11")]
     pub latest_winners: ::prost::alloc::vec::Vec<super::player::Player>,
-    #[prost(int32, tag = "9")]
+    #[prost(int32, tag = "12")]
     pub min_amount_to_call: i32,
-    #[prost(int32, tag = "10")]
+    #[prost(int32, tag = "13")]
     pub min_amount_to_raise: i32,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]

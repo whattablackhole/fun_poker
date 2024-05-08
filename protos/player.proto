@@ -25,9 +25,11 @@ message PlayerAction {
   int32 bet = 2;
 }
 
+// remove last two??
 enum ActionType {
   Fold = 0;
   Call = 1;
   Raise = 2;
-  Empty = 3;
+  Blind = 3;
+  Empty = 4;
 }

@@ -1,18 +1,40 @@
-import { MouseEvent, RefObject, useEffect, useRef, useState } from 'react';
+import { MouseEvent, RefObject, useEffect, useRef, useState, } from 'react';
 import PokerCard from '../poker_card/poker-card.tsx';
-import { ClientState } from '../../types/client-state.ts';
+import { ClientState, StreetStatus } from '../../types/client-state.ts';
 import { CardValue } from '../../types/card.ts';
 import ApiService from '../../services/api.service.ts';
 import { ActionType, Player, PlayerPayload } from '../../types/player.ts';
 import TimerBanner from '../timer_banner/timer-banner.tsx';
 
+type PlayerId = number;
+type BetAmount = number;
+type BetHistoryMap = Map<PlayerId, BetAmount>;
+
+interface BetHistory {
+    bank_on_curr_street: number,
+    betHistoryMap: BetHistoryMap
+}
 
 function PokerTable(init_state: ClientState) {
     const canvasRef: RefObject<HTMLCanvasElement> = useRef(null);
     const betInputRef: RefObject<HTMLInputElement> = useRef(null);
     const [state, setState] = useState(init_state);
-    const [canvas, setCanvas] = useState<CanvasRenderingContext2D | null>(null);
+    const [betHistory, setBetHistory] = useState<BetHistory>(() => {
+        const initialBetHistory: BetHistoryMap = new Map<number, number>();
+        const bigIndex = get_index_by_player_id(init_state.players, init_state.currBigBlindId);
+        const smallIndex = get_index_by_player_id(init_state.players, init_state.currSmallBlindId);
 
+        if (smallIndex !== -1) {
+            initialBetHistory.set(init_state.currSmallBlindId, init_state.players[smallIndex].action!.bet);
+        }
+        if (bigIndex !== -1) {
+            initialBetHistory.set(init_state.currBigBlindId, init_state.players[bigIndex].action!.bet);
+        }
+
+        return { bank_on_curr_street: 0, betHistoryMap: initialBetHistory };
+    });
+
+    const [canvas, setCanvas] = useState<CanvasRenderingContext2D | null>(null);
     let canvas_width = 1000;
     let canvas_height = 800;
     const centerX = canvas_width / 2;
@@ -22,33 +44,33 @@ function PokerTable(init_state: ClientState) {
     const scaleY = 1.2;
     let descaledX = centerX / scaleX;
     let descaledY = centerY / scaleY;
+
     useEffect(() => {
         const canvas: HTMLCanvasElement = canvasRef.current as HTMLCanvasElement;
 
         if (canvas) {
             const ctx = canvas.getContext('2d');
+            canvas.width = canvas_width;
+            canvas.height = canvas_height;
             setCanvas(ctx);
-            if (ctx) {
-                canvas.width = canvas_width;
-                canvas.height = canvas_height;
-                ctx.save();
-                ctx.scale(scaleX, scaleY);
-                ctx.beginPath();
-                ctx.arc(descaledX, descaledY, radius, 0, Math.PI * 2);
-                ctx.strokeStyle = 'green';
-                ctx.lineWidth = 10;
-                ctx.stroke();
-            }
+
         } else {
             console.error("canvas is null", canvas)
         }
-        // read about init_state param and useState default arg, is it in sync?
+
         let subscription = ApiService.clientStateObserver.subscribe((newState: ClientState) => {
             console.log(newState);
             if (newState.latestWinners.some((w) => w.userId === newState.playerId)) {
                 console.log("You won this!");
             }
-            setState(newState);
+
+            setState(prevState => {
+                const processedHistory = processBetHistoryState(newState, prevState, betHistory);
+
+                setBetHistory(processedHistory);
+
+                return newState;
+            });
         })
 
         return () => {
@@ -58,6 +80,19 @@ function PokerTable(init_state: ClientState) {
 
     if (!state) {
         return <div>Loading...</div>
+    }
+
+
+    if (canvas) {
+        canvas.clearRect(0, 0, canvas_width, canvas_height)
+        canvas.save();
+        canvas.scale(scaleX, scaleY);
+        canvas.beginPath();
+        canvas.arc(descaledX, descaledY, radius, 0, Math.PI * 2);
+        canvas.strokeStyle = 'green';
+        canvas.lineWidth = 10;
+        canvas.stroke();
+        canvas.restore();
     }
 
     const playerPositions = calculatePlayerPositionsFromCanvas(radius, centerX, centerY, scaleX, scaleY);
@@ -82,10 +117,10 @@ function PokerTable(init_state: ClientState) {
 
     }
     const players = center_players_by_self(state);
-
+    const players_amount = 9;
     if (canvas) {
         let button_player_index = get_index_by_player_id(players, state.currButtonId);
-        let step = Math.PI * 2 / 9;
+        let step = Math.PI * 2 / players_amount;
         let angle = step * button_player_index + Math.PI / 2;
         let x = centerX + Math.cos(angle) * (radius - 40) * scaleX;
         let y = centerY + Math.sin(angle) * (radius - 40) * scaleY;
@@ -95,17 +130,23 @@ function PokerTable(init_state: ClientState) {
     const selfPlayer = players[0];
 
 
-    const players_amount = 9;
 
-    players.forEach((p, index) => {
-        if (canvas) {
-            if ((p.action?.bet ?? 0) > 0) {
-                const angle = ((2 * Math.PI) * index) / players_amount + Math.PI / 2;
-                drawChips(descaledX, descaledY, p.action!.bet, angle, canvas);
-            }
-        }
-        
-    })
+
+    if (canvas) {
+        betHistory.betHistoryMap.forEach((bet, playerId) => {
+            let index = get_index_by_player_id(players, playerId);
+            const angle = ((2 * Math.PI) / players_amount) * index + Math.PI / 2;
+
+            drawChips(centerX, centerY, bet, angle, canvas);
+        })
+    }
+
+    if (betHistory.bank_on_curr_street > 0 && canvas) {
+        const angle = Math.PI / 2;
+        drawChips(centerX, centerY, betHistory.bank_on_curr_street, angle, canvas, 50)
+    }
+
+
     return (
         <div style={{ position: 'relative', marginLeft: '200px' }}>
             {playerPositions.map((position, index) => (
@@ -164,7 +205,7 @@ function PokerTable(init_state: ClientState) {
                     ) : null}
                 </div>
             ))}
-            <div style={{ position: 'absolute', top: descaledY, left: descaledX, display: 'flex' }}>
+            <div style={{ position: 'absolute', top: descaledY - 50, left: descaledX, display: 'flex' }}>
                 {state?.street?.cards.map(({ suit, value }) => {
                     return <PokerCard cardSuit={suit} cardValue={value} />
                 })}
@@ -177,6 +218,51 @@ function PokerTable(init_state: ClientState) {
     );
 }
 
+
+
+
+function calculateBankSpot(betHistory: Map<number, number>): number {
+    let spot = Array.from(betHistory.values()).reduce((p, k) => p + k, 0);
+    return spot;
+}
+
+
+function processBetHistoryState(newState: ClientState, oldState: ClientState, betHistory: BetHistory): BetHistory {
+    if (newState.street?.streetStatus !== oldState.street?.streetStatus) {
+        if (newState.street?.streetStatus === StreetStatus.Preflop) {
+            betHistory.betHistoryMap.clear();
+
+            const bigIndex = get_index_by_player_id(newState.players, newState.currBigBlindId);
+            const smallIndex = get_index_by_player_id(newState.players, newState.currSmallBlindId);
+
+            if (smallIndex !== -1) {
+                betHistory.betHistoryMap.set(newState.currSmallBlindId, newState.players[smallIndex].action!.bet);
+            }
+            if (bigIndex !== -1) {
+                betHistory.betHistoryMap.set(newState.currBigBlindId, newState.players[bigIndex].action!.bet);
+            }
+            betHistory.bank_on_curr_street = 0;
+            return betHistory;
+        }
+        let currBank = calculateBankSpot(betHistory.betHistoryMap);
+        betHistory.betHistoryMap.clear();
+        betHistory.bank_on_curr_street = currBank;
+        return betHistory;
+    }
+
+    let index = get_index_by_player_id(newState.players, oldState.currPlayerId);
+    let player = newState.players[index];
+    if (player.action?.actionType == ActionType.Call || player.action?.actionType == ActionType.Raise) {
+
+        if (betHistory.betHistoryMap.has(player.userId)) {
+            let el = betHistory.betHistoryMap.get(player.userId);
+            betHistory.betHistoryMap.set(player.userId, el! + (player.action?.bet ?? 0));
+        } else {
+            betHistory.betHistoryMap.set(player.userId, player.action?.bet ?? 0);
+        }
+    }
+    return betHistory;
+}
 
 
 function center_players_by_self(state: ClientState): Player[] {
@@ -197,7 +283,7 @@ function get_index_by_player_id(players: Player[], id: number): number {
 function drawButton(x: number, y: number, ctx: CanvasRenderingContext2D, rad: number = 10) {
     const shadowColor = '#D5B60A';
     const buttonColor = '#FFCC00 ';
-    ctx.restore();
+
     ctx.beginPath();
     ctx.save();
     ctx.scale(1.1, 0.8)
@@ -231,11 +317,12 @@ function drawButton(x: number, y: number, ctx: CanvasRenderingContext2D, rad: nu
 
 
     ctx.closePath();
+    ctx.restore();
 }
 
-function drawChips(centerX: number, centerY: number, points: number, angle: number, ctx: CanvasRenderingContext2D) {
-    const x = centerX + Math.cos(angle) * 150;
-    const y = centerY + Math.sin(angle) * 150;
+function drawChips(centerX: number, centerY: number, points: number, angle: number, ctx: CanvasRenderingContext2D, radius = 120) {
+    const x = centerX + Math.cos(angle) * radius * 1.7;
+    const y = centerY + Math.sin(angle) * radius * 1.2;
     // TODO: parse points into digit groups and draw them accordingly 
     drawChip(x, y, ctx);
     drawChip(x, y - 3, ctx);

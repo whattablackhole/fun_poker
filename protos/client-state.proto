@@ -26,12 +26,15 @@ message Street {
 message ClientState {
     int32 player_id = 1;
     card.CardPair cards = 2;
-    int32 next_player_id = 3;
-    int32 lobby_id = 4;
-    Street street = 5;
-    GameStatus game_status = 6;
-    repeated player.Player players = 7;
-    repeated player.Player latest_winners = 8;
-    int32 min_amount_to_call = 9;
-    int32 min_amount_to_raise = 10;
+    int32 curr_player_id = 3;
+    int32 curr_button_id = 4;
+    int32 curr_small_blind_id = 5;
+    int32 curr_big_blind_id = 6;
+    int32 lobby_id = 7;
+    Street street = 8;
+    GameStatus game_status = 9;
+    repeated player.Player players = 10;
+    repeated player.Player latest_winners = 11;
+    int32 min_amount_to_call = 12;
+    int32 min_amount_to_raise = 13;
 }
