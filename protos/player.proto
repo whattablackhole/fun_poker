@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package player;
 
-import "protos/card.proto";
+import "card.proto";
 
 message Player {
     string user_name = 1;

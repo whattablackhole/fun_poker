@@ -2,8 +2,8 @@ syntax = "proto3";
 
 package client_state; 
 
-import "protos/player.proto";
-import "protos/card.proto";
+import "player.proto";
+import "card.proto";
 
 enum StreetStatus {
     Preflop = 0;
