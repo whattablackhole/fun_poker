@@ -226,6 +226,20 @@ function calculateBankSpot(betHistory: Map<number, number>): number {
     return spot;
 }
 
+function calculateLastPlayerAction(newState: ClientState, oldState: ClientState, betHistory: BetHistory) {
+    let index = get_index_by_player_id(newState.players, oldState.currPlayerId);
+    let player = newState.players[index];
+    if (player.action?.actionType == ActionType.Call || player.action?.actionType == ActionType.Raise) {
+
+        if (betHistory.betHistoryMap.has(player.userId)) {
+            let el = betHistory.betHistoryMap.get(player.userId);
+            betHistory.betHistoryMap.set(player.userId, el! + (player.action?.bet ?? 0));
+        } else {
+            betHistory.betHistoryMap.set(player.userId, player.action?.bet ?? 0);
+        }
+    }
+}
+
 
 function processBetHistoryState(newState: ClientState, oldState: ClientState, betHistory: BetHistory): BetHistory {
     if (newState.street?.streetStatus !== oldState.street?.streetStatus) {
@@ -244,23 +258,14 @@ function processBetHistoryState(newState: ClientState, oldState: ClientState, be
             betHistory.bank_on_curr_street = 0;
             return betHistory;
         }
+        calculateLastPlayerAction(newState, oldState, betHistory);
         let currBank = calculateBankSpot(betHistory.betHistoryMap);
         betHistory.betHistoryMap.clear();
         betHistory.bank_on_curr_street = currBank;
         return betHistory;
     }
 
-    let index = get_index_by_player_id(newState.players, oldState.currPlayerId);
-    let player = newState.players[index];
-    if (player.action?.actionType == ActionType.Call || player.action?.actionType == ActionType.Raise) {
-
-        if (betHistory.betHistoryMap.has(player.userId)) {
-            let el = betHistory.betHistoryMap.get(player.userId);
-            betHistory.betHistoryMap.set(player.userId, el! + (player.action?.bet ?? 0));
-        } else {
-            betHistory.betHistoryMap.set(player.userId, player.action?.bet ?? 0);
-        }
-    }
+    calculateLastPlayerAction(newState, oldState, betHistory);
     return betHistory;
 }
 

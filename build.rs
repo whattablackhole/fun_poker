@@ -1,6 +1,5 @@
 use std::io::Result;
 use std::fs;
-use std::path::Path;
 use prost_build::Config;
 
 fn main() -> Result<()> {

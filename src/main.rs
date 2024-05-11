@@ -1,21 +1,23 @@
 use fun_poker::{
     dealer::Dealer,
     protos::{
-        self,
         client_request::JoinLobbyRequest,
         player::{Player, PlayerPayload},
         user::User,
     },
     socket_pool::{DealerPool, PlayerChannelClient},
     ThreadPool,
+    postgres_database::PostgresDatabase, socket_pool::LobbySocketPool
 };
-use fun_poker::{postgres_database::PostgresDatabase, socket_pool::LobbySocketPool};
+
 use prost::Message;
-use std::sync::Arc;
+
 use std::{
+    sync::Arc,
     io::{prelude::*, BufReader},
     net::{TcpListener, TcpStream},
 };
+
 use tungstenite::{accept, Message as TMessage};
 trait EncodableMessage {
     fn encode_message(&self) -> Vec<u8>;

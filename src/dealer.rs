@@ -42,6 +42,7 @@ impl PlayerState {
     }
 
     fn set_up_blinds(&mut self, small_blind_index: i32, big_blind_index: i32, blind_size: i32) {
+        // fix if blinds are bigger than players bank
         let player = &mut self.players[small_blind_index as usize];
         let small_blind_size = blind_size / 2;
         player.bet_in_current_seed += small_blind_size;
@@ -83,6 +84,7 @@ impl DeckState {
 }
 struct GameState {
     status: GameStatus,
+    // might not need
     last_bet_action: PlayerAction,
     street: Street,
     game_bank: i32,
@@ -365,13 +367,18 @@ impl Dealer {
                 .bet_in_current_seed
                 - p.bet_in_current_seed
         } else {
-            (self.game_state.big_blind - p.bet_in_current_seed).max(0)
+            // we can't use big blind value here as players bank amount can be less than big blind
+            (self.game_state.biggest_bet_on_curr_street - p.bet_in_current_seed).max(0)
         }
     }
 
-    fn calculate_min_raise(&self) -> i32 {
+    fn calculate_min_raise(&self, p: &Player) -> i32 {
+        // do we need to return player's bank if he cannot afford min raise?
+        // 1. his bank < min raise && his bank < curr_biggest_bet = it's not a raise but allin  call
+        // 2. his bank < min raise && his bank > curr_biggest_bet = valid raise all in
+        // let min_raise = self.game_state.biggest_bet_on_curr_street + self.game_state.raise_amount;
+        // if min_raise > p.bank { p.bank } else { min_raise }
         if self.game_state.raiser_index.is_some() {
-            // maybe hold this sum as a field on state as min_raise
             return self.game_state.biggest_bet_on_curr_street + self.game_state.raise_amount;
         } else {
             return if self.game_state.street.street_status() == StreetStatus::Preflop {
@@ -436,7 +443,8 @@ impl Dealer {
                     player_id: p.user_id,
                     cards: p.cards.clone(),
                     min_amount_to_call: self.calculate_min_call(p),
-                    min_amount_to_raise: self.calculate_min_raise(),
+                    min_amount_to_raise: self.calculate_min_raise(p),
+                    can_raise: self.can_raise(p),
                     players: filtered_players.clone(),
                     game_status: self.game_state.status.into(),
                     curr_player_id: self
@@ -594,9 +602,10 @@ impl Dealer {
             ActionType::Raise => {
                 self.process_raise_action(payload.player_id, payload.action.unwrap().bet);
             }
-            ActionType::Empty => println!("Empty"),
-            ActionType::Blind => println!("Blind"),
+            _ => println!("Illegal move!"),
         }
+        // TODO:
+        // if only one or less players left with money process game cycle automatically
 
         let last_active = self
             .game_state
@@ -641,7 +650,7 @@ impl Dealer {
     }
 
     fn process_call_action(&mut self, player_id: i32, bet_amount: i32) {
-        // TODO: Refactor repeated code
+        // TODO: Refactor repeated code using RefCell?
         let min_call = {
             let player = self
                 .player_state
@@ -690,6 +699,26 @@ impl Dealer {
         self.game_state.game_bank += bet_amount;
     }
 
+    fn is_all_in(player: &Player, bet_amount: i32) -> bool {
+        player.bank == bet_amount
+    }
+
+    // If a player decides to go "all in" by betting all of their chips,
+    // but their bet is smaller than the minimum raise allowed,
+    // but bigger than the last biggest bet made by another player,
+    // then the players who have already placed bets before them cannot raise again unless
+    // there's another player who raises after the all-in bet.
+    fn can_raise(&self, player: &Player) -> bool {
+        if let Some(index) = self.game_state.raiser_index {
+            let raiser_bank = self.player_state.players[index as usize].bank;
+            return raiser_bank != 0
+                || raiser_bank == 0
+                    && player.action.as_ref().unwrap().action_type() == ActionType::Empty;
+        }
+        // untrusted condition for now
+        player.bank > self.game_state.biggest_bet_on_curr_street
+    }
+
     fn process_raise_action(&mut self, player_id: i32, bet_amount: i32) {
         if let Some(index) = self
             .player_state
@@ -697,16 +726,24 @@ impl Dealer {
             .iter()
             .position(|p| p.user_id == player_id)
         {
-            let valid_min_raise = self.calculate_min_raise();
+            let player: &Player = &self.player_state.players[index];
 
-            if bet_amount < valid_min_raise {
-                println!("Player raise amount is not valid");
+            let valid_min_raise = self.calculate_min_raise(player);
+
+            let bet_is_all_in = Dealer::is_all_in(player, bet_amount);
+
+            if self.can_raise(player) == false {
+                println!("Player not eligable to raise");
                 return;
             }
 
-            self.game_state.raiser_index = Some(index as i32);
-
-            let player: &mut Player = &mut self.player_state.players[index];
+            if bet_amount < valid_min_raise
+                && (bet_is_all_in == false
+                    && bet_amount < self.game_state.biggest_bet_on_curr_street)
+            {
+                println!("Player raise amount is not valid");
+                return;
+            }
 
             if player.action.as_ref().unwrap().action_type == ActionType::Fold.into() {
                 println!("Player has folded already and cannot raise");
@@ -717,6 +754,10 @@ impl Dealer {
                 println!("Player does not have enough points!");
                 return;
             }
+
+            let player = &mut self.player_state.players[index];
+
+            self.game_state.raiser_index = Some(index as i32);
 
             player.bet_in_current_seed += bet_amount;
             player.bank -= bet_amount;

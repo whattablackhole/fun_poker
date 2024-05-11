@@ -77,6 +77,8 @@ export interface PlayerAction {
     bet: number;
 }
 /**
+ * remove last two??
+ *
  * @generated from protobuf enum player.ActionType
  */
 export enum ActionType {
@@ -93,9 +95,13 @@ export enum ActionType {
      */
     Raise = 2,
     /**
-     * @generated from protobuf enum value: Empty = 3;
+     * @generated from protobuf enum value: Blind = 3;
      */
-    Empty = 3
+    Blind = 3,
+    /**
+     * @generated from protobuf enum value: Empty = 4;
+     */
+    Empty = 4
 }
 // @generated message type with reflection information, may provide speed optimized methods
 class Player$Type extends MessageType<Player> {

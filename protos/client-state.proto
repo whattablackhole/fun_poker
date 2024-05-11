@@ -37,4 +37,5 @@ message ClientState {
     repeated player.Player latest_winners = 11;
     int32 min_amount_to_call = 12;
     int32 min_amount_to_raise = 13;
+    bool can_raise = 14;
 }

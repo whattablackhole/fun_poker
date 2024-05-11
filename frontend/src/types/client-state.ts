@@ -82,6 +82,10 @@ export interface ClientState {
      * @generated from protobuf field: int32 min_amount_to_raise = 13;
      */
     minAmountToRaise: number;
+    /**
+     * @generated from protobuf field: bool can_raise = 14;
+     */
+    canRaise: boolean;
 }
 /**
  * @generated from protobuf enum client_state.StreetStatus
@@ -192,7 +196,8 @@ class ClientState$Type extends MessageType<ClientState> {
             { no: 10, name: "players", kind: "message", repeat: 1 /*RepeatType.PACKED*/, T: () => Player },
             { no: 11, name: "latest_winners", kind: "message", repeat: 1 /*RepeatType.PACKED*/, T: () => Player },
             { no: 12, name: "min_amount_to_call", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
-            { no: 13, name: "min_amount_to_raise", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+            { no: 13, name: "min_amount_to_raise", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 14, name: "can_raise", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
         ]);
     }
     create(value?: PartialMessage<ClientState>): ClientState {
@@ -208,6 +213,7 @@ class ClientState$Type extends MessageType<ClientState> {
         message.latestWinners = [];
         message.minAmountToCall = 0;
         message.minAmountToRaise = 0;
+        message.canRaise = false;
         if (value !== undefined)
             reflectionMergePartial<ClientState>(this, message, value);
         return message;
@@ -255,6 +261,9 @@ class ClientState$Type extends MessageType<ClientState> {
                     break;
                 case /* int32 min_amount_to_raise */ 13:
                     message.minAmountToRaise = reader.int32();
+                    break;
+                case /* bool can_raise */ 14:
+                    message.canRaise = reader.bool();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -307,6 +316,9 @@ class ClientState$Type extends MessageType<ClientState> {
         /* int32 min_amount_to_raise = 13; */
         if (message.minAmountToRaise !== 0)
             writer.tag(13, WireType.Varint).int32(message.minAmountToRaise);
+        /* bool can_raise = 14; */
+        if (message.canRaise !== false)
+            writer.tag(14, WireType.Varint).bool(message.canRaise);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);

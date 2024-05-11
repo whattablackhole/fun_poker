@@ -36,6 +36,8 @@ pub struct ClientState {
     pub min_amount_to_call: i32,
     #[prost(int32, tag = "13")]
     pub min_amount_to_raise: i32,
+    #[prost(bool, tag = "14")]
+    pub can_raise: bool,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
