@@ -71,13 +71,13 @@ export interface ClientState {
      */
     players: Player[];
     /**
-     * @generated from protobuf field: repeated player.Player latest_winners = 11;
+     * @generated from protobuf field: optional client_state.ShowdownOutcome showdown_outcome = 11;
      */
-    latestWinners: Player[];
+    showdownOutcome?: ShowdownOutcome;
     /**
-     * @generated from protobuf field: int32 min_amount_to_call = 12;
+     * @generated from protobuf field: int32 amount_to_call = 12;
      */
-    minAmountToCall: number;
+    amountToCall: number;
     /**
      * @generated from protobuf field: int32 min_amount_to_raise = 13;
      */
@@ -86,6 +86,49 @@ export interface ClientState {
      * @generated from protobuf field: bool can_raise = 14;
      */
     canRaise: boolean;
+}
+/**
+ * @generated from protobuf message client_state.Winner
+ */
+export interface Winner {
+    /**
+     * @generated from protobuf field: int32 player_id = 1;
+     */
+    playerId: number;
+    /**
+     * @generated from protobuf field: int32 win_amout = 2;
+     */
+    winAmout: number;
+}
+/**
+ * @generated from protobuf message client_state.ShowdownOutcome
+ */
+export interface ShowdownOutcome {
+    /**
+     * @generated from protobuf field: client_state.Street streetHistory = 1;
+     */
+    streetHistory?: Street;
+    /**
+     * @generated from protobuf field: repeated client_state.Winner winners = 2;
+     */
+    winners: Winner[];
+    /**
+     * @generated from protobuf field: repeated client_state.PlayerCards players_cards = 3;
+     */
+    playersCards: PlayerCards[];
+}
+/**
+ * @generated from protobuf message client_state.PlayerCards
+ */
+export interface PlayerCards {
+    /**
+     * @generated from protobuf field: int32 player_id = 1;
+     */
+    playerId: number;
+    /**
+     * @generated from protobuf field: card.CardPair cards = 2;
+     */
+    cards?: CardPair;
 }
 /**
  * @generated from protobuf enum client_state.StreetStatus
@@ -194,8 +237,8 @@ class ClientState$Type extends MessageType<ClientState> {
             { no: 8, name: "street", kind: "message", T: () => Street },
             { no: 9, name: "game_status", kind: "enum", T: () => ["client_state.GameStatus", GameStatus] },
             { no: 10, name: "players", kind: "message", repeat: 1 /*RepeatType.PACKED*/, T: () => Player },
-            { no: 11, name: "latest_winners", kind: "message", repeat: 1 /*RepeatType.PACKED*/, T: () => Player },
-            { no: 12, name: "min_amount_to_call", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 11, name: "showdown_outcome", kind: "message", T: () => ShowdownOutcome },
+            { no: 12, name: "amount_to_call", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
             { no: 13, name: "min_amount_to_raise", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
             { no: 14, name: "can_raise", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
         ]);
@@ -210,8 +253,7 @@ class ClientState$Type extends MessageType<ClientState> {
         message.lobbyId = 0;
         message.gameStatus = 0;
         message.players = [];
-        message.latestWinners = [];
-        message.minAmountToCall = 0;
+        message.amountToCall = 0;
         message.minAmountToRaise = 0;
         message.canRaise = false;
         if (value !== undefined)
@@ -253,11 +295,11 @@ class ClientState$Type extends MessageType<ClientState> {
                 case /* repeated player.Player players */ 10:
                     message.players.push(Player.internalBinaryRead(reader, reader.uint32(), options));
                     break;
-                case /* repeated player.Player latest_winners */ 11:
-                    message.latestWinners.push(Player.internalBinaryRead(reader, reader.uint32(), options));
+                case /* optional client_state.ShowdownOutcome showdown_outcome */ 11:
+                    message.showdownOutcome = ShowdownOutcome.internalBinaryRead(reader, reader.uint32(), options, message.showdownOutcome);
                     break;
-                case /* int32 min_amount_to_call */ 12:
-                    message.minAmountToCall = reader.int32();
+                case /* int32 amount_to_call */ 12:
+                    message.amountToCall = reader.int32();
                     break;
                 case /* int32 min_amount_to_raise */ 13:
                     message.minAmountToRaise = reader.int32();
@@ -307,12 +349,12 @@ class ClientState$Type extends MessageType<ClientState> {
         /* repeated player.Player players = 10; */
         for (let i = 0; i < message.players.length; i++)
             Player.internalBinaryWrite(message.players[i], writer.tag(10, WireType.LengthDelimited).fork(), options).join();
-        /* repeated player.Player latest_winners = 11; */
-        for (let i = 0; i < message.latestWinners.length; i++)
-            Player.internalBinaryWrite(message.latestWinners[i], writer.tag(11, WireType.LengthDelimited).fork(), options).join();
-        /* int32 min_amount_to_call = 12; */
-        if (message.minAmountToCall !== 0)
-            writer.tag(12, WireType.Varint).int32(message.minAmountToCall);
+        /* optional client_state.ShowdownOutcome showdown_outcome = 11; */
+        if (message.showdownOutcome)
+            ShowdownOutcome.internalBinaryWrite(message.showdownOutcome, writer.tag(11, WireType.LengthDelimited).fork(), options).join();
+        /* int32 amount_to_call = 12; */
+        if (message.amountToCall !== 0)
+            writer.tag(12, WireType.Varint).int32(message.amountToCall);
         /* int32 min_amount_to_raise = 13; */
         if (message.minAmountToRaise !== 0)
             writer.tag(13, WireType.Varint).int32(message.minAmountToRaise);
@@ -329,3 +371,174 @@ class ClientState$Type extends MessageType<ClientState> {
  * @generated MessageType for protobuf message client_state.ClientState
  */
 export const ClientState = new ClientState$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class Winner$Type extends MessageType<Winner> {
+    constructor() {
+        super("client_state.Winner", [
+            { no: 1, name: "player_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "win_amout", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<Winner>): Winner {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.playerId = 0;
+        message.winAmout = 0;
+        if (value !== undefined)
+            reflectionMergePartial<Winner>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: Winner): Winner {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 player_id */ 1:
+                    message.playerId = reader.int32();
+                    break;
+                case /* int32 win_amout */ 2:
+                    message.winAmout = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: Winner, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 player_id = 1; */
+        if (message.playerId !== 0)
+            writer.tag(1, WireType.Varint).int32(message.playerId);
+        /* int32 win_amout = 2; */
+        if (message.winAmout !== 0)
+            writer.tag(2, WireType.Varint).int32(message.winAmout);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message client_state.Winner
+ */
+export const Winner = new Winner$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class ShowdownOutcome$Type extends MessageType<ShowdownOutcome> {
+    constructor() {
+        super("client_state.ShowdownOutcome", [
+            { no: 1, name: "streetHistory", kind: "message", T: () => Street },
+            { no: 2, name: "winners", kind: "message", repeat: 1 /*RepeatType.PACKED*/, T: () => Winner },
+            { no: 3, name: "players_cards", kind: "message", repeat: 1 /*RepeatType.PACKED*/, T: () => PlayerCards }
+        ]);
+    }
+    create(value?: PartialMessage<ShowdownOutcome>): ShowdownOutcome {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.winners = [];
+        message.playersCards = [];
+        if (value !== undefined)
+            reflectionMergePartial<ShowdownOutcome>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: ShowdownOutcome): ShowdownOutcome {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* client_state.Street streetHistory */ 1:
+                    message.streetHistory = Street.internalBinaryRead(reader, reader.uint32(), options, message.streetHistory);
+                    break;
+                case /* repeated client_state.Winner winners */ 2:
+                    message.winners.push(Winner.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                case /* repeated client_state.PlayerCards players_cards */ 3:
+                    message.playersCards.push(PlayerCards.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: ShowdownOutcome, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* client_state.Street streetHistory = 1; */
+        if (message.streetHistory)
+            Street.internalBinaryWrite(message.streetHistory, writer.tag(1, WireType.LengthDelimited).fork(), options).join();
+        /* repeated client_state.Winner winners = 2; */
+        for (let i = 0; i < message.winners.length; i++)
+            Winner.internalBinaryWrite(message.winners[i], writer.tag(2, WireType.LengthDelimited).fork(), options).join();
+        /* repeated client_state.PlayerCards players_cards = 3; */
+        for (let i = 0; i < message.playersCards.length; i++)
+            PlayerCards.internalBinaryWrite(message.playersCards[i], writer.tag(3, WireType.LengthDelimited).fork(), options).join();
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message client_state.ShowdownOutcome
+ */
+export const ShowdownOutcome = new ShowdownOutcome$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class PlayerCards$Type extends MessageType<PlayerCards> {
+    constructor() {
+        super("client_state.PlayerCards", [
+            { no: 1, name: "player_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "cards", kind: "message", T: () => CardPair }
+        ]);
+    }
+    create(value?: PartialMessage<PlayerCards>): PlayerCards {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.playerId = 0;
+        if (value !== undefined)
+            reflectionMergePartial<PlayerCards>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: PlayerCards): PlayerCards {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 player_id */ 1:
+                    message.playerId = reader.int32();
+                    break;
+                case /* card.CardPair cards */ 2:
+                    message.cards = CardPair.internalBinaryRead(reader, reader.uint32(), options, message.cards);
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: PlayerCards, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 player_id = 1; */
+        if (message.playerId !== 0)
+            writer.tag(1, WireType.Varint).int32(message.playerId);
+        /* card.CardPair cards = 2; */
+        if (message.cards)
+            CardPair.internalBinaryWrite(message.cards, writer.tag(2, WireType.LengthDelimited).fork(), options).join();
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message client_state.PlayerCards
+ */
+export const PlayerCards = new PlayerCards$Type();

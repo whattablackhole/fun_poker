@@ -1,7 +1,7 @@
 import { MouseEvent, RefObject, useEffect, useRef, useState, } from 'react';
 import PokerCard from '../poker_card/poker-card.tsx';
 import { ClientState, StreetStatus } from '../../types/client-state.ts';
-import { CardValue } from '../../types/card.ts';
+import { Card, CardValue } from '../../types/card.ts';
 import ApiService from '../../services/api.service.ts';
 import { ActionType, Player, PlayerPayload } from '../../types/player.ts';
 import TimerBanner from '../timer_banner/timer-banner.tsx';
@@ -19,6 +19,11 @@ function PokerTable(init_state: ClientState) {
     const canvasRef: RefObject<HTMLCanvasElement> = useRef(null);
     const betInputRef: RefObject<HTMLInputElement> = useRef(null);
     const [state, setState] = useState(init_state);
+    // TODO: make readonly
+    const stateRef = useRef(state);
+
+
+    const [boardCards, setBoardCards] = useState(init_state.street?.cards);
     const [betHistory, setBetHistory] = useState<BetHistory>(() => {
         const initialBetHistory: BetHistoryMap = new Map<number, number>();
         const bigIndex = get_index_by_player_id(init_state.players, init_state.currBigBlindId);
@@ -45,6 +50,16 @@ function PokerTable(init_state: ClientState) {
     let descaledX = centerX / scaleX;
     let descaledY = centerY / scaleY;
 
+    const betClickHandler = (event: MouseEvent<HTMLButtonElement, globalThis.MouseEvent>, action: ActionType) => {
+        event.preventDefault(); // Prevent default button behavior
+        nextStepHandler(action);
+    };
+    const nextStepHandler = (type: ActionType) => {
+        let value = Number.parseInt(!!betInputRef.current?.value.length ? betInputRef.current?.value : "0");
+        let payload = PlayerPayload.create({ action: { actionType: type, bet: value }, lobbyId: state.lobbyId, playerId: state.playerId });
+
+        ApiService.sendMessage(payload);
+    }
     useEffect(() => {
         const canvas: HTMLCanvasElement = canvasRef.current as HTMLCanvasElement;
 
@@ -58,19 +73,13 @@ function PokerTable(init_state: ClientState) {
             console.error("canvas is null", canvas)
         }
 
-        let subscription = ApiService.clientStateObserver.subscribe((newState: ClientState) => {
+        let subscription = ApiService.clientStateObserver.subscribe(async (newState: ClientState) => {
             console.log(newState);
-            if (newState.latestWinners.some((w) => w.userId === newState.playerId)) {
-                console.log("You won this!");
-            }
 
-            setState(prevState => {
-                const processedHistory = processBetHistoryState(newState, prevState, betHistory);
+            await processNewState(newState, stateRef.current, setBoardCards, setBetHistory, betHistory);
+            setState(newState);
 
-                setBetHistory(processedHistory);
 
-                return newState;
-            });
         })
 
         return () => {
@@ -81,7 +90,6 @@ function PokerTable(init_state: ClientState) {
     if (!state) {
         return <div>Loading...</div>
     }
-
 
     if (canvas) {
         canvas.clearRect(0, 0, canvas_width, canvas_height)
@@ -105,19 +113,10 @@ function PokerTable(init_state: ClientState) {
         { suit: 0, value: CardValue.Ace },
         { suit: 0, value: CardValue.Queen }
     ];
-    const betClickHandler = (event: MouseEvent<HTMLButtonElement, globalThis.MouseEvent>, action: ActionType) => {
-        event.preventDefault(); // Prevent default button behavior
-        nextStepHandler(action);
-    };
-    const nextStepHandler = (type: ActionType) => {
-        let value = Number.parseInt(!!betInputRef.current?.value.length ? betInputRef.current?.value : "0");
-        let payload = PlayerPayload.create({ action: { actionType: type, bet: value }, lobbyId: state.lobbyId, playerId: state.playerId });
 
-        ApiService.sendMessage(payload);
-
-    }
     const players = center_players_by_self(state);
     const players_amount = 9;
+
     if (canvas) {
         let button_player_index = get_index_by_player_id(players, state.currButtonId);
         let step = Math.PI * 2 / players_amount;
@@ -128,7 +127,6 @@ function PokerTable(init_state: ClientState) {
     }
 
     const selfPlayer = players[0];
-
 
 
 
@@ -206,7 +204,7 @@ function PokerTable(init_state: ClientState) {
                 </div>
             ))}
             <div style={{ position: 'absolute', top: descaledY - 50, left: descaledX, display: 'flex' }}>
-                {state?.street?.cards.map(({ suit, value }) => {
+                {boardCards?.map(({ suit, value }) => {
                     return <PokerCard cardSuit={suit} cardValue={value} />
                 })}
             </div>
@@ -220,10 +218,45 @@ function PokerTable(init_state: ClientState) {
 
 
 
-
 function calculateBankSpot(betHistory: Map<number, number>): number {
     let spot = Array.from(betHistory.values()).reduce((p, k) => p + k, 0);
     return spot;
+}
+
+async function processNewState(newState: ClientState, prevState: ClientState, setBoardCards: React.Dispatch<React.SetStateAction<Card[] | undefined>>, setBetHistory: React.Dispatch<React.SetStateAction<BetHistory>>, betHistory: BetHistory) {
+    if (!!newState.showdownOutcome) {
+        //TODO: bethistory update
+        await animateShowdown(newState, prevState, setBoardCards);
+    }
+
+    const processedHistory = processBetHistoryState(newState, prevState, betHistory);
+
+    setBetHistory(processedHistory);
+    setBoardCards(newState.street?.cards);
+    return newState;
+}
+
+async function animateShowdown(newState: ClientState, prevState: ClientState, setBoardCards: React.Dispatch<React.SetStateAction<Card[] | undefined>>) {
+    const startIndex = prevState.street?.cards.length ?? 0;
+    if (newState.showdownOutcome) {
+        let cardsToShow = newState.showdownOutcome.streetHistory!.cards.slice(startIndex);
+        let currBoardCards = prevState.street?.cards ?? [];
+        for (let c of cardsToShow) {
+            currBoardCards.push(c);
+            await setBoardCardsWithDelay(1000, setBoardCards, currBoardCards);
+
+        }
+        await new Promise(resolve => setTimeout(resolve, 3000))
+    }
+}
+
+async function setBoardCardsWithDelay(delay: number, setBoardCards: React.Dispatch<React.SetStateAction<Card[] | undefined>>, cards: Card[]) {
+    return new Promise((resolve) => {
+        setTimeout(() => {
+            setBoardCards([...cards]);
+            resolve(undefined);
+        }, delay)
+    })
 }
 
 function calculateLastPlayerAction(newState: ClientState, oldState: ClientState, betHistory: BetHistory) {
@@ -242,7 +275,9 @@ function calculateLastPlayerAction(newState: ClientState, oldState: ClientState,
 
 
 function processBetHistoryState(newState: ClientState, oldState: ClientState, betHistory: BetHistory): BetHistory {
-    if (newState.street?.streetStatus !== oldState.street?.streetStatus) {
+    // if curr and next street is preflop then we use showdown value presence
+    // TODO: make checking next street more obvious
+    if (newState.street?.streetStatus !== oldState.street?.streetStatus || newState.showdownOutcome) {
         if (newState.street?.streetStatus === StreetStatus.Preflop) {
             betHistory.betHistoryMap.clear();
 
