@@ -34,8 +34,24 @@ message ClientState {
     Street street = 8;
     GameStatus game_status = 9;
     repeated player.Player players = 10;
-    repeated player.Player latest_winners = 11;
-    int32 min_amount_to_call = 12;
+    optional ShowdownOutcome showdown_outcome = 11;
+    int32 amount_to_call = 12;
     int32 min_amount_to_raise = 13;
     bool can_raise = 14;
+}
+
+message Winner {
+    int32 player_id = 1;
+    int32 win_amout = 2;
+}
+
+message ShowdownOutcome {
+    Street streetHistory = 1;
+    repeated Winner winners = 2;
+    repeated PlayerCards players_cards = 3;
+}
+
+message PlayerCards {
+    int32 player_id = 1;
+    card.CardPair cards = 2; 
 }

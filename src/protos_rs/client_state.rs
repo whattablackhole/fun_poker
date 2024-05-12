@@ -30,14 +30,40 @@ pub struct ClientState {
     pub game_status: i32,
     #[prost(message, repeated, tag = "10")]
     pub players: ::prost::alloc::vec::Vec<super::player::Player>,
-    #[prost(message, repeated, tag = "11")]
-    pub latest_winners: ::prost::alloc::vec::Vec<super::player::Player>,
+    #[prost(message, optional, tag = "11")]
+    pub showdown_outcome: ::core::option::Option<ShowdownOutcome>,
     #[prost(int32, tag = "12")]
-    pub min_amount_to_call: i32,
+    pub amount_to_call: i32,
     #[prost(int32, tag = "13")]
     pub min_amount_to_raise: i32,
     #[prost(bool, tag = "14")]
     pub can_raise: bool,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Winner {
+    #[prost(int32, tag = "1")]
+    pub player_id: i32,
+    #[prost(int32, tag = "2")]
+    pub win_amout: i32,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ShowdownOutcome {
+    #[prost(message, optional, tag = "1")]
+    pub street_history: ::core::option::Option<Street>,
+    #[prost(message, repeated, tag = "2")]
+    pub winners: ::prost::alloc::vec::Vec<Winner>,
+    #[prost(message, repeated, tag = "3")]
+    pub players_cards: ::prost::alloc::vec::Vec<PlayerCards>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PlayerCards {
+    #[prost(int32, tag = "1")]
+    pub player_id: i32,
+    #[prost(message, optional, tag = "2")]
+    pub cards: ::core::option::Option<super::card::CardPair>,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
