@@ -9,7 +9,7 @@ pub struct Player {
     #[prost(string, tag = "3")]
     pub country: ::prost::alloc::string::String,
     #[prost(message, optional, tag = "4")]
-    pub action: ::core::option::Option<PlayerAction>,
+    pub action: ::core::option::Option<Action>,
     #[prost(int32, tag = "5")]
     pub bank: i32,
     #[prost(message, optional, tag = "6")]
@@ -25,16 +25,20 @@ pub struct PlayerPayload {
     #[prost(int32, tag = "2")]
     pub lobby_id: i32,
     #[prost(message, optional, tag = "3")]
-    pub action: ::core::option::Option<PlayerAction>,
+    pub action: ::core::option::Option<Action>,
 }
 /// ? INTRODUCE ACTION HISTORY ?
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct PlayerAction {
+pub struct Action {
     #[prost(enumeration = "ActionType", tag = "1")]
     pub action_type: i32,
     #[prost(int32, tag = "2")]
     pub bet: i32,
+    #[prost(int32, tag = "3")]
+    pub player_id: i32,
+    #[prost(enumeration = "super::game_state::StreetStatus", tag = "4")]
+    pub street_status: i32,
 }
 /// remove last two??
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]

@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package game_state;
+import "card.proto";
+
+enum StreetStatus {
+    Preflop = 0;
+    Flop = 1;
+    Turn = 2;
+    River = 3;
+  }
+
+  message Street {
+    StreetStatus street_status = 1;
+    repeated card.Card cards = 2;
+  }
+
+  enum GameStatus {
+    Pause = 0;
+    None = 1;
+    Active = 2;
+}
+
+
+message Winner {
+    int32 player_id = 1;
+    int32 win_amout = 2;
+}
+
+message PlayerCards {
+    int32 player_id = 1;
+    card.CardPair cards = 2; 
+}
+
+
+message ShowdownOutcome {
+    Street streetHistory = 1;
+    repeated Winner winners = 2;
+    repeated PlayerCards players_cards = 3;
+    bool process_flop_automatically = 4;
+}

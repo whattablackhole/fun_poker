@@ -1,21 +1,22 @@
 use fun_poker::{
     dealer::Dealer,
+    postgres_database::PostgresDatabase,
     protos::{
         client_request::JoinLobbyRequest,
         player::{Player, PlayerPayload},
         user::User,
     },
+    socket_pool::LobbySocketPool,
     socket_pool::{DealerPool, PlayerChannelClient},
     ThreadPool,
-    postgres_database::PostgresDatabase, socket_pool::LobbySocketPool
 };
 
 use prost::Message;
 
 use std::{
-    sync::Arc,
     io::{prelude::*, BufReader},
     net::{TcpListener, TcpStream},
+    sync::Arc,
 };
 
 use tungstenite::{accept, Message as TMessage};
@@ -135,17 +136,40 @@ fn handle_http_request(
 
         loop {
             //TODO: handle the cases where a client is not responding, or has closed the connection;
+            //TODO: use seperate messages for separated responses to decrease memory load and bandwidth
             let request: PlayerPayload =
                 socket_pool.read_client_message(dealer.get_next_player_id(), cur_lobby_id);
 
-            let game_state = dealer.update_game_state(request);
+            let updated_state = dealer.update_game_state(request);
+
+            socket_pool.update_clients(updated_state.client_states, cur_lobby_id);
+
+            let mut is_ready = updated_state.is_ready_for_next_hand;
+
+            if updated_state.should_complete_game_cycle_automatically {
+                let updated_state = dealer.complete_game_cycle_automatically();
+                socket_pool.update_clients(updated_state.client_states, cur_lobby_id);
+                is_ready = updated_state.is_ready_for_next_hand;
+            }
+
+            while (is_ready) {
+                let updated_state = dealer.setup_next_hand();
+
+                socket_pool.update_clients(updated_state.client_states, cur_lobby_id);
+
+                if updated_state.should_complete_game_cycle_automatically {
+                    let updated_state = dealer.complete_game_cycle_automatically();
+                    is_ready = updated_state.is_ready_for_next_hand;
+                    socket_pool.update_clients(updated_state.client_states, cur_lobby_id);
+                } else {
+                    is_ready = updated_state.is_ready_for_next_hand;
+                }
+            }
 
             // use dealer api instead
             // if game_state.game_status == GameStatus::None {
             //     break;
             // }
-
-            socket_pool.update_clients(game_state, cur_lobby_id);
         }
     }
 

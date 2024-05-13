@@ -1,16 +1,8 @@
 use crate::protos::{
-    player::{ActionType, Player, PlayerAction},
+    player::Player,
     user::User,
 };
 
-impl PlayerAction {
-    pub fn new() -> PlayerAction {
-        PlayerAction {
-            action_type: ActionType::Empty.into(),
-            bet: 0,
-        }
-    }
-}
 
 impl Player {
     // pass Settings with tournament settings
@@ -20,7 +12,7 @@ impl Player {
             .iter()
             .map(|u| {
                 Player {
-                    action: Some(PlayerAction::new()),
+                    action: None,
                     bank: 0,
                     country: u.country.clone(),
                     user_id: u.id,

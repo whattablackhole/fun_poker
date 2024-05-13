@@ -1,18 +1,21 @@
 import { MouseEvent, RefObject, useEffect, useRef, useState, } from 'react';
 import PokerCard from '../poker_card/poker-card.tsx';
-import { ClientState, StreetStatus } from '../../types/client-state.ts';
-import { Card, CardValue } from '../../types/card.ts';
+import { ClientState } from '../../types/client-state.ts';
+import { Card } from '../../types/card.ts';
 import ApiService from '../../services/api.service.ts';
 import { ActionType, Player, PlayerPayload } from '../../types/player.ts';
 import TimerBanner from '../timer_banner/timer-banner.tsx';
+import { StreetStatus } from '../../types/game_state.ts';
 
 type PlayerId = number;
 type BetAmount = number;
-type BetHistoryMap = Map<PlayerId, BetAmount>;
+
+type BetHistoryMap = Map<PlayerId, { [key in StreetStatus]: BetAmount }>;
 
 interface BetHistory {
-    bank_on_curr_street: number,
-    betHistoryMap: BetHistoryMap
+    bank_on_prev_street: number,
+    betHistoryMap: BetHistoryMap,
+    prevStreet?: StreetStatus
 }
 
 function PokerTable(init_state: ClientState) {
@@ -22,22 +25,9 @@ function PokerTable(init_state: ClientState) {
     // TODO: make readonly
     const stateRef = useRef(state);
 
-
     const [boardCards, setBoardCards] = useState(init_state.street?.cards);
-    const [betHistory, setBetHistory] = useState<BetHistory>(() => {
-        const initialBetHistory: BetHistoryMap = new Map<number, number>();
-        const bigIndex = get_index_by_player_id(init_state.players, init_state.currBigBlindId);
-        const smallIndex = get_index_by_player_id(init_state.players, init_state.currSmallBlindId);
-
-        if (smallIndex !== -1) {
-            initialBetHistory.set(init_state.currSmallBlindId, init_state.players[smallIndex].action!.bet);
-        }
-        if (bigIndex !== -1) {
-            initialBetHistory.set(init_state.currBigBlindId, init_state.players[bigIndex].action!.bet);
-        }
-
-        return { bank_on_curr_street: 0, betHistoryMap: initialBetHistory };
-    });
+    const [players, setPlayers] = useState(center_players_by_self(init_state));
+    const [betHistory, setBetHistory] = useState<BetHistory>(calculateBetHistory(init_state, { bank_on_prev_street: 0, betHistoryMap: new Map() }, false));
 
     const [canvas, setCanvas] = useState<CanvasRenderingContext2D | null>(null);
     let canvas_width = 1000;
@@ -76,9 +66,9 @@ function PokerTable(init_state: ClientState) {
         let subscription = ApiService.clientStateObserver.subscribe(async (newState: ClientState) => {
             console.log(newState);
 
-            await processNewState(newState, stateRef.current, setBoardCards, setBetHistory, betHistory);
+            await processNewState(newState, stateRef.current, setBoardCards, setBetHistory, setPlayers, betHistory);
             setState(newState);
-
+            stateRef.current = newState;
 
         })
 
@@ -91,6 +81,7 @@ function PokerTable(init_state: ClientState) {
         return <div>Loading...</div>
     }
 
+    // TODO: move to effect the code below
     if (canvas) {
         canvas.clearRect(0, 0, canvas_width, canvas_height)
         canvas.save();
@@ -105,16 +96,11 @@ function PokerTable(init_state: ClientState) {
 
     const playerPositions = calculatePlayerPositionsFromCanvas(radius, centerX, centerY, scaleX, scaleY);
 
-    // for debug purposes i mocking it if state empty;
-    let cards = state ? [
+    let cards = [
         state.cards!.card1!,
         state.cards!.card2!
-    ] : [
-        { suit: 0, value: CardValue.Ace },
-        { suit: 0, value: CardValue.Queen }
-    ];
+    ]
 
-    const players = center_players_by_self(state);
     const players_amount = 9;
 
     if (canvas) {
@@ -129,19 +115,22 @@ function PokerTable(init_state: ClientState) {
     const selfPlayer = players[0];
 
 
-
     if (canvas) {
-        betHistory.betHistoryMap.forEach((bet, playerId) => {
-            let index = get_index_by_player_id(players, playerId);
-            const angle = ((2 * Math.PI) / players_amount) * index + Math.PI / 2;
+        betHistory.betHistoryMap.forEach((history, playerId) => {
+            let amount = history[state.street!.streetStatus];
+            if (amount > 0) {
+                let index = get_index_by_player_id(players, playerId);
+                const angle = ((2 * Math.PI) / players_amount) * index + Math.PI / 2;
 
-            drawChips(centerX, centerY, bet, angle, canvas);
+                drawChips(centerX, centerY, amount, angle, canvas);
+            }
+
         })
     }
 
-    if (betHistory.bank_on_curr_street > 0 && canvas) {
+    if (betHistory.bank_on_prev_street > 0 && canvas) {
         const angle = Math.PI / 2;
-        drawChips(centerX, centerY, betHistory.bank_on_curr_street, angle, canvas, 50)
+        drawChips(centerX, centerY, betHistory.bank_on_prev_street, angle, canvas, 50)
     }
 
 
@@ -217,22 +206,37 @@ function PokerTable(init_state: ClientState) {
 }
 
 
+async function processNewState(newState: ClientState, prevState: ClientState, setBoardCards: React.Dispatch<React.SetStateAction<Card[] | undefined>>, setBetHistory: React.Dispatch<React.SetStateAction<BetHistory>>, setPlayers: React.Dispatch<React.SetStateAction<Player[]>>, betHistory: BetHistory) {
 
-function calculateBankSpot(betHistory: Map<number, number>): number {
-    let spot = Array.from(betHistory.values()).reduce((p, k) => p + k, 0);
-    return spot;
-}
+    // TODO: figure out how to set actual player banks on processFlopAutomatically
+    // maybe worth to do it on backend side in future
+    if (newState.showdownOutcome && newState.showdownOutcome.processFlopAutomatically) {
+        // newState contains updated banks after the cycle
+        // reimplement logic to escape hacks
+        let lastAction = newState.actionHistory[newState.actionHistory.length - 1];
+        let player = prevState.players.find((p) => p.userId === lastAction.playerId);
+        if (player) {
+            player.action = lastAction;
+            if (lastAction.actionType == ActionType.Call || lastAction.actionType == ActionType.Raise) {
+                if (player) {
+                    player.bank -= lastAction.bet;
+                }
+            }
+        }
 
-async function processNewState(newState: ClientState, prevState: ClientState, setBoardCards: React.Dispatch<React.SetStateAction<Card[] | undefined>>, setBetHistory: React.Dispatch<React.SetStateAction<BetHistory>>, betHistory: BetHistory) {
-    if (!!newState.showdownOutcome) {
-        //TODO: bethistory update
+        setPlayers(center_players_by_self(prevState));
+        const processedHistory = calculateBetHistory(newState, betHistory, true);
+        setBetHistory(processedHistory);
+
         await animateShowdown(newState, prevState, setBoardCards);
+    } else {
+        const processedHistory = calculateBetHistory(newState, betHistory, false);
+
+        setBetHistory(processedHistory);
+        setBoardCards(newState.street?.cards);
     }
+    setPlayers(center_players_by_self(newState));
 
-    const processedHistory = processBetHistoryState(newState, prevState, betHistory);
-
-    setBetHistory(processedHistory);
-    setBoardCards(newState.street?.cards);
     return newState;
 }
 
@@ -251,7 +255,7 @@ async function animateShowdown(newState: ClientState, prevState: ClientState, se
 }
 
 async function setBoardCardsWithDelay(delay: number, setBoardCards: React.Dispatch<React.SetStateAction<Card[] | undefined>>, cards: Card[]) {
-    return new Promise((resolve) => {
+    return await new Promise((resolve) => {
         setTimeout(() => {
             setBoardCards([...cards]);
             resolve(undefined);
@@ -259,49 +263,35 @@ async function setBoardCardsWithDelay(delay: number, setBoardCards: React.Dispat
     })
 }
 
-function calculateLastPlayerAction(newState: ClientState, oldState: ClientState, betHistory: BetHistory) {
-    let index = get_index_by_player_id(newState.players, oldState.currPlayerId);
-    let player = newState.players[index];
-    if (player.action?.actionType == ActionType.Call || player.action?.actionType == ActionType.Raise) {
-
-        if (betHistory.betHistoryMap.has(player.userId)) {
-            let el = betHistory.betHistoryMap.get(player.userId);
-            betHistory.betHistoryMap.set(player.userId, el! + (player.action?.bet ?? 0));
-        } else {
-            betHistory.betHistoryMap.set(player.userId, player.action?.bet ?? 0);
-        }
+function calculateBetHistory(newState: ClientState, betHistory: BetHistory, automatedShowdown: boolean): BetHistory {
+    betHistory.betHistoryMap.clear();
+    betHistory.bank_on_prev_street = 0;
+    newState.actionHistory.forEach((action) => {
+        let history = betHistory.betHistoryMap.get(action.playerId) || { 0: 0, 1: 0, 2: 0, 3: 0 }
+        history[action.streetStatus] += action.bet;
+        betHistory.betHistoryMap.set(action.playerId, history);
+    })
+    if (newState.street?.streetStatus !== 0) {
+        betHistory.bank_on_prev_street = calculateTotalBankOfPrevStreets(betHistory.betHistoryMap, newState.street!.streetStatus - 1)
     }
+    // NOTE: maybe not needed, rethink
+    if (automatedShowdown) {
+        betHistory.betHistoryMap.clear();
+    }
+    return betHistory;
 }
 
+function calculateTotalBankOfPrevStreets(betHistory: BetHistoryMap, prevStreet: StreetStatus): number {
+    let totalBank = 0;
 
-function processBetHistoryState(newState: ClientState, oldState: ClientState, betHistory: BetHistory): BetHistory {
-    // if curr and next street is preflop then we use showdown value presence
-    // TODO: make checking next street more obvious
-    if (newState.street?.streetStatus !== oldState.street?.streetStatus || newState.showdownOutcome) {
-        if (newState.street?.streetStatus === StreetStatus.Preflop) {
-            betHistory.betHistoryMap.clear();
-
-            const bigIndex = get_index_by_player_id(newState.players, newState.currBigBlindId);
-            const smallIndex = get_index_by_player_id(newState.players, newState.currSmallBlindId);
-
-            if (smallIndex !== -1) {
-                betHistory.betHistoryMap.set(newState.currSmallBlindId, newState.players[smallIndex].action!.bet);
-            }
-            if (bigIndex !== -1) {
-                betHistory.betHistoryMap.set(newState.currBigBlindId, newState.players[bigIndex].action!.bet);
-            }
-            betHistory.bank_on_curr_street = 0;
-            return betHistory;
+    while (prevStreet > -1) {
+        for (const [, object] of betHistory) {
+            totalBank += object[prevStreet];
         }
-        calculateLastPlayerAction(newState, oldState, betHistory);
-        let currBank = calculateBankSpot(betHistory.betHistoryMap);
-        betHistory.betHistoryMap.clear();
-        betHistory.bank_on_curr_street = currBank;
-        return betHistory;
+        --prevStreet;
     }
 
-    calculateLastPlayerAction(newState, oldState, betHistory);
-    return betHistory;
+    return totalBank;
 }
 
 

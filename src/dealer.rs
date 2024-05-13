@@ -7,10 +7,9 @@ use crate::{
     card::CardDeck,
     protos::{
         card::CardPair,
-        client_state::{
-            ClientState, GameStatus, PlayerCards, ShowdownOutcome, Street, StreetStatus, Winner,
-        },
-        player::{ActionType, Player, PlayerAction, PlayerPayload},
+        client_state::ClientState,
+        game_state::{GameStatus, PlayerCards, ShowdownOutcome, Street, StreetStatus, Winner},
+        player::{Action, ActionType, Player, PlayerPayload},
     },
 };
 
@@ -24,6 +23,14 @@ pub struct Dealer {
 struct PlayerState {
     players: Vec<Player>,
     bank_map: HashMap<i32, i32>,
+}
+
+#[derive(Debug)]
+pub struct UpdatedState<'a> {
+    pub client_states: Vec<ClientState>,
+    pub is_ready_for_next_hand: bool,
+    pub eliminated_players: Option<Vec<&'a Player>>,
+    pub should_complete_game_cycle_automatically: bool,
 }
 
 impl PlayerState {
@@ -50,8 +57,6 @@ impl PlayerState {
     }
 }
 
-// it happens that to get deck we need duplicate field: deckstate.deck.deck
-// TODO: refactor
 pub struct DeckState {
     deck: CardDeck,
 }
@@ -67,8 +72,6 @@ impl DeckState {
 }
 struct GameState {
     status: GameStatus,
-    // might not need
-    last_bet_action: PlayerAction,
     street: Street,
     game_bank: i32,
     big_blind: i32,
@@ -76,6 +79,7 @@ struct GameState {
     raiser_index: Option<i32>,
     positions: KeyPositions,
     biggest_bet_on_curr_street: i32,
+    action_history: Vec<Action>,
 }
 
 #[derive(Debug)]
@@ -91,14 +95,13 @@ impl GameState {
         return (index + 1) % player_amounts;
     }
 
-    fn set_up_blinds(
+    fn setup_blinds(
         &mut self,
         player_state: &mut PlayerState,
         small_blind_index: i32,
         big_blind_index: i32,
         blind_size: i32,
     ) {
-        // fix add to game bank this blinds
         let player = &mut player_state.players[small_blind_index as usize];
         let small_blind_size = blind_size / 2;
         let small_blind_bet_amount = if small_blind_size > player.bank {
@@ -106,13 +109,18 @@ impl GameState {
         } else {
             small_blind_size
         };
-        player.bet_in_current_seed += small_blind_bet_amount;
+        player.bet_in_current_seed = small_blind_bet_amount;
+
         self.game_bank += small_blind_bet_amount;
-        player.bank = (player.bank - small_blind_size).max(0);
-        player.action = Some(PlayerAction {
+        player.bank -= small_blind_bet_amount;
+        let action = Action {
             action_type: ActionType::Blind.into(),
             bet: player.bet_in_current_seed,
-        });
+            player_id: player.user_id,
+            street_status: self.street.street_status,
+        };
+        self.action_history.push(action.clone());
+        player.action = Some(action);
 
         let player = &mut player_state.players[big_blind_index as usize];
         let big_blind_bet_amount = if blind_size > player.bank {
@@ -120,13 +128,18 @@ impl GameState {
         } else {
             blind_size
         };
-        player.bet_in_current_seed += big_blind_bet_amount;
+        player.bet_in_current_seed = big_blind_bet_amount;
         self.game_bank += big_blind_bet_amount;
-        player.bank = (player.bank - blind_size).max(0);
-        player.action = Some(PlayerAction {
+
+        player.bank -= big_blind_bet_amount;
+        let action = Action {
             action_type: ActionType::Blind.into(),
             bet: player.bet_in_current_seed,
-        })
+            player_id: player.user_id,
+            street_status: self.street.street_status,
+        };
+        self.action_history.push(action.clone());
+        player.action = Some(action);
     }
 
     fn deal_cards(&mut self, deck_state: &mut DeckState, player_state: &mut PlayerState) {
@@ -178,10 +191,6 @@ impl GameState {
         let positions = GameState::calculate_key_positions(button_index, players_amount);
 
         GameState {
-            last_bet_action: PlayerAction {
-                action_type: ActionType::Empty.into(),
-                bet: 0,
-            },
             status: GameStatus::Active,
             street: Street {
                 street_status: StreetStatus::Preflop.into(),
@@ -193,6 +202,7 @@ impl GameState {
             biggest_bet_on_curr_street: blind_size,
             raiser_index: None,
             positions,
+            action_history: Vec::new(),
         }
     }
 
@@ -260,7 +270,7 @@ impl GameState {
             GameState::get_loop_incremented_index(self.street.street_status, StreetStatus::len());
 
         if self.street.street_status == StreetStatus::Preflop as i32 {
-            self.next_cycle(player_state, deck_state);
+            self.setup_next_hand(player_state, deck_state);
             return;
         } else {
             self.positions.curr_player_index = self
@@ -268,7 +278,6 @@ impl GameState {
                 .unwrap() as i32;
         }
 
-        self.last_bet_action = PlayerAction::new();
         self.raise_amount = 0;
         self.raiser_index = None;
         self.biggest_bet_on_curr_street = 0;
@@ -291,24 +300,24 @@ impl GameState {
                 .push(deck_state.deck.cards.pop_front().unwrap());
         }
     }
-
-    fn next_cycle(&mut self, player_state: &mut PlayerState, deck_state: &mut DeckState) {
+    // hands?
+    fn setup_next_hand(&mut self, player_state: &mut PlayerState, deck_state: &mut DeckState) {
         self.street = Street::default();
         deck_state.new_random();
+        self.action_history = Vec::new();
         self.deal_cards(deck_state, player_state);
-        self.last_bet_action = PlayerAction::new();
         self.biggest_bet_on_curr_street = self.big_blind;
         self.raise_amount = 0;
         self.raiser_index = None;
         player_state.players.iter_mut().for_each(|p| {
             p.bet_in_current_seed = 0;
-            p.action = Some(PlayerAction::new())
+            p.action = None;
         });
         self.game_bank = 0;
         let players_amount = player_state.players.len() as i32;
         let next_button_index = (self.positions.button_index + 1) % players_amount;
         self.positions = GameState::calculate_key_positions(next_button_index, players_amount);
-        self.set_up_blinds(
+        self.setup_blinds(
             player_state,
             self.positions.small_blind_index,
             self.positions.big_blind_index,
@@ -411,7 +420,7 @@ impl Dealer {
             return self.game_state.biggest_bet_on_curr_street + self.game_state.raise_amount;
         } else {
             return if self.game_state.street.street_status() == StreetStatus::Preflop {
-                self.game_state.big_blind * 2
+                self.game_state.big_blind * 2 // FIX: or biggets bank on the table except self
             } else {
                 self.game_state.big_blind
             };
@@ -450,21 +459,18 @@ impl Dealer {
         self.game_state
             .deal_cards(&mut self.deck_state, &mut self.player_state);
 
-        self.game_state.set_up_blinds(
+        self.game_state.setup_blinds(
             &mut self.player_state,
             self.game_state.positions.small_blind_index,
             self.game_state.positions.big_blind_index,
             self.game_state.big_blind,
         );
 
-        let state = self.create_client_state(None);
+        let state = self.create_client_states(None);
         Ok(state)
     }
     // TODO: Send delta updates in future
-    fn create_client_state(
-        &mut self,
-        showdown_outcome: Option<ShowdownOutcome>,
-    ) -> Vec<ClientState> {
+    fn create_client_states(&self, showdown_outcome: Option<ShowdownOutcome>) -> Vec<ClientState> {
         let filtered_players = self.get_filtered_players();
 
         let states = self
@@ -491,6 +497,7 @@ impl Dealer {
                     street: Some(self.game_state.street.clone()),
                     lobby_id: self.lobby_id,
                     showdown_outcome: showdown_outcome.clone(),
+                    action_history: self.game_state.action_history.clone(),
                 };
 
                 client
@@ -500,7 +507,7 @@ impl Dealer {
         states
     }
 
-    fn calculate_winner(&mut self) -> ShowdownOutcome {
+    fn calculate_winner(&mut self, is_manual_street: bool) -> ShowdownOutcome {
         let mut winners: Vec<Winner> = Vec::new();
         let mut winners_map: BTreeMap<i32, Vec<&mut Player>> = BTreeMap::new();
 
@@ -509,7 +516,10 @@ impl Dealer {
             .players
             .iter_mut()
             .filter(|p| {
-                p.action.as_ref().unwrap().action_type() != ActionType::Fold
+                // is some for debug purposes
+                // remove when not needed
+                p.action.is_some()
+                    && p.action.as_ref().unwrap().action_type() != ActionType::Fold
                     && p.action.as_ref().unwrap().action_type() != ActionType::Empty
             })
             .collect();
@@ -524,10 +534,7 @@ impl Dealer {
         if players.len() == 1 {
             winners_map.insert(1, players);
         } else {
-            println!("WTF");
-            println!("players3: {:?}", players);
             for player in players {
-                println!("HELLO");
                 // TODO: will be great to write own 2+2 evaluator;
                 let eval = evaluator::Evaluator::new();
                 players_cards.push(PlayerCards {
@@ -569,13 +576,13 @@ impl Dealer {
                 }
             }
         }
-        println!(" map : {:?}", winners_map);
         for win_players in winners_map.values_mut() {
             let sum_of_winners_bets: i32 = win_players.iter().map(|w| w.bet_in_current_seed).sum();
             let winners_amount = win_players.len() as i32;
+            let bank = self.game_state.game_bank;
             for w in win_players {
-                let win_points = w.bet_in_current_seed
-                    + ((self.game_state.game_bank - sum_of_winners_bets) / winners_amount);
+                let win_points =
+                    w.bet_in_current_seed + ((bank - sum_of_winners_bets) / winners_amount);
                 w.bank += win_points;
 
                 let remainder = if self.game_state.game_bank != 0 {
@@ -603,6 +610,7 @@ impl Dealer {
             players_cards,
             street_history: Some(self.game_state.street.clone()),
             winners,
+            process_flop_automatically: is_manual_street,
         }
     }
 
@@ -620,7 +628,22 @@ impl Dealer {
         }
     }
 
-    pub fn update_game_state(&mut self, payload: PlayerPayload) -> Vec<ClientState> {
+    fn calculate_eliminated_players(&self) -> Option<Vec<&Player>> {
+        let players: Vec<&Player> = self
+            .player_state
+            .players
+            .iter()
+            .filter(|p| p.bank == 0 && p.bet_in_current_seed == 0)
+            .collect();
+
+        if players.len() > 0 {
+            Some(players)
+        } else {
+            None
+        }
+    }
+
+    pub fn update_game_state(&mut self, payload: PlayerPayload) -> UpdatedState {
         if payload.lobby_id != self.lobby_id {
             panic!("Wrong lobby id in payload");
         }
@@ -631,7 +654,6 @@ impl Dealer {
             .iter()
             .any(|p| { p.user_id == payload.player_id }));
 
-        // TODO: Reset player action on new game loop
         let action_type =
             ActionType::try_from(payload.action.as_ref().unwrap().action_type).unwrap();
         match action_type {
@@ -639,68 +661,55 @@ impl Dealer {
                 self.process_fold_action(payload.player_id);
                 let result = self.can_determine_winner();
                 if result.is_some() && result.unwrap() == true {
-                    // TODO: set_winner
-                    let showdown_outcome = self.calculate_winner();
-                    // in future: add checks when players are elimanated;
-
-                    self.game_state
-                        .next_cycle(&mut self.player_state, &mut self.deck_state);
-
-                    let state = self.create_client_state(Some(showdown_outcome));
-                    return state;
+                    let showdown_outcome = self.calculate_winner(false);
+                    let eliminated_players = self.calculate_eliminated_players();
+                    let states = self.create_client_states(Some(showdown_outcome));
+                    return UpdatedState {
+                        client_states: states,
+                        is_ready_for_next_hand: true,
+                        eliminated_players,
+                        should_complete_game_cycle_automatically: false,
+                    };
                 }
             }
             ActionType::Call => {
-                self.process_call_action(payload.player_id, payload.action.unwrap().bet);
+                self.process_call_action(payload.player_id, payload.action.as_ref().unwrap().bet);
             }
             ActionType::Raise => {
-                self.process_raise_action(payload.player_id, payload.action.unwrap().bet);
+                self.process_raise_action(payload.player_id, payload.action.as_ref().unwrap().bet);
             }
             _ => println!("Illegal move!"),
         }
-        // TODO:
-        // if only one or less players left with money process game cycle automatically
+        // TODO: in case player has made invalid action, we have to wait until his timer ends and proceed it as fold
 
         let last_active = self
             .game_state
             .calculate_last_active_player_index(&self.player_state)
             .unwrap() as i32;
-
         if last_active == self.game_state.positions.curr_player_index {
             self.game_state.raiser_index = None;
             let curr_street = self.game_state.street.street_status;
             if curr_street == StreetStatus::River as i32 {
-                let showdown_outcome = self.calculate_winner();
+                let showdown_outcome = self.calculate_winner(false);
+                let eliminated_players = self.calculate_eliminated_players();
 
-                self.game_state
-                    .next_cycle(&mut self.player_state, &mut self.deck_state);
-                let state = self.create_client_state(Some(showdown_outcome));
-                return state;
+                let states = self.create_client_states(Some(showdown_outcome));
+                return UpdatedState {
+                    client_states: states,
+                    is_ready_for_next_hand: true,
+                    eliminated_players,
+                    should_complete_game_cycle_automatically: false,
+                };
             }
-            let active_players_with_non_zero_bank_count = self
-                .player_state
-                .players
-                .iter()
-                .filter(|p| {
-                    p.action.as_ref().unwrap().action_type() != ActionType::Fold
-                        && p.action.as_ref().unwrap().action_type() != ActionType::Empty
-                        && p.bank > 0
-                })
-                .count();
-
-            if active_players_with_non_zero_bank_count < 2 {
-                // complete game cycle automatically
-                self.game_state.street.street_status = StreetStatus::River.into();
-                while self.game_state.street.cards.len() != 5 {
-                    self.game_state
-                        .street
-                        .cards
-                        .push(self.deck_state.deck.cards.pop_front().unwrap());
-                }
-                let showdown_outcome = self.calculate_winner();
-                self.game_state
-                    .next_cycle(&mut self.player_state, &mut self.deck_state);
-                return self.create_client_state(Some(showdown_outcome));
+            if self.should_complete_game_cycle_automatically() == true {
+                let eliminated_players = self.calculate_eliminated_players();
+                let states = self.create_client_states(None);
+                return UpdatedState {
+                    client_states: states,
+                    is_ready_for_next_hand: false,
+                    eliminated_players,
+                    should_complete_game_cycle_automatically: true,
+                };
             }
             self.game_state
                 .next_street(&mut self.deck_state, &mut self.player_state);
@@ -708,7 +717,49 @@ impl Dealer {
             self.game_state.next_player(&self.player_state);
         }
 
-        self.create_client_state(None)
+        let states = self.create_client_states(None);
+        return UpdatedState {
+            client_states: states,
+            is_ready_for_next_hand: false,
+            eliminated_players: None,
+            should_complete_game_cycle_automatically: false,
+        };
+    }
+
+    pub fn complete_game_cycle_automatically(&mut self) -> UpdatedState {
+        self.game_state.street.street_status = StreetStatus::River.into();
+        while self.game_state.street.cards.len() != 5 {
+            self.game_state
+                .street
+                .cards
+                .push(self.deck_state.deck.cards.pop_front().unwrap());
+        }
+        let showdown_outcome = self.calculate_winner(true);
+        let eliminated_players = self.calculate_eliminated_players();
+        let states = self.create_client_states(Some(showdown_outcome));
+
+        UpdatedState {
+            client_states: states,
+            eliminated_players,
+            should_complete_game_cycle_automatically: false,
+            is_ready_for_next_hand: true,
+        }
+    }
+
+    fn should_complete_game_cycle_automatically(&self) -> bool {
+        let active_players_with_non_zero_bank_count = self
+            .player_state
+            .players
+            .iter()
+            .filter(|p| {
+                (p.action.is_none()
+                    || p.action.as_ref().unwrap().action_type() != ActionType::Fold
+                        && p.action.as_ref().unwrap().action_type() != ActionType::Empty)
+                    && p.bank > 0
+            })
+            .count();
+
+        active_players_with_non_zero_bank_count < 2
     }
 
     fn process_fold_action(&mut self, player_id: i32) {
@@ -723,10 +774,15 @@ impl Dealer {
             println!("Player has folded already and cannot fold again");
             return;
         }
-        player.action = Some(PlayerAction {
+        let action = Action {
             action_type: ActionType::Fold.into(),
             bet: 0,
-        });
+            player_id: player.user_id,
+            street_status: self.game_state.street.street_status,
+        };
+
+        player.action = Some(action.clone());
+        self.game_state.action_history.push(action.clone());
     }
 
     fn process_call_action(&mut self, player_id: i32, bet_amount: i32) {
@@ -765,22 +821,38 @@ impl Dealer {
         }
 
         // winners contains non-updated field bet_in_current_seed
+        // it may be fixed in winner calculation stage
         player.bet_in_current_seed += bet_amount;
         player.bank -= bet_amount;
-        // last_bet gonna be equal 1blind at start
-        self.game_state.last_bet_action = PlayerAction {
+
+        let action = Action {
             action_type: ActionType::Call.into(),
             bet: bet_amount,
+            player_id: player.user_id,
+            street_status: self.game_state.street.street_status,
         };
-        player.action = Some(PlayerAction {
-            action_type: ActionType::Call.into(),
-            bet: bet_amount,
-        });
+        player.action = Some(action.clone());
+        self.game_state.action_history.push(action.clone());
+
         self.game_state.game_bank += bet_amount;
     }
 
     fn is_all_in(player: &Player, bet_amount: i32) -> bool {
         player.bank == bet_amount
+    }
+
+    pub fn setup_next_hand(&mut self) -> UpdatedState {
+        self.game_state
+            .setup_next_hand(&mut self.player_state, &mut self.deck_state);
+
+        let states = self.create_client_states(None);
+        return UpdatedState {
+            client_states: states,
+            is_ready_for_next_hand: false,
+            eliminated_players: None,
+            should_complete_game_cycle_automatically: self
+                .should_complete_game_cycle_automatically(),
+        };
     }
 
     // If a player decides to go "all in" by betting all of their chips,
@@ -795,8 +867,7 @@ impl Dealer {
                 || raiser_bank == 0
                     && player.action.as_ref().unwrap().action_type() == ActionType::Empty;
         }
-        // untrusted condition for now
-        player.bank > self.game_state.biggest_bet_on_curr_street
+        player.bank > 0
     }
 
     fn process_raise_action(&mut self, player_id: i32, bet_amount: i32) {
@@ -825,11 +896,6 @@ impl Dealer {
                 return;
             }
 
-            if player.action.as_ref().unwrap().action_type == ActionType::Fold.into() {
-                println!("Player has folded already and cannot raise");
-                return;
-            }
-
             if player.bank < bet_amount {
                 println!("Player does not have enough points!");
                 return;
@@ -843,21 +909,21 @@ impl Dealer {
             player.bank -= bet_amount;
             self.game_state.game_bank += bet_amount;
 
-            // fix if all in is smaller and valid we dont want to set it as the biggest
             if bet_amount > self.game_state.biggest_bet_on_curr_street {
                 self.game_state.raise_amount =
                     bet_amount - self.game_state.biggest_bet_on_curr_street;
                 self.game_state.biggest_bet_on_curr_street = bet_amount;
             }
 
-            self.game_state.last_bet_action = PlayerAction {
+            let action = Action {
                 action_type: ActionType::Raise.into(),
                 bet: bet_amount,
+                player_id: player.user_id,
+                street_status: self.game_state.street.street_status,
             };
-            player.action = Some(PlayerAction {
-                action_type: ActionType::Raise.into(),
-                bet: bet_amount,
-            });
+
+            player.action = Some(action.clone());
+            self.game_state.action_history.push(action);
         } else {
             println!("the player with the given ID is not found");
         }

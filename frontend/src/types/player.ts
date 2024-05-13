@@ -10,6 +10,7 @@ import { UnknownFieldHandler } from "@protobuf-ts/runtime";
 import type { PartialMessage } from "@protobuf-ts/runtime";
 import { reflectionMergePartial } from "@protobuf-ts/runtime";
 import { MessageType } from "@protobuf-ts/runtime";
+import { StreetStatus } from "./game_state";
 import { CardPair } from "./card";
 /**
  * @generated from protobuf message player.Player
@@ -28,9 +29,9 @@ export interface Player {
      */
     country: string;
     /**
-     * @generated from protobuf field: player.PlayerAction action = 4;
+     * @generated from protobuf field: optional player.Action action = 4;
      */
-    action?: PlayerAction;
+    action?: Action;
     /**
      * @generated from protobuf field: int32 bank = 5;
      */
@@ -57,16 +58,16 @@ export interface PlayerPayload {
      */
     lobbyId: number;
     /**
-     * @generated from protobuf field: player.PlayerAction action = 3;
+     * @generated from protobuf field: player.Action action = 3;
      */
-    action?: PlayerAction;
+    action?: Action;
 }
 /**
  * ? INTRODUCE ACTION HISTORY ?
  *
- * @generated from protobuf message player.PlayerAction
+ * @generated from protobuf message player.Action
  */
-export interface PlayerAction {
+export interface Action {
     /**
      * @generated from protobuf field: player.ActionType action_type = 1;
      */
@@ -75,6 +76,14 @@ export interface PlayerAction {
      * @generated from protobuf field: int32 bet = 2;
      */
     bet: number;
+    /**
+     * @generated from protobuf field: int32 player_id = 3;
+     */
+    playerId: number;
+    /**
+     * @generated from protobuf field: game_state.StreetStatus street_status = 4;
+     */
+    streetStatus: StreetStatus;
 }
 /**
  * remove last two??
@@ -110,7 +119,7 @@ class Player$Type extends MessageType<Player> {
             { no: 1, name: "user_name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
             { no: 2, name: "user_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
             { no: 3, name: "country", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
-            { no: 4, name: "action", kind: "message", T: () => PlayerAction },
+            { no: 4, name: "action", kind: "message", T: () => Action },
             { no: 5, name: "bank", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
             { no: 6, name: "cards", kind: "message", T: () => CardPair },
             { no: 7, name: "bet_in_current_seed", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
@@ -141,8 +150,8 @@ class Player$Type extends MessageType<Player> {
                 case /* string country */ 3:
                     message.country = reader.string();
                     break;
-                case /* player.PlayerAction action */ 4:
-                    message.action = PlayerAction.internalBinaryRead(reader, reader.uint32(), options, message.action);
+                case /* optional player.Action action */ 4:
+                    message.action = Action.internalBinaryRead(reader, reader.uint32(), options, message.action);
                     break;
                 case /* int32 bank */ 5:
                     message.bank = reader.int32();
@@ -174,9 +183,9 @@ class Player$Type extends MessageType<Player> {
         /* string country = 3; */
         if (message.country !== "")
             writer.tag(3, WireType.LengthDelimited).string(message.country);
-        /* player.PlayerAction action = 4; */
+        /* optional player.Action action = 4; */
         if (message.action)
-            PlayerAction.internalBinaryWrite(message.action, writer.tag(4, WireType.LengthDelimited).fork(), options).join();
+            Action.internalBinaryWrite(message.action, writer.tag(4, WireType.LengthDelimited).fork(), options).join();
         /* int32 bank = 5; */
         if (message.bank !== 0)
             writer.tag(5, WireType.Varint).int32(message.bank);
@@ -202,7 +211,7 @@ class PlayerPayload$Type extends MessageType<PlayerPayload> {
         super("player.PlayerPayload", [
             { no: 1, name: "player_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
             { no: 2, name: "lobby_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
-            { no: 3, name: "action", kind: "message", T: () => PlayerAction }
+            { no: 3, name: "action", kind: "message", T: () => Action }
         ]);
     }
     create(value?: PartialMessage<PlayerPayload>): PlayerPayload {
@@ -224,8 +233,8 @@ class PlayerPayload$Type extends MessageType<PlayerPayload> {
                 case /* int32 lobby_id */ 2:
                     message.lobbyId = reader.int32();
                     break;
-                case /* player.PlayerAction action */ 3:
-                    message.action = PlayerAction.internalBinaryRead(reader, reader.uint32(), options, message.action);
+                case /* player.Action action */ 3:
+                    message.action = Action.internalBinaryRead(reader, reader.uint32(), options, message.action);
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -245,9 +254,9 @@ class PlayerPayload$Type extends MessageType<PlayerPayload> {
         /* int32 lobby_id = 2; */
         if (message.lobbyId !== 0)
             writer.tag(2, WireType.Varint).int32(message.lobbyId);
-        /* player.PlayerAction action = 3; */
+        /* player.Action action = 3; */
         if (message.action)
-            PlayerAction.internalBinaryWrite(message.action, writer.tag(3, WireType.LengthDelimited).fork(), options).join();
+            Action.internalBinaryWrite(message.action, writer.tag(3, WireType.LengthDelimited).fork(), options).join();
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -259,22 +268,26 @@ class PlayerPayload$Type extends MessageType<PlayerPayload> {
  */
 export const PlayerPayload = new PlayerPayload$Type();
 // @generated message type with reflection information, may provide speed optimized methods
-class PlayerAction$Type extends MessageType<PlayerAction> {
+class Action$Type extends MessageType<Action> {
     constructor() {
-        super("player.PlayerAction", [
+        super("player.Action", [
             { no: 1, name: "action_type", kind: "enum", T: () => ["player.ActionType", ActionType] },
-            { no: 2, name: "bet", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+            { no: 2, name: "bet", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 3, name: "player_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 4, name: "street_status", kind: "enum", T: () => ["game_state.StreetStatus", StreetStatus] }
         ]);
     }
-    create(value?: PartialMessage<PlayerAction>): PlayerAction {
+    create(value?: PartialMessage<Action>): Action {
         const message = globalThis.Object.create((this.messagePrototype!));
         message.actionType = 0;
         message.bet = 0;
+        message.playerId = 0;
+        message.streetStatus = 0;
         if (value !== undefined)
-            reflectionMergePartial<PlayerAction>(this, message, value);
+            reflectionMergePartial<Action>(this, message, value);
         return message;
     }
-    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: PlayerAction): PlayerAction {
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: Action): Action {
         let message = target ?? this.create(), end = reader.pos + length;
         while (reader.pos < end) {
             let [fieldNo, wireType] = reader.tag();
@@ -284,6 +297,12 @@ class PlayerAction$Type extends MessageType<PlayerAction> {
                     break;
                 case /* int32 bet */ 2:
                     message.bet = reader.int32();
+                    break;
+                case /* int32 player_id */ 3:
+                    message.playerId = reader.int32();
+                    break;
+                case /* game_state.StreetStatus street_status */ 4:
+                    message.streetStatus = reader.int32();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -296,13 +315,19 @@ class PlayerAction$Type extends MessageType<PlayerAction> {
         }
         return message;
     }
-    internalBinaryWrite(message: PlayerAction, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+    internalBinaryWrite(message: Action, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
         /* player.ActionType action_type = 1; */
         if (message.actionType !== 0)
             writer.tag(1, WireType.Varint).int32(message.actionType);
         /* int32 bet = 2; */
         if (message.bet !== 0)
             writer.tag(2, WireType.Varint).int32(message.bet);
+        /* int32 player_id = 3; */
+        if (message.playerId !== 0)
+            writer.tag(3, WireType.Varint).int32(message.playerId);
+        /* game_state.StreetStatus street_status = 4; */
+        if (message.streetStatus !== 0)
+            writer.tag(4, WireType.Varint).int32(message.streetStatus);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -310,6 +335,6 @@ class PlayerAction$Type extends MessageType<PlayerAction> {
     }
 }
 /**
- * @generated MessageType for protobuf message player.PlayerAction
+ * @generated MessageType for protobuf message player.Action
  */
-export const PlayerAction = new PlayerAction$Type();
+export const Action = new Action$Type();

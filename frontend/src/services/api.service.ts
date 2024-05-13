@@ -17,9 +17,11 @@ function getEnumString(enumObject: any, value: any) {
 }
 
 class ApiService {
-    public static clientStateObserver: { cb: { callback: Function, id: number }[], subscriptionIdCounter: number, subscribe: Function, unsubscribe: Function, next: Function } = {
+    public static clientStateObserver: { isRunning: boolean, queue: any[], cb: { callback: Function, id: number }[], subscriptionIdCounter: number, subscribe: Function, unsubscribe: Function, next: Function } = {
         cb: [],
         subscriptionIdCounter: 0,
+        queue: [],
+        isRunning: false,
         subscribe: function (cb: Function) {
             const subscriptionId = this.subscriptionIdCounter++;
             this.cb.push({ id: subscriptionId, callback: cb });
@@ -31,8 +33,27 @@ class ApiService {
                 this.cb.splice(index, 1);
             }
         },
-        next: function (v: any) {
-            this.cb.forEach(sub => sub.callback(v));
+        next: async function (v: any) {
+            if (this.isRunning) {
+                this.queue.push(v);
+                return;
+            }
+            this.isRunning = true;
+            let promises = this.cb.map(sub => new Promise(async (resolve: Function) => {
+                try {
+                    await sub.callback(v);
+                    resolve();
+                } catch (error) {
+                    console.error('Error processing value:', error);
+                    resolve();
+                }
+            }));
+            await Promise.all(promises);
+            this.isRunning = false;
+            if (this.queue.length > 0) {
+                const nextValue = this.queue.shift();
+                await this.next(nextValue);
+            }
         }
     };
     private static socket: WebSocket | null = null;
@@ -66,7 +87,7 @@ class ApiService {
             let blob = msg.data as Blob;
             blob.arrayBuffer().then((b) => {
                 let state = ClientState.fromBinary(new Uint8Array(b));
-                console.log(state);
+                // console.log(state);
                 this.clientStateObserver.next(state);
             })
         }

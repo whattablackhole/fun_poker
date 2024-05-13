@@ -5,23 +5,9 @@ package client_state;
 import "player.proto";
 import "card.proto";
 
-enum StreetStatus {
-    Preflop = 0;
-    Flop = 1;
-    Turn = 2;
-    River = 3;
-}
+import "game_state.proto";
 
-enum GameStatus {
-    Pause = 0;
-    None = 1;
-    Active = 2;
-}
 
-message Street {
-    StreetStatus street_status = 1;
-    repeated card.Card cards = 2;
-}
 
 message ClientState {
     int32 player_id = 1;
@@ -31,27 +17,15 @@ message ClientState {
     int32 curr_small_blind_id = 5;
     int32 curr_big_blind_id = 6;
     int32 lobby_id = 7;
-    Street street = 8;
-    GameStatus game_status = 9;
+    game_state.Street street = 8;
+    game_state.GameStatus game_status = 9;
     repeated player.Player players = 10;
-    optional ShowdownOutcome showdown_outcome = 11;
+    optional game_state.ShowdownOutcome showdown_outcome = 11;
     int32 amount_to_call = 12;
     int32 min_amount_to_raise = 13;
     bool can_raise = 14;
+    repeated player.Action action_history = 15;
 }
 
-message Winner {
-    int32 player_id = 1;
-    int32 win_amout = 2;
-}
 
-message ShowdownOutcome {
-    Street streetHistory = 1;
-    repeated Winner winners = 2;
-    repeated PlayerCards players_cards = 3;
-}
 
-message PlayerCards {
-    int32 player_id = 1;
-    card.CardPair cards = 2; 
-}
