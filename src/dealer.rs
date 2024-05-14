@@ -5,6 +5,7 @@ use std::collections::{BTreeMap, HashMap};
 
 use crate::{
     card::CardDeck,
+    player::PlayerPayloadError,
     protos::{
         card::CardPair,
         client_state::ClientState,
@@ -420,7 +421,7 @@ impl Dealer {
             return self.game_state.biggest_bet_on_curr_street + self.game_state.raise_amount;
         } else {
             return if self.game_state.street.street_status() == StreetStatus::Preflop {
-                self.game_state.big_blind * 2 // FIX: or biggets bank on the table except self
+                self.game_state.big_blind * 2 // FIX: or the biggest bank on the table except self
             } else {
                 self.game_state.big_blind
             };
@@ -643,7 +644,12 @@ impl Dealer {
         }
     }
 
-    pub fn update_game_state(&mut self, payload: PlayerPayload) -> UpdatedState {
+    pub fn update_game_state(
+        &mut self,
+        payload: Result<PlayerPayload, PlayerPayloadError>,
+    ) -> UpdatedState {
+        let payload = payload.unwrap();
+
         if payload.lobby_id != self.lobby_id {
             panic!("Wrong lobby id in payload");
         }
@@ -809,11 +815,6 @@ impl Dealer {
             .iter_mut()
             .find(|p| p.user_id == player_id)
             .expect("user not found");
-
-        if player.action.as_ref().unwrap().action_type == ActionType::Fold.into() {
-            println!("Player has folded already and cannot call");
-            return;
-        }
 
         if player.bank < bet_amount {
             println!("Player does not have enough points!");

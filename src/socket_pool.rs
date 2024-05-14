@@ -1,16 +1,22 @@
-use std::{collections::HashMap, net::TcpStream, sync::Mutex};
+use std::{
+    collections::HashMap,
+    net::TcpStream,
+    sync::{mpsc, Arc, Mutex},
+    time::Duration,
+};
 
 use prost::Message;
-use tungstenite::{Message as TMessage, WebSocket};
+use tungstenite::{Error as TError, Message as TMessage, WebSocket};
 
-use crate::{dealer::Dealer, protos::client_state::ClientState};
+use crate::{dealer::Dealer, protos::client_state::ClientState, ThreadPool};
 
 pub struct PlayerChannelClient {
     pub player_id: i32,
     pub socket: WebSocket<TcpStream>,
 }
 pub struct LobbySocketPool {
-    pool: Mutex<HashMap<i32, Vec<PlayerChannelClient>>>,
+    pool: Arc<Mutex<HashMap<i32, Vec<PlayerChannelClient>>>>,
+    thread_pool: ThreadPool,
 }
 
 pub struct DealerPool {
@@ -40,10 +46,16 @@ impl DealerPool {
     }
 }
 
+pub enum ReadMessageError {
+    Iddle,
+    Disconnected,
+}
+
 impl LobbySocketPool {
     pub fn new() -> Self {
         Self {
-            pool: Mutex::new(HashMap::new()),
+            pool: Arc::new(Mutex::new(HashMap::new())),
+            thread_pool: ThreadPool::new(1),
         }
     }
 
@@ -79,21 +91,57 @@ impl LobbySocketPool {
             }
         }
     }
+
     pub fn read_client_message<T: prost::Message + Default>(
         &self,
         player_id: i32,
         lobby_id: i32,
-    ) -> T {
-        let mut pool = self.pool.lock().unwrap();
-        let result = pool.get_mut(&lobby_id).unwrap();
-        let client = result
-            .iter_mut()
-            .find(|c| c.player_id == player_id)
-            .unwrap();
+    ) -> Result<T, ReadMessageError> {
+        let arc_pool = Arc::clone(&self.pool);
+        let (tx, rx) = mpsc::channel();
 
-        let msg = client.socket.read().unwrap();
+        self.thread_pool.execute(move || {
+            let mut g = arc_pool.lock().unwrap();
+            let player_channels = g.get_mut(&lobby_id).unwrap();
+            let client = player_channels
+                .iter_mut()
+                .find(|c| c.player_id == player_id)
+                .unwrap();
+            let result: Result<TMessage, TError> = client.socket.read();
+            tx.send(result).unwrap();
+        });
 
-        let bytes = match msg {
+        let result = rx.recv_timeout(Duration::from_secs(30));
+
+        let message = match result {
+            Err(e) => return Err(ReadMessageError::Iddle),
+            Ok(r) => match r {
+                Ok(m) => match m {
+                    TMessage::Binary(_) => m,
+                    TMessage::Text(_) => todo!(),
+                    TMessage::Ping(_) => todo!(),
+                    TMessage::Pong(_) => todo!(),
+                    TMessage::Close(_) => return Err(ReadMessageError::Disconnected),
+                    TMessage::Frame(_) => todo!(),
+                },
+                Err(e) => match e {
+                    TError::ConnectionClosed => return Err(ReadMessageError::Disconnected),
+                    TError::AlreadyClosed => return Err(ReadMessageError::Disconnected),
+                    TError::Io(_) => todo!(),
+                    TError::Tls(_) => todo!(),
+                    TError::Capacity(_) => todo!(),
+                    TError::Protocol(_) => todo!(),
+                    TError::WriteBufferFull(_) => todo!(),
+                    TError::Utf8 => todo!(),
+                    TError::AttackAttempt => todo!(),
+                    TError::Url(_) => todo!(),
+                    TError::Http(_) => todo!(),
+                    TError::HttpFormat(_) => todo!(),
+                },
+            },
+        };
+
+        let bytes = match message {
             TMessage::Binary(bytes) => bytes,
             _ => panic!("Expected binary message"),
         };
@@ -101,7 +149,18 @@ impl LobbySocketPool {
         let mut reader = std::io::Cursor::new(bytes);
 
         let request = T::decode(&mut reader).unwrap();
-        request
+        Ok(request)
+    }
+
+    pub fn close_connection(&self, player_id: i32, lobby_id: i32) {
+        let mut guard = self.pool.lock().unwrap();
+        let player_channels = guard.get_mut(&lobby_id).unwrap();
+        let index = player_channels
+            .iter()
+            .position(|c| c.player_id == player_id)
+            .unwrap();
+        let mut client = player_channels.remove(index);
+        client.socket.close(None).unwrap();
     }
 
     pub fn update_clients(&self, states: Vec<ClientState>, lobby_id: i32) {

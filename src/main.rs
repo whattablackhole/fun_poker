@@ -1,13 +1,13 @@
 use fun_poker::{
     dealer::Dealer,
+    player::PlayerPayloadError,
     postgres_database::PostgresDatabase,
     protos::{
         client_request::JoinLobbyRequest,
         player::{Player, PlayerPayload},
         user::User,
     },
-    socket_pool::LobbySocketPool,
-    socket_pool::{DealerPool, PlayerChannelClient},
+    socket_pool::{DealerPool, LobbySocketPool, PlayerChannelClient, ReadMessageError},
     ThreadPool,
 };
 
@@ -137,10 +137,25 @@ fn handle_http_request(
         loop {
             //TODO: handle the cases where a client is not responding, or has closed the connection;
             //TODO: use seperate messages for separated responses to decrease memory load and bandwidth
-            let request: PlayerPayload =
+            let request: Result<PlayerPayload, ReadMessageError> =
                 socket_pool.read_client_message(dealer.get_next_player_id(), cur_lobby_id);
 
-            let updated_state = dealer.update_game_state(request);
+            let result: Result<PlayerPayload, PlayerPayloadError> = match request {
+                Ok(p) => Ok(p),
+                Err(ReadMessageError::Disconnected) => {
+                    socket_pool.close_connection(dealer.get_next_player_id(), cur_lobby_id);
+                    Err(PlayerPayloadError::Disconnected {
+                        id: dealer.get_next_player_id(),
+                        lobby_id: cur_lobby_id,
+                    })
+                }
+                Err(ReadMessageError::Iddle) => Err(PlayerPayloadError::Iddle {
+                    id: dealer.get_next_player_id(),
+                    lobby_id: cur_lobby_id,
+                }),
+            };
+
+            let updated_state = dealer.update_game_state(result);
 
             socket_pool.update_clients(updated_state.client_states, cur_lobby_id);
 

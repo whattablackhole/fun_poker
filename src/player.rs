@@ -1,8 +1,4 @@
-use crate::protos::{
-    player::Player,
-    user::User,
-};
-
+use crate::protos::{player::Player, user::User};
 
 impl Player {
     // pass Settings with tournament settings
@@ -24,4 +20,10 @@ impl Player {
             })
             .collect()
     }
+}
+
+#[derive(Debug)]
+pub enum PlayerPayloadError {
+    Disconnected { id: i32, lobby_id: i32 },
+    Iddle { id: i32, lobby_id: i32 },
 }
