@@ -1,0 +1,31 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: $DATABASE_AUTH_NAME
+      POSTGRES_USER: $POSTGRES_USER
+      POSTGRES_PASSWORD: $POSTGRES_PASSWORD
+    ports:
+      - "5432:5432" 
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+  auth-service:
+    container_name: auth-service
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5004:5004"
+    volumes:
+      - ./auth-service/Controllers:/src/auth-service/Controllers
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - DOTNET_USE_POLLING_FILE_WATCHER=1
+      - DOTNET_USE_RUNNING_IN_CONTAINER=true
+      - JWT_SECRET=$JWT_SECRET
+      - PostgresConnection=Host=db;Database=$DATABASE_AUTH_NAME;Username=$POSTGRES_USER;Password=$POSTGRES_PASSWORD
+    depends_on:
+      - db
+volumes:
+  pgdata:
+

@@ -1,0 +1,20 @@
+FROM mcr.microsoft.com/dotnet/sdk:8.0.203-alpine3.18-amd64 AS build
+
+
+WORKDIR /src/auth-service
+
+COPY ./auth-service.csproj ./
+
+RUN dotnet restore
+
+COPY . .
+
+RUN dotnet tool install --global dotnet-ef
+
+ENV PATH="$PATH:/root/.dotnet/tools"
+
+
+EXPOSE 5004
+
+
+ENTRYPOINT ["sh", "-c", "dotnet ef database update && dotnet watch run --urls http://0.0.0.0:5004 --project auth-service.csproj"]
