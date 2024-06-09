@@ -6,6 +6,7 @@ import ApiService from '../../services/api.service.ts';
 import { ActionType, Player, PlayerPayload } from '../../types/player.ts';
 import TimerBanner from '../timer_banner/timer-banner.tsx';
 import { StreetStatus } from '../../types/game_state.ts';
+import mockState from '../../mocks/client-state.mock.ts';
 
 type PlayerId = number;
 type BetAmount = number;
@@ -21,6 +22,8 @@ interface BetHistory {
 function PokerTable(init_state: ClientState) {
     const canvasRef: RefObject<HTMLCanvasElement> = useRef(null);
     const betInputRef: RefObject<HTMLInputElement> = useRef(null);
+    init_state = mockState;
+    console.log(mockState);
     const [state, setState] = useState(init_state);
     // TODO: make readonly
     const stateRef = useRef(state);
@@ -87,7 +90,10 @@ function PokerTable(init_state: ClientState) {
         canvas.save();
         canvas.scale(scaleX, scaleY);
         canvas.beginPath();
+
         canvas.arc(descaledX, descaledY, radius, 0, Math.PI * 2);
+        canvas.fillStyle = 'blue';
+        canvas.fill();
         canvas.strokeStyle = 'green';
         canvas.lineWidth = 10;
         canvas.stroke();
@@ -135,73 +141,76 @@ function PokerTable(init_state: ClientState) {
 
 
     return (
-        <div style={{ position: 'relative', marginLeft: '200px' }}>
-            {playerPositions.map((position, index) => (
-                <div key={index} style={{
-                    position: 'absolute', top: position.y, left: position.x, display: 'flex', flexDirection: 'column',
-                }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', width: "fit-content" }}>
-                        <div style={{ display: 'flex' }}>
-                            {cards.map(({ suit, value }) => {
-                                return <PokerCard cardSuit={index === 0 ? suit : null} cardValue={index === 0 ? value : null} />
-                            })}
-                        </div>
+        <div style={{ backgroundImage: "url('./src/assets/background.png')", backgroundSize: "cover", width: "100%", height: "100%", display: "flex", justifyContent: "center" }}>
+            <div style={{ position: 'relative' }}>
+                {playerPositions.map((position, index) => (
+                    <div key={index} style={{
+                        position: 'absolute', top: position.y, left: position.x, display: 'flex', flexDirection: 'column',
+                    }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', width: "fit-content" }}>
+                            <div style={{ display: 'flex' }}>
+                                {cards.map(({ suit, value }) => {
+                                    return <PokerCard cardSuit={index === 0 ? suit : undefined} cardValue={index === 0 ? value : undefined} />
+                                })}
+                            </div>
 
-                        <div style={{ alignSelf: 'center', width: "100%", textAlign: "center", backgroundColor: 'wheat', marginTop: '-20px', }}>
-                            <div>
-                                {(players[index]?.bank ?? "100 000") + " chips"}
-                            </div>
-                            <div>
-                                {players[index]?.userName ?? "NickName"}
-                            </div>
-                            {state && players[index]?.userId === state.currPlayerId ?
+                            <div style={{ alignSelf: 'center', width: "100%", textAlign: "center", backgroundColor: 'wheat', marginTop: '-20px', }}>
                                 <div>
-                                    <TimerBanner timeLeft={100} />
+                                    {(players[index]?.bank ?? "100 000") + " chips"}
                                 </div>
+                                <div>
+                                    {players[index]?.userName ?? "NickName"}
+                                </div>
+                                {state && players[index]?.userId === state.currPlayerId ?
+                                    <div>
+                                        <TimerBanner timeLeft={100} />
+                                    </div>
 
-                                : null}
+                                    : null}
+                            </div>
                         </div>
+
+                        {index === 0 ? (
+                            <form style={{ display: "flex", alignItems: "flex-end" }}>
+                                <input ref={betInputRef} type="number" min="0" max={selfPlayer.bank || 0}></input>
+                                <button
+                                    disabled={state?.currPlayerId !== selfPlayer.userId}
+                                    style={{ width: "100px", height: "50px", alignSelf: "flex-end" }}
+                                    onClick={(e) => betClickHandler(e, ActionType.Fold)}
+                                >
+                                    Fold
+                                </button>
+                                <button
+                                    disabled={state?.currPlayerId !== selfPlayer.userId}
+                                    style={{ width: "100px", height: "50px", alignSelf: "flex-end" }}
+                                    onClick={(e) => betClickHandler(e, ActionType.Call)}
+                                >
+                                    Call
+                                </button>
+                                <button
+                                    disabled={state?.currPlayerId !== selfPlayer.userId}
+                                    style={{ width: "100px", height: "50px", alignSelf: "flex-end" }}
+                                    onClick={(e) => betClickHandler(e, ActionType.Raise)}
+                                >
+                                    Raise
+                                </button>
+                            </form>
+
+                        ) : null}
                     </div>
-
-                    {index === 0 ? (
-                        <form style={{ display: "flex", alignItems: "flex-end" }}>
-                            <input ref={betInputRef} type="number" min="0" max={selfPlayer.bank || 0}></input>
-                            <button
-                                disabled={state?.currPlayerId !== selfPlayer.userId}
-                                style={{ width: "100px", height: "50px", alignSelf: "flex-end" }}
-                                onClick={(e) => betClickHandler(e, ActionType.Fold)}
-                            >
-                                Fold
-                            </button>
-                            <button
-                                disabled={state?.currPlayerId !== selfPlayer.userId}
-                                style={{ width: "100px", height: "50px", alignSelf: "flex-end" }}
-                                onClick={(e) => betClickHandler(e, ActionType.Call)}
-                            >
-                                Call
-                            </button>
-                            <button
-                                disabled={state?.currPlayerId !== selfPlayer.userId}
-                                style={{ width: "100px", height: "50px", alignSelf: "flex-end" }}
-                                onClick={(e) => betClickHandler(e, ActionType.Raise)}
-                            >
-                                Raise
-                            </button>
-                        </form>
-
-                    ) : null}
+                ))}
+                <div style={{ position: 'absolute', top: descaledY - 50, left: descaledX, display: 'flex' }}>
+                    {boardCards?.map(({ suit, value }) => {
+                        return <PokerCard cardSuit={suit} cardValue={value} />
+                    })}
                 </div>
-            ))}
-            <div style={{ position: 'absolute', top: descaledY - 50, left: descaledX, display: 'flex' }}>
-                {boardCards?.map(({ suit, value }) => {
-                    return <PokerCard cardSuit={suit} cardValue={value} />
-                })}
+
+
+                <canvas ref={canvasRef} />
+
             </div>
-
-
-            <canvas ref={canvasRef} />
-
         </div>
+
     );
 }
 

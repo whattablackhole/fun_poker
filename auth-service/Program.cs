@@ -33,23 +33,7 @@ builder.Services.AddScoped(_ =>
     return new TokenService(secretKey);
 });
 
-// builder.Services.AddAuthentication(options =>
-// {
-//     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-//     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-// })
-// .AddJwtBearer(options =>
-// {
-//     options.TokenValidationParameters = new TokenValidationParameters
-//     {
-//        
-//     };
-// });
-
-
-
 var app = builder.Build();
-
 
 if (app.Environment.IsDevelopment())
 {
@@ -67,19 +51,6 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseRouting();
-// app.UseAuthentication();
-// app.UseAuthorization();
-
-app.MapGet("/users", async (PostgresDbContext dbContext) =>
-{
-    var users = await dbContext.Users.ToListAsync();
-    if (users != null)
-    {
-        return users;
-    }
-    return [];
-})
-.WithOpenApi();
 
 app.MapControllers();
 

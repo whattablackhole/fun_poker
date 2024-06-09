@@ -1,6 +1,8 @@
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import GameView from './view/game-view'
 import IndexView from './view/index-view'
+import PokerTable3d from './components/poker_table_3d/poker-table-3d';
+import Game from './components/game/game';
 
 function App() {
   const router = createBrowserRouter([
@@ -15,6 +17,10 @@ function App() {
     {
       path: "/game",
       Component: GameView
+    },
+    {
+      path: "/table",
+      Component: Game
     }
   ]);
   return (

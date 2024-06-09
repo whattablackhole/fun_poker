@@ -9,8 +9,8 @@ public class PostgresDbContext : DbContext
 
 public class User
 {
-   [Key]
-   public int Id { get; set; }
+    [Key]
+    public int Id { get; set; }
 
     public Guid Uuid { get; set; } = Guid.NewGuid();
     public required string UserName { get; set; }

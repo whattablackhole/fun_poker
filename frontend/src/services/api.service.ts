@@ -1,5 +1,4 @@
 import { PlayerPayload } from "../types";
-import { CardPair, CardSuit } from "../types/card";
 import { ClientState } from "../types/client-state";
 import { JoinLobbyRequest } from "../types/join-lobby.request";
 import { LobbyList } from "../types/lobby";

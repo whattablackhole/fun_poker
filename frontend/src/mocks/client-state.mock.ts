@@ -1,11 +1,17 @@
-import { Card, CardPair, ClientState, Street } from "../types";
+import { Card, CardPair, ClientState } from "../types";
+import { Street } from "../types/game_state";
 
 const mockState = ClientState.create({
     cards: CardPair.create({ card1: Card.create({ value: 1, suit: 1 }), card2: Card.create({ value: 2, suit: 1 }) }),
     gameStatus: 1,
-    latestWinners: [],
+    canRaise: false,
+    currButtonId: 1,
+    currPlayerId: 1,
+    currSmallBlindId: 2,
+    minAmountToRaise: 100,
+    amountToCall: 100,
+    currBigBlindId: 3,
     lobbyId: 1,
-    nextPlayerId: 0,
     playerId: 0,
     players: [
         {

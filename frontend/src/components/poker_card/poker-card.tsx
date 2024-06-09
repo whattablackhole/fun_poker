@@ -12,13 +12,13 @@ import { CardSuit, CardValue } from "../../types/card";
 
 
 interface PokerCardProps {
-    cardValue: CardValue | null;
-    cardSuit: CardSuit | null;
+    cardValue: CardValue | undefined;
+    cardSuit: CardSuit | undefined;
 }
 function PokerCard({ cardSuit, cardValue }: PokerCardProps) {
     return <>
         <div className="poker-card">
-            {cardSuit !== null &&
+            {cardSuit !== undefined &&
                 <div className="poker-card-value" style={{ color: getCardColor(cardSuit) }}>{getCardValue(cardValue)}</div>
             }
             <div className="poker-card-image">
@@ -40,8 +40,8 @@ function PokerCard({ cardSuit, cardValue }: PokerCardProps) {
             default: return "";
         }
     }
-    function getCardValue(cardValue: CardValue | null) {
-        if (cardValue === null) {
+    function getCardValue(cardValue: CardValue | undefined) {
+        if (cardValue === undefined) {
             return "";
         }
         switch (cardValue) {
@@ -60,7 +60,7 @@ function PokerCard({ cardSuit, cardValue }: PokerCardProps) {
             default: return (cardValue + 2).toString();
         }
     }
-    function getCardImage(cardSuit: CardSuit | null, cardValue: CardValue | null): string {
+    function getCardImage(cardSuit: CardSuit | undefined, cardValue: CardValue | undefined): string {
         if (cardSuit == null) {
             return backImage;
         }
