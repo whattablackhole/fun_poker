@@ -4,7 +4,7 @@ import { Html } from "@react-three/drei";
 import { TextureLoader, Vector3 } from 'three';
 import Card3d from './card3d';
 import { Player } from '../../types';
-
+import "./poker-table3d.css";
 
 const LogCameraSettings = () => {
   const { camera } = useThree();
@@ -41,6 +41,7 @@ function PokerTable3d({ selfPlayer, players }: { selfPlayer: Player, players: Pl
     const y = Math.sin(angle) * cardScaleRadiusY * radius - (offsetY / 100)
     const z = 1;
     let currPlayer = players[i];
+
     let cards;
     if (currPlayer.userId == selfPlayer.userId) {
       cards = selfPlayer.cards;
@@ -74,13 +75,17 @@ function PokerTable3d({ selfPlayer, players }: { selfPlayer: Player, players: Pl
           <>
             <Card3d cards={player.cards} position={position} key={index} index={index} />
             <Html position={new Vector3(position.x, position.y, position.z)}>
-              <div style={{ alignSelf: 'center', width: "230px", textAlign: "center", backgroundColor: 'wheat', marginTop: '120px' }}>
-                <div>
-                  {(player.bank ?? "100 000") + " chips"}
+              <div className="player_info trapezium" style={{ alignSelf: 'center', textAlign: "center" }}>
+                <div className="player_info__container">
+                  <div className="player_name">
+                    {player.userName ?? "NickName"}
+                  </div>
+                  <div className="divider"></div>
+                  <div className="player_bank">
+                    {(player.bank ?? "100 000") + " chips"}
+                  </div>
                 </div>
-                <div>
-                  {player.userName ?? "NickName"}
-                </div>
+
                 {/* {state && players[index]?.userId === state.currPlayerId ?
                   <div>
                     <TimerBanner timeLeft={100} />

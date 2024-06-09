@@ -1,0 +1,44 @@
+.player_info {
+    position: absolute;
+    width: 221px;
+    height: 70px;
+    left: -1px;
+    /* top substruct from height of card which is 150px*/
+    top: 150px;
+}
+.trapezium::before {
+    content: "";
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    left: 0px;
+    z-index: -1;
+    background: linear-gradient(to bottom, black, grey);
+    transform: perspective(467px) rotateX(-20deg);
+    transform-origin: top;
+    border: 2px solid black;
+
+}
+
+.player_info__container {
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+}
+
+.divider {
+    width: 95%;
+    height: 1px;
+    background-color: black;
+}
+
+.player_name {
+    color: #d3d3d3;
+    font-size: 24px;
+}
+
+.player_bank {
+    color: #00ffff;
+    font-size: 18px;
+}
