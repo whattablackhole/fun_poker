@@ -1,12 +1,13 @@
-import { useEffect, useState } from "react";
+import { RefObject, useEffect, useRef, useState } from "react";
 import { ClientState } from "../../types/client-state";
 import PokerTable3d from "../poker_table_3d/poker-table-3d";
 import ApiService from "../../services/api.service";
 import BetHistory from "../../types/bet-history";
-import { Card, Player } from "../../types";
+import { ActionType, Card, Player, PlayerPayload } from "../../types";
 import GameStateService from "../../services/game-state.service";
 import mockState from "../../mocks/client-state.mock";
-
+import GameControls from "../game-controls/game-controls";
+import "./game.css";
 
 
 // data
@@ -63,6 +64,10 @@ function Game() {
     return (
         <div>
             <PokerTable3d selfPlayer={selfPlayer} players={players} />
+            <div className="game-controls">
+                <GameControls selfPlayer={selfPlayer} gameState={gameState} />
+            </div>
+
         </div>
     )
 }

@@ -5,6 +5,9 @@ import { TextureLoader, Vector3 } from 'three';
 import Card3d from './card3d';
 import { Player } from '../../types';
 import "./poker-table3d.css";
+import { FlagIcon, FlagIconCode } from "react-flag-kit";
+import mockState from '../../mocks/client-state.mock';
+import PokerCard from '../poker_card/poker-card';
 
 const LogCameraSettings = () => {
   const { camera } = useThree();
@@ -56,7 +59,7 @@ function PokerTable3d({ selfPlayer, players }: { selfPlayer: Player, players: Pl
 
   return (
 
-    <Canvas style={{ height: '100vh', width: '100vw', backgroundImage: "url('./src/assets/background.png')" }} camera={{
+    <Canvas style={{ height: '100vh', width: '100vw', backgroundImage: "url('./src/assets/background.png')", backgroundRepeat: 'no-repeat', backgroundSize: 'cover' }} camera={{
       position: [2.7, -16, 48],
       fov: 15
     }}>
@@ -71,10 +74,20 @@ function PokerTable3d({ selfPlayer, players }: { selfPlayer: Player, players: Pl
           <torusGeometry args={[5, 0.15, 10, 100]} />
           <meshBasicMaterial map={borderTexture} />
         </mesh>
+        {/* TODO: */}
+        <Html position={[-3, 2, 0]} style={{ display: 'flex' }}>
+          {mockState.street?.cards.map((card, index) => {
+            return <PokerCard cardSuit={card.suit} cardValue={card.value} key={index} />
+          })}
+          {/* <Card3d cards={player.cards} position={position} key={index} index={index} />
+        <Card3d cards={player.cards} position={position} key={index} index={index} />
+        <Card3d cards={player.cards} position={position} key={index} index={index} /> */}
+        </Html>
         {playersAndPosition.map(({ player, position }, index) => (
           <>
             <Card3d cards={player.cards} position={position} key={index} index={index} />
             <Html position={new Vector3(position.x, position.y, position.z)}>
+              <FlagIcon code={player.country as FlagIconCode} size={34} style={{ position: "absolute", top: "116px" }} />
               <div className="player_info trapezium" style={{ alignSelf: 'center', textAlign: "center" }}>
                 <div className="player_info__container">
                   <div className="player_name">
@@ -85,6 +98,7 @@ function PokerTable3d({ selfPlayer, players }: { selfPlayer: Player, players: Pl
                     {(player.bank ?? "100 000") + " chips"}
                   </div>
                 </div>
+
 
                 {/* {state && players[index]?.userId === state.currPlayerId ?
                   <div>
@@ -109,6 +123,7 @@ function PokerTable3d({ selfPlayer, players }: { selfPlayer: Player, players: Pl
       <OrbitControls />
       {/* <LogCameraSettings></LogCameraSettings> */}
     </Canvas >
+
   );
 }
 

@@ -11,6 +11,10 @@
     "compile_protos": "protoc --ts_out=./src/types --proto_path=../protos ../protos/*.proto"
   },
   "dependencies": {
+    "@emotion/react": "^11.11.4",
+    "@emotion/styled": "^11.11.5",
+    "@mui/icons-material": "^5.15.19",
+    "@mui/material": "^5.15.19",
     "@protobuf-ts/plugin": "^2.9.4",
     "@react-spring/web": "^9.7.3",
     "@react-three/drei": "^9.106.0",
@@ -18,6 +22,7 @@
     "@types/three": "^0.165.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-flag-kit": "^1.1.1",
     "react-router-dom": "^6.23.0",
     "three": "^0.165.0"
   },

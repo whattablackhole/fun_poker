@@ -18,7 +18,7 @@ const mockState = ClientState.create({
             action: { actionType: 2, bet: 100 },
             bank: 10000,
             betInCurrentSeed: 100,
-            country: "Belarus",
+            country: "BY",
             userId: 0,
             userName: "Ruddy"
         },
@@ -26,7 +26,7 @@ const mockState = ClientState.create({
             action: { actionType: 0, bet: 0 },
             bank: 10000,
             betInCurrentSeed: 0,
-            country: "Poland",
+            country: "PL",
             userId: 1,
             userName: "Sindy"
         },
@@ -34,7 +34,7 @@ const mockState = ClientState.create({
             action: { actionType: 2, bet: 300 },
             bank: 10000,
             betInCurrentSeed: 300,
-            country: "USA",
+            country: "US",
             userId: 2,
             userName: "Ronald"
         },
@@ -42,7 +42,7 @@ const mockState = ClientState.create({
             action: { actionType: 0, bet: 0 },
             bank: 10000,
             betInCurrentSeed: 0,
-            country: "England",
+            country: "GB",
             userId: 3,
             userName: "Josh"
         },
@@ -50,7 +50,7 @@ const mockState = ClientState.create({
             action: { actionType: 0, bet: 0 },
             bank: 10000,
             betInCurrentSeed: 0,
-            country: "China",
+            country: "CN",
             userId: 4,
             userName: "Si Lue"
         },
@@ -58,7 +58,7 @@ const mockState = ClientState.create({
             action: { actionType: 0, bet: 0 },
             bank: 10000,
             betInCurrentSeed: 0,
-            country: "Japan",
+            country: "JP",
             userId: 5,
             userName: "Woghn Gee"
         },
@@ -66,7 +66,7 @@ const mockState = ClientState.create({
             action: { actionType: 0, bet: 0 },
             bank: 10000,
             betInCurrentSeed: 0,
-            country: "Belarus",
+            country: "BY",
             userId: 6,
             userName: "Alexander"
         },
@@ -74,7 +74,7 @@ const mockState = ClientState.create({
             action: { actionType: 0, bet: 0 },
             bank: 10000,
             betInCurrentSeed: 0,
-            country: "Germany",
+            country: "DE",
             userId: 7,
             userName: "Carl Fritz"
         },
@@ -82,7 +82,7 @@ const mockState = ClientState.create({
             action: { actionType: 0, bet: 0 },
             bank: 10000,
             betInCurrentSeed: 0,
-            country: "New Zeland",
+            country: "NZ",
             userId: 8,
             userName: "Joe Hister"
         }
