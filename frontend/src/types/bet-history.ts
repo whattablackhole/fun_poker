@@ -7,9 +7,9 @@ type BetHistoryMap = Map<PlayerId, { [key in StreetStatus]: BetAmount }>;
 
 interface IBetHistory {
     calculateBetHistory(newState: ClientState, automatedShowdown: boolean): this;
-    calculateTotalBankOfPrevStreets(this: BetHistoryMap, prevStreet: StreetStatus): number;
+    calculateTotalBankOfPrevStreets(prevStreet: StreetStatus): number;
     getBankOnPrevStreet(): number;
-    getPlayerthis(): BetHistoryMap;
+    getPlayerBetAmount(playerId: number, street: StreetStatus): number;
 }
 //TODO: move out from this folder and name this folder... 
 class BetHistory implements IBetHistory {
@@ -51,8 +51,12 @@ class BetHistory implements IBetHistory {
         return this._bank_on_prev_street;
     }
 
-    public getPlayerthis(): BetHistoryMap {
-        return this._betHistoryMap;
+    public getPlayerBetAmount(playerId: number, street?: StreetStatus): number {
+        if (street === undefined) {
+            return 0;
+        }
+
+        return this._betHistoryMap.get(playerId)?.[street] || 0;
     }
 }
 

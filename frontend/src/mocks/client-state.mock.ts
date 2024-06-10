@@ -1,5 +1,5 @@
-import { Card, CardPair, ClientState } from "../types";
-import { Street } from "../types/game_state";
+import { ActionType, Card, CardPair, ClientState } from "../types";
+import { Street, StreetStatus } from "../types/game_state";
 
 const mockState = ClientState.create({
     cards: CardPair.create({ card1: Card.create({ value: 1, suit: 1 }), card2: Card.create({ value: 2, suit: 1 }) }),
@@ -86,6 +86,15 @@ const mockState = ClientState.create({
             userId: 8,
             userName: "Joe Hister"
         }
+    ],
+    actionHistory: [
+        { actionType: ActionType.Raise, playerId: 1, bet: 200, streetStatus: StreetStatus.Preflop },
+        { actionType: ActionType.Call, playerId: 2, bet: 200, streetStatus: StreetStatus.Preflop },
+        { actionType: ActionType.Fold, playerId: 3, bet: 0, streetStatus: StreetStatus.Preflop },
+        { actionType: ActionType.Raise, playerId: 4, bet: 300, streetStatus: StreetStatus.Flop },
+        { actionType: ActionType.Raise, playerId: 5, bet: 300, streetStatus: StreetStatus.Flop },
+        { actionType: ActionType.Raise, playerId: 7, bet: 700, streetStatus: StreetStatus.Preflop },
+        // Add more actions as needed
     ],
     street: Street.create({ cards: [{ value: 3, suit: 2 }, { value: 8, suit: 2 }, { value: 6, suit: 1 }] }),
 

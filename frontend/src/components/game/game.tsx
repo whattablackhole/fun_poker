@@ -60,10 +60,9 @@ function Game() {
         )
     }
 
-
     return (
         <div>
-            <PokerTable3d selfPlayer={selfPlayer} players={players} buttonId={gameState.currButtonId} />
+            <PokerTable3d selfPlayer={selfPlayer} players={players} betHistory={betHistory} buttonId={gameState.currButtonId} currPlayerId={gameState.currPlayerId} street={gameState.street} />
             <div className="game-controls">
                 <GameControls selfPlayer={selfPlayer} gameState={gameState} />
             </div>

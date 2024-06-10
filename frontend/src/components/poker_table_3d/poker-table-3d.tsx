@@ -6,10 +6,12 @@ import Card3d from './card3d';
 import { Player } from '../../types';
 import "./poker-table3d.css";
 import { FlagIcon, FlagIconCode } from "react-flag-kit";
-import mockState from '../../mocks/client-state.mock';
 import PokerCard from '../poker_card/poker-card';
 import PokerButton from './poker-button';
 import Chips from './chips3d';
+import TimerBanner from '../timer_banner/timer-banner';
+import BetHistory from '../../types/bet-history';
+import { Street } from '../../types/game_state';
 
 const LogCameraSettings = () => {
   const { camera } = useThree();
@@ -39,7 +41,7 @@ const offsetXY = (x: number, y: number, offsetDistance: number): { x: number, y:
 }
 
 
-function PokerTable3d({ selfPlayer, players, buttonId }: { selfPlayer: Player, players: Player[], buttonId: number }) {
+function PokerTable3d({ selfPlayer, players, buttonId, street, betHistory, currPlayerId }: { selfPlayer: Player, betHistory: BetHistory, players: Player[], buttonId: number, currPlayerId: number, street?: Street }) {
   const numberOfCards = 9;
   const radius = 5;
 
@@ -47,10 +49,9 @@ function PokerTable3d({ selfPlayer, players, buttonId }: { selfPlayer: Player, p
   // depends on playerblock height and width
   const offsetX = 130 / 100;
   const offsetY = -75 / 100;
- 
+
   const cardScaleRadiusX = 1.7;
   const cardScaleRadiusY = 1.2;
-
 
 
   for (let i = 0; i < numberOfCards; i++) {
@@ -58,12 +59,7 @@ function PokerTable3d({ selfPlayer, players, buttonId }: { selfPlayer: Player, p
     const x = Math.cos(angle) * cardScaleRadiusX * radius
     const y = Math.sin(angle) * cardScaleRadiusY * radius
     const z = 1;
-    let currPlayer = players[i];
 
-    let cards;
-    if (currPlayer.userId == selfPlayer.userId) {
-      cards = selfPlayer.cards;
-    }
     playersAndPosition.push({ player: players[i], position: { x, y, z } });
   }
   let buttonPos = playersAndPosition.find((p) => p.player.userId == buttonId)
@@ -93,7 +89,7 @@ function PokerTable3d({ selfPlayer, players, buttonId }: { selfPlayer: Player, p
         <PokerButton x={buttonPos?.position.x! - 0.2} y={buttonPos?.position.y! + 0.5}></PokerButton>
         {/* TODO: */}
         <Html position={[-3, 2, 0]} style={{ display: 'flex' }}>
-          {mockState.street?.cards.map((card, index) => {
+          {street?.cards?.map((card, index) => {
             return <PokerCard cardSuit={card.suit} cardValue={card.value} key={index} />
           })}
           {/* <Card3d cards={player.cards} position={position} key={index} index={index} />
@@ -102,11 +98,11 @@ function PokerTable3d({ selfPlayer, players, buttonId }: { selfPlayer: Player, p
         </Html>
         {playersAndPosition.map(({ player, position }, index) => {
           let chipsCords = offsetXY(position.x, position.y, 2);
-          let playerBlockCords = {x: position.x - offsetX, y: position.y - offsetY, z: position.z}
+          let playerBlockCords = { x: position.x - offsetX, y: position.y - offsetY, z: position.z }
 
           return <>
-            <Chips amount={2364} key={index} x={chipsCords.x} y={chipsCords.y} />
-            <Card3d cards={player.cards} position={playerBlockCords} key={index} index={index} />
+            <Chips amount={betHistory.getPlayerBetAmount(player.userId, street?.streetStatus)} x={chipsCords.x} y={chipsCords.y} />
+            <Card3d cards={player.cards} position={playerBlockCords} index={index} />
             <Html position={new Vector3(playerBlockCords.x, playerBlockCords.y, playerBlockCords.z)}>
               <FlagIcon code={player.country as FlagIconCode} size={34} style={{ position: "absolute", top: "116px" }} />
               <div className="player_info trapezium" style={{ alignSelf: 'center', textAlign: "center" }}>
@@ -121,12 +117,10 @@ function PokerTable3d({ selfPlayer, players, buttonId }: { selfPlayer: Player, p
                 </div>
 
 
-                {/* {state && players[index]?.userId === state.currPlayerId ?
-                <div>
+                {player.userId === currPlayerId ?
                   <TimerBanner timeLeft={100} />
-                </div>
 
-                : null} */}
+                  : null}
               </div>
             </Html>
 

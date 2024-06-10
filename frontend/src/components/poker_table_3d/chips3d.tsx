@@ -87,8 +87,8 @@ function Chips({ x, y, amount }: { x: number, y: number, amount: number }) {
     return (
         chipSettings.map((chipSetting, index) => {
             let result = []
-            for (let i = chipSetting.count; i >= 0; i--) {
-                result.push(<mesh rotation={[Math.PI / 2, Math.PI / 2, 0]} position={[x + index * 0.3, y, 0.1 + i * 0.051]}>
+            for (let i = chipSetting.count; i > 0; i--) {
+                result.push(<mesh rotation={[Math.PI / 2, Math.PI / 2, 0]} position={[x + index * 0.3, y, 0.05 + i * 0.051]}>
                     <cylinderGeometry args={[0.15, 0.15, 0.05, 32]} />
                     <meshBasicMaterial key="0" attach="material-0" color={chipSetting.surfaceColor} />
                     <meshBasicMaterial key="1" attach="material-1" map={chipSetting.texture} />
