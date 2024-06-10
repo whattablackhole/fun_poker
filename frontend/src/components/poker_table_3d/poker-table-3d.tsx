@@ -9,6 +9,7 @@ import { FlagIcon, FlagIconCode } from "react-flag-kit";
 import mockState from '../../mocks/client-state.mock';
 import PokerCard from '../poker_card/poker-card';
 import PokerButton from './poker-button';
+import Chips from './chips3d';
 
 const LogCameraSettings = () => {
   const { camera } = useThree();
@@ -24,6 +25,18 @@ const LogCameraSettings = () => {
 
   return null;
 };
+const offsetXY = (x: number, y: number, offsetDistance: number): { x: number, y: number } => {
+  const distance = Math.sqrt(x * x + y * y);
+
+
+  const newDistance = Math.max(0, distance - offsetDistance);
+
+  const factor = newDistance / distance;
+
+  const newX = x * factor;
+  const newY = y * factor;
+  return { x: newX, y: newY }
+}
 
 
 function PokerTable3d({ selfPlayer, players, buttonId }: { selfPlayer: Player, players: Player[], buttonId: number }) {
@@ -31,9 +44,10 @@ function PokerTable3d({ selfPlayer, players, buttonId }: { selfPlayer: Player, p
   const radius = 5;
 
   const playersAndPosition = [];
-
-  const offsetX = 130;
-  const offsetY = -75;
+  // depends on playerblock height and width
+  const offsetX = 130 / 100;
+  const offsetY = -75 / 100;
+ 
   const cardScaleRadiusX = 1.7;
   const cardScaleRadiusY = 1.2;
 
@@ -41,8 +55,8 @@ function PokerTable3d({ selfPlayer, players, buttonId }: { selfPlayer: Player, p
 
   for (let i = 0; i < numberOfCards; i++) {
     const angle = (i / numberOfCards) * Math.PI * 2 - Math.PI / 2;
-    const x = Math.cos(angle) * cardScaleRadiusX * radius - (offsetX / 100)
-    const y = Math.sin(angle) * cardScaleRadiusY * radius - (offsetY / 100)
+    const x = Math.cos(angle) * cardScaleRadiusX * radius
+    const y = Math.sin(angle) * cardScaleRadiusY * radius
     const z = 1;
     let currPlayer = players[i];
 
@@ -86,10 +100,14 @@ function PokerTable3d({ selfPlayer, players, buttonId }: { selfPlayer: Player, p
         <Card3d cards={player.cards} position={position} key={index} index={index} />
         <Card3d cards={player.cards} position={position} key={index} index={index} /> */}
         </Html>
-        {playersAndPosition.map(({ player, position }, index) => (
-          <>
-            <Card3d cards={player.cards} position={position} key={index} index={index} />
-            <Html position={new Vector3(position.x, position.y, position.z)}>
+        {playersAndPosition.map(({ player, position }, index) => {
+          let chipsCords = offsetXY(position.x, position.y, 2);
+          let playerBlockCords = {x: position.x - offsetX, y: position.y - offsetY, z: position.z}
+
+          return <>
+            <Chips amount={2364} key={index} x={chipsCords.x} y={chipsCords.y} />
+            <Card3d cards={player.cards} position={playerBlockCords} key={index} index={index} />
+            <Html position={new Vector3(playerBlockCords.x, playerBlockCords.y, playerBlockCords.z)}>
               <FlagIcon code={player.country as FlagIconCode} size={34} style={{ position: "absolute", top: "116px" }} />
               <div className="player_info trapezium" style={{ alignSelf: 'center', textAlign: "center" }}>
                 <div className="player_info__container">
@@ -104,17 +122,19 @@ function PokerTable3d({ selfPlayer, players, buttonId }: { selfPlayer: Player, p
 
 
                 {/* {state && players[index]?.userId === state.currPlayerId ?
-                  <div>
-                    <TimerBanner timeLeft={100} />
-                  </div>
+                <div>
+                  <TimerBanner timeLeft={100} />
+                </div>
 
-                  : null} */}
+                : null} */}
               </div>
             </Html>
 
           </>
+        }
 
-        ))}
+
+        )}
         <mesh rotation={[Math.PI / 2, 0, 0]} scale={[1.5, 1, 1]}>
           <cylinderGeometry args={[5, 5, 0.1, 100]} />
           <meshBasicMaterial map={deskTexture} />
