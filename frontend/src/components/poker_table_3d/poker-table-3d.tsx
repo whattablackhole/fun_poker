@@ -8,6 +8,7 @@ import "./poker-table3d.css";
 import { FlagIcon, FlagIconCode } from "react-flag-kit";
 import mockState from '../../mocks/client-state.mock';
 import PokerCard from '../poker_card/poker-card';
+import PokerButton from './poker-button';
 
 const LogCameraSettings = () => {
   const { camera } = useThree();
@@ -25,13 +26,13 @@ const LogCameraSettings = () => {
 };
 
 
-function PokerTable3d({ selfPlayer, players }: { selfPlayer: Player, players: Player[] }) {
+function PokerTable3d({ selfPlayer, players, buttonId }: { selfPlayer: Player, players: Player[], buttonId: number }) {
   const numberOfCards = 9;
   const radius = 5;
 
   const playersAndPosition = [];
 
-  const offsetX = 150;
+  const offsetX = 130;
   const offsetY = -75;
   const cardScaleRadiusX = 1.7;
   const cardScaleRadiusY = 1.2;
@@ -51,7 +52,7 @@ function PokerTable3d({ selfPlayer, players }: { selfPlayer: Player, players: Pl
     }
     playersAndPosition.push({ player: players[i], position: { x, y, z } });
   }
-
+  let buttonPos = playersAndPosition.find((p) => p.player.userId == buttonId)
   let borderTexture = new TextureLoader().load("./src/assets/rubber.avif")
   let deskTexture = new TextureLoader().load("./src/assets/desk-texture.jpg")
 
@@ -74,6 +75,8 @@ function PokerTable3d({ selfPlayer, players }: { selfPlayer: Player, players: Pl
           <torusGeometry args={[5, 0.15, 10, 100]} />
           <meshBasicMaterial map={borderTexture} />
         </mesh>
+
+        <PokerButton x={buttonPos?.position.x! - 0.2} y={buttonPos?.position.y! + 0.5}></PokerButton>
         {/* TODO: */}
         <Html position={[-3, 2, 0]} style={{ display: 'flex' }}>
           {mockState.street?.cards.map((card, index) => {
