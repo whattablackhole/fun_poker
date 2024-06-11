@@ -112,6 +112,12 @@ impl PostgresDatabase {
         LobbyList { list: lobbies }
     }
 
+    pub fn add_user_to_lobby(&self, lobby_id: i32, user_id: i32) {
+        let mut client_lock = self.client.lock().unwrap();
+        let query = "INSERT INTO players_lobbies (player_id, lobby_id) VALUES ($1, $2)";
+        client_lock.execute(query, &[&user_id, &lobby_id]).unwrap();
+    }
+
     pub fn init(&self) -> Result<(), postgres::Error> {
         let mut client_lock = self.client.lock().unwrap();
 

@@ -1,28 +1,14 @@
-import { RefObject, useRef } from "react";
-import { ActionType, ClientState, Player, PlayerPayload } from "../../types";
-import ApiService from "../../services/api.service";
+import { useState } from "react";
+import { ActionType, ClientState, Player } from "../../types";
 import "./game-controls.css";
 import InputSlider from "./bet-slider";
-import { Button, ButtonGroup, Grid } from "@mui/material";
+import { Button, Grid } from "@mui/material";
 import { Box } from "@react-three/drei";
 
-function GameControls({ gameState, selfPlayer }: { gameState: ClientState, selfPlayer: Player }) {
-    // const betClickHandler = (event: MouseEvent<HTMLButtonElement, globalThis.MouseEvent>, action: ActionType) => {
-    //     event.preventDefault(); // Prevent default button behavior
-    //     nextStepHandler(action);
-    // };
-    const betClickHandler = (event: any, action: ActionType) => {
-        event.preventDefault(); // Prevent default button behavior
-        nextStepHandler(action);
-    };
-    const betInputRef: RefObject<HTMLInputElement> = useRef(null);
+function GameControls({ gameState, selfPlayer, betClickHandler }: { gameState: ClientState, selfPlayer: Player, betClickHandler: (value: number, type: ActionType) => void }) {
+    const [betSizeInputValue, setBetSizeInputValue] = useState<number>(0);
 
-    const nextStepHandler = (type: ActionType) => {
-        let value = Number.parseInt(!!betInputRef.current?.value.length ? betInputRef.current?.value : "0");
-        let payload = PlayerPayload.create({ action: { actionType: type, bet: value }, lobbyId: gameState?.lobbyId, playerId: gameState?.playerId });
-
-        ApiService.sendMessage(payload);
-    }
+    
 
     return (
         <Box>
@@ -79,7 +65,7 @@ function GameControls({ gameState, selfPlayer }: { gameState: ClientState, selfP
                         </Button>
                     </div>
 
-                    <InputSlider></InputSlider>
+                    <InputSlider onValueChange={setBetSizeInputValue}></InputSlider>
                 </Grid>
                 <Grid item sx={{ gap: '20px', display: 'flex' }}>
                     {/* <ButtonGroup variant="outlined" aria-label="betting options" sx={{
@@ -99,7 +85,7 @@ function GameControls({ gameState, selfPlayer }: { gameState: ClientState, selfP
                         }}
                         className="fold_button control-button"
                         // disabled={gameState?.currPlayerId !== selfPlayer.userId}
-                        onClick={(e) => betClickHandler(e, ActionType.Fold)}
+                        onClick={(e) => betClickHandler(0, ActionType.Fold)}
                     >
                         Fold
                     </Button>
@@ -115,7 +101,7 @@ function GameControls({ gameState, selfPlayer }: { gameState: ClientState, selfP
                         }}
                         className="call-check_button control-button"
                         // disabled={gameState?.currPlayerId !== selfPlayer.userId}
-                        onClick={(e) => betClickHandler(e, ActionType.Call)}
+                        onClick={(e) => betClickHandler(betSizeInputValue, ActionType.Call)}
                     >
                         Call
                     </Button>
@@ -130,7 +116,7 @@ function GameControls({ gameState, selfPlayer }: { gameState: ClientState, selfP
                         }}
                         className="raise_button control-button"
                         // disabled={gameState?.currPlayerId !== selfPlayer.userId}
-                        onClick={(e) => betClickHandler(e, ActionType.Raise)}
+                        onClick={(e) => betClickHandler(betSizeInputValue, ActionType.Raise)}
                     >
                         Raise
                     </Button>

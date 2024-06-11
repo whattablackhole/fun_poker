@@ -13,6 +13,7 @@ pub mod dealer;
 pub mod player;
 pub mod postgres_database;
 pub mod socket_pool;
+pub mod dealer_pool;
 
 pub mod protos {
     pub mod client_state {

@@ -1,11 +1,10 @@
-import { RefObject, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { ClientState } from "../../types/client-state";
 import PokerTable3d from "../poker_table_3d/poker-table-3d";
 import ApiService from "../../services/api.service";
 import BetHistory from "../../types/bet-history";
 import { ActionType, Card, Player, PlayerPayload } from "../../types";
 import GameStateService from "../../services/game-state.service";
-import mockState from "../../mocks/client-state.mock";
 import GameControls from "../game-controls/game-controls";
 import "./game.css";
 
@@ -32,23 +31,28 @@ function Game() {
     const [selfPlayer, setSelfPlayer] = useState<Player>();
     let prevStateCopy = gameState;
 
+    const betClickHandler = (value: number, type: ActionType) => {
+        let payload = PlayerPayload.create({ action: { actionType: type, bet: value }, lobbyId: gameState?.lobbyId, playerId: gameState?.playerId });
+
+        // ApiService.sendMessage(payload);
+    };
+
+    
 
     useEffect(() => {
-        let subscription = ApiService.clientStateObserver.subscribe(async (newState: ClientState) => {
+        // let subscription = ApiService.clientStateObserver.subscribe(async (newState: ClientState) => {
+        //     await GameStateService.processNewState(newState, prevStateCopy, betHistory, setBoardCards, setBetHistory, setPlayers);
+        //     setState(newState);
+        //     let selfPlayer = newState.players.find(player => player.userId == newState.playerId)!;
+        //     selfPlayer.cards = newState.cards;
+        //     setSelfPlayer(selfPlayer);
+        //     prevStateCopy = newState;
+        // })
 
-            await GameStateService.processNewState(newState, prevStateCopy, betHistory, setBoardCards, setBetHistory, setPlayers);
-            setState(newState);
-            let selfPlayer = newState.players.find(player => player.userId == newState.playerId)!;
-            selfPlayer.cards = newState.cards;
-            setSelfPlayer(selfPlayer);
-            prevStateCopy = newState;
-        })
 
-
-        ApiService.clientStateObserver.next(mockState);
-        return () => {
-            ApiService.clientStateObserver.unsubscribe(subscription);
-        }
+        // return () => {
+        //     ApiService.clientStateObserver.unsubscribe(subscription);
+        // }
 
 
     }, []);
@@ -64,7 +68,7 @@ function Game() {
         <div>
             <PokerTable3d selfPlayer={selfPlayer} players={players} betHistory={betHistory} buttonId={gameState.currButtonId} currPlayerId={gameState.currPlayerId} street={gameState.street} />
             <div className="game-controls">
-                <GameControls selfPlayer={selfPlayer} gameState={gameState} />
+                <GameControls selfPlayer={selfPlayer} gameState={gameState} betClickHandler={betClickHandler} />
             </div>
 
         </div>

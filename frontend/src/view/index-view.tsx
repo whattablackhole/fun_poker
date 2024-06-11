@@ -4,30 +4,40 @@ import LobbiesTable from "../components/navigation_table/lobbies-table.tsx";
 import ApiService from "../services/api.service.ts";
 import { ClientState } from "../types/client-state.ts";
 import { useNavigate } from "react-router-dom";
+import { useWebSocket } from "../providers/web-socket-provider.tsx";
+import { JoinLobbyRequest } from "../types/join-lobby.request.ts";
 
 function IndexView() {
+    // const { connection, addEventListener, removeEventListener } = useWebSocket();
+
+    
     let lobbyIdInputRef = useRef<HTMLInputElement>(null);
     let playerIdInputRef = useRef<HTMLInputElement>(null);
     let navigate = useNavigate();
+    
     const onClickHandler: React.MouseEventHandler<HTMLButtonElement> = () => {
+        navigate("/table");
         ApiService.startGame();
     }
-    const onJoinLobbyHandler = () => {
-        let lobby_id = Number.parseInt(lobbyIdInputRef.current!.value);
-        let player_id = Number.parseInt(playerIdInputRef.current!.value);
 
-        ApiService.establishSocketConnection(lobby_id, player_id);
+    const onJoinLobbyHandler = () => {
+        let lobbyId = Number.parseInt(lobbyIdInputRef.current!.value);
+        let playerId = Number.parseInt(playerIdInputRef.current!.value);
+        
+        let request = JoinLobbyRequest.create({ lobbyId, playerId });
+        ApiService.joinLobby(request);
     }
 
-    useEffect(() => {
-        let subscription = ApiService.clientStateObserver.subscribe((v: ClientState) => {
-            navigate("/game", { state: v });
 
-        })
-        return () => {
-            ApiService.clientStateObserver.unsubscribe(subscription);
-        }
-    }, [navigate])
+    // useEffect(() => {
+    //     let subscription = ApiService.clientStateObserver.subscribe((v: ClientState) => {
+    //         // navigate("/game", { state: v });
+            
+    //     })
+    //     return () => {
+    //         ApiService.clientStateObserver.unsubscribe(subscription);
+    //     }
+    // }, [navigate])
 
     return <div style={{ display: "flex", flexDirection: 'column', gap: "100px" }}>
         <NavigationHeader></NavigationHeader>

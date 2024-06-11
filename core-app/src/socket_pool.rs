@@ -14,36 +14,9 @@ pub struct PlayerChannelClient {
     pub player_id: i32,
     pub socket: WebSocket<TcpStream>,
 }
-pub struct LobbySocketPool {
-    pool: Arc<Mutex<HashMap<i32, Vec<PlayerChannelClient>>>>,
+pub struct SocketPool {
+    pool: Arc<Mutex<HashMap<i32, WebSocket<TcpStream>>>>,
     thread_pool: ThreadPool,
-}
-
-pub struct DealerPool {
-    // TODO:
-    // In future we have to think about how to implement mapping dealers to tables and tables to lobbies
-    // In current implementation all action happens on a single table on a single lobby
-    // TODO: improve method readability, scalability
-    pool: Mutex<HashMap<String, Vec<Dealer>>>,
-}
-
-impl DealerPool {
-    pub fn new() -> Self {
-        DealerPool {
-            pool: Mutex::new(HashMap::new()),
-        }
-    }
-
-    pub fn add(&self, lobby_id: String, v: Dealer) {
-        let mut pool = self.pool.lock().unwrap();
-        if let Some(entry) = pool.get_mut(&lobby_id) {
-            entry.push(v);
-        } else {
-            let mut new_list = Vec::new();
-            new_list.push(v);
-            pool.insert(lobby_id, new_list);
-        }
-    }
 }
 
 pub enum ReadMessageError {
@@ -51,7 +24,7 @@ pub enum ReadMessageError {
     Disconnected,
 }
 
-impl LobbySocketPool {
+impl SocketPool {
     pub fn new() -> Self {
         Self {
             pool: Arc::new(Mutex::new(HashMap::new())),
@@ -59,38 +32,35 @@ impl LobbySocketPool {
         }
     }
 
-    pub fn add(&self, lobby_id: i32, v: PlayerChannelClient) {
+    pub fn add(&self, v: PlayerChannelClient) {
         let mut pool = self.pool.lock().unwrap();
-        if let Some(entry) = pool.get_mut(&lobby_id) {
-            entry.push(v);
-        } else {
-            let mut new_list = Vec::new();
-            new_list.push(v);
-            pool.insert(lobby_id, new_list);
-        }
-    }
-    pub fn get_active_player_ids_by_lobby_id(&self, lobby_id: i32) -> Vec<i32> {
-        let mut pool = self.pool.lock().unwrap();
-        let result = pool.get_mut(&lobby_id).unwrap();
+        pool.insert(v.player_id, v.socket);
 
-        let mut ids = Vec::new();
+        println!("LENGTH: {}", pool.len())
+    }
 
-        for channel in result {
-            ids.push(channel.player_id);
-        }
-        ids
-    }
-    pub fn send_message_to_all(&self, message: String) {
-        let mes = TMessage::text(message);
-        let mut pool = self.pool.lock().unwrap();
-        for (_, clients) in pool.iter_mut() {
-            for client in clients.into_iter() {
-                if let Err(e) = client.socket.send(mes.clone()) {
-                    eprintln!("Failed to send message: {}", e);
-                }
-            }
-        }
-    }
+    // pub fn get_active_player_ids_by_lobby_id(&self, lobby_id: i32) -> Vec<i32> {
+    //     let mut pool = self.pool.lock().unwrap();
+    //     let result = pool.get_mut(&lobby_id).unwrap();
+
+    //     let mut ids = Vec::new();
+
+    //     for channel in result {
+    //         ids.push(channel.player_id);
+    //     }
+    //     ids
+    // }
+    // pub fn send_message_to_all(&self, message: String) {
+    //     let mes = TMessage::text(message);
+    //     let mut pool = self.pool.lock().unwrap();
+    //     for (_, clients) in pool.iter_mut() {
+    //         for client in clients.into_iter() {
+    //             if let Err(e) = client.socket.send(mes.clone()) {
+    //                 eprintln!("Failed to send message: {}", e);
+    //             }
+    //         }
+    //     }
+    // }
 
     pub fn read_client_message<T: prost::Message + Default>(
         &self,
@@ -101,13 +71,10 @@ impl LobbySocketPool {
         let (tx, rx) = mpsc::channel();
 
         self.thread_pool.execute(move || {
-            let mut g = arc_pool.lock().unwrap();
-            let player_channels = g.get_mut(&lobby_id).unwrap();
-            let client = player_channels
-                .iter_mut()
-                .find(|c| c.player_id == player_id)
-                .unwrap();
-            let result: Result<TMessage, TError> = client.socket.read();
+            let mut player_channels = arc_pool.lock().unwrap();
+            let socket = player_channels.get_mut(&player_id).unwrap();
+                
+            let result: Result<TMessage, TError> = socket.read();
             tx.send(result).unwrap();
         });
 
@@ -152,29 +119,20 @@ impl LobbySocketPool {
         Ok(request)
     }
 
-    pub fn close_connection(&self, player_id: i32, lobby_id: i32) {
-        let mut guard = self.pool.lock().unwrap();
-        let player_channels = guard.get_mut(&lobby_id).unwrap();
-        let index = player_channels
-            .iter()
-            .position(|c| c.player_id == player_id)
-            .unwrap();
-        let mut client = player_channels.remove(index);
-        client.socket.close(None).unwrap();
+    pub fn close_connection(&self, player_id: i32) {
+        let mut player_channels = self.pool.lock().unwrap();
+        let mut socket = player_channels.remove(&player_id).unwrap();
+        socket.close(None).unwrap();
     }
 
-    pub fn update_clients(&self, states: Vec<ClientState>, lobby_id: i32) {
-        let mut guard = self.pool.lock().unwrap();
-        if let Some(clients) = guard.get_mut(&lobby_id) {
-            for client in clients {
-                let state = states
-                    .iter()
-                    .find(|s| s.player_id == client.player_id)
-                    .expect("Failed to find the client state in the pool");
-                let mut buf = Vec::new();
-                state.encode(&mut buf).unwrap();
-                client.socket.send(TMessage::binary(buf)).unwrap();
-            }
+    pub fn update_clients(&self, states: Vec<ClientState>) {
+        let mut player_channels = self.pool.lock().unwrap();
+        
+        for state in states {
+            let socket = player_channels.get_mut(&state.player_id).unwrap();
+            let mut buf = Vec::new();
+            state.encode(&mut buf).unwrap();
+            socket.send(TMessage::binary(buf)).unwrap();
         }
     }
 }

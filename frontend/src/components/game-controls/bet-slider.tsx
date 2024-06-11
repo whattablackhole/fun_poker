@@ -39,15 +39,18 @@ const CustomSlider = styled(Slider)(({ theme }) => ({
   },
 }));
 
-export default function InputSlider() {
+export default function InputSlider({ onValueChange } : { onValueChange : React.Dispatch<React.SetStateAction<number>>}) {
   const [value, setValue] = React.useState(30);
 
   const handleSliderChange = (event: Event, newValue: number | number[]) => {
     setValue(newValue as number);
+    onValueChange(Number(newValue));
   };
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setValue(event.target.value === '' ? 0 : Number(event.target.value));
+
+    onValueChange(Number(event.target.value));
   };
 
   const handleBlur = () => {

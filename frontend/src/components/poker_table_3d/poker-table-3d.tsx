@@ -42,7 +42,6 @@ const offsetXY = (x: number, y: number, offsetDistance: number): { x: number, y:
 
 
 function PokerTable3d({ selfPlayer, players, buttonId, street, betHistory, currPlayerId }: { selfPlayer: Player, betHistory: BetHistory, players: Player[], buttonId: number, currPlayerId: number, street?: Street }) {
-  const numberOfCards = 9;
   const radius = 5;
 
   const playersAndPosition = [];
@@ -54,8 +53,8 @@ function PokerTable3d({ selfPlayer, players, buttonId, street, betHistory, currP
   const cardScaleRadiusY = 1.2;
 
 
-  for (let i = 0; i < numberOfCards; i++) {
-    const angle = (i / numberOfCards) * Math.PI * 2 - Math.PI / 2;
+  for (let i = 0; i < players.length; i++) {
+    const angle = (i / players.length) * Math.PI * 2 - Math.PI / 2;
     const x = Math.cos(angle) * cardScaleRadiusX * radius
     const y = Math.sin(angle) * cardScaleRadiusY * radius
     const z = 1;
