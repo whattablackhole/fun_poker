@@ -52,18 +52,14 @@ impl PostgresDatabase {
         })
     }
 
-    pub fn get_users_by_ids(&self, ids: Vec<i32>) -> Vec<User> {
+    pub fn get_users_by_lobby_id(&self, lobby_id: i32) -> Vec<User> {
         let mut guard = self.client.lock().unwrap();
-        let ids_str = ids
-            .iter()
-            .map(|id| id.to_string())
-            .collect::<Vec<String>>()
-            .join(",");
+      
+        let query = "SELECT * FROM users WHERE id IN (SELECT player_id FROM players_lobbies WHERE lobby_id = $1)";
 
-        let query = format!("SELECT * FROM users WHERE id IN ({})", ids_str);
+        let rows = guard.query(query, &[&lobby_id]).unwrap();
 
-        let rows = guard.query(&query, &[]).unwrap();
-        let mut players = Vec::new();
+        let mut users = Vec::new();
 
         for row in rows {
             let id: i32 = row.get("id");
@@ -71,14 +67,22 @@ impl PostgresDatabase {
             let country: String = row.get("country");
             let email: String = row.get("email");
 
-            players.push(User {
+            users.push(User {
                 id,
                 name,
                 country,
                 email,
             });
         }
-        players
+        users
+    }
+
+    pub fn create_lobby(&self, lobby: Lobby) {
+        let mut guard= self.client.lock().unwrap();
+   
+        let query = "INSERT INTO lobbies VALUES($1, $2, $3, $4, $5)";
+
+        guard.execute(query, &[&lobby.name, &lobby.author_id, &lobby.players_registered, &lobby.game_name, &lobby.game_type]).unwrap();
     }
 
     pub fn get_lobbies(&self) -> LobbyList {
@@ -100,7 +104,7 @@ impl PostgresDatabase {
             let players_registered: i32 = row.get("players_registered");
 
             lobbies.push(Lobby {
-                id: lobby_id,
+                id: Some(lobby_id),
                 name,
                 author_id,
                 game_type: game_type.into(),

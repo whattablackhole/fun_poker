@@ -2,8 +2,8 @@
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Lobby {
-    #[prost(int32, tag = "1")]
-    pub id: i32,
+    #[prost(int32, optional, tag = "1")]
+    pub id: ::core::option::Option<i32>,
     #[prost(string, tag = "2")]
     pub name: ::prost::alloc::string::String,
     #[prost(int32, tag = "3")]

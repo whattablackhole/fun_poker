@@ -14,6 +14,7 @@ pub mod player;
 pub mod postgres_database;
 pub mod socket_pool;
 pub mod dealer_pool;
+pub mod responses;
 
 pub mod protos {
     pub mod client_state {
@@ -44,8 +45,12 @@ pub mod protos {
         include!("protos_rs/card.rs");
     }
 
-    pub mod client_request {
-        include!("protos_rs/client_request.rs");
+    pub mod requests {
+        include!("protos_rs/requests.rs");
+    }
+    
+    pub mod responses {
+        include!("protos_rs/responses.rs");
     }
 }
 

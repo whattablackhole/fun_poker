@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package requests;
+
+import "lobby.proto";
+
+message JoinLobbyRequest {
+    int32 lobby_id = 1;
+    int32 player_id = 2;
+}
+
+message StartGameRequest {
+    int32 lobby_id = 1;
+    int32 player_id = 2;
+}
+
+message CreateLobbyRequest {
+    lobby.Lobby payload = 1;
+}

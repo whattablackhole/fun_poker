@@ -5,6 +5,8 @@ import Game from './components/game/game';
 import { WebSocketContext } from './providers/web-socket-provider';
 import { useEffect, useRef } from 'react';
 import EventEmitter from 'eventemitter3';
+import { ResponseMessage, ResponseMessageType, StartGameResponse } from './types/responses';
+import { ClientState } from './types';
 
 
 function App() {
@@ -17,7 +19,28 @@ function App() {
     ws.current.onopen = () => { connected = true; console.log("WebSocket connection established") };
     ws.current.onclose = () => console.log('WebSocket connection closed');
     ws.current.onerror = (error) => console.log('WebSocket error:', error);
-    ws.current.onmessage = (event) => emitter.emit(event.data.eventName, event);
+    ws.current.onmessage = (event) => {
+      (event.data as Blob).arrayBuffer().then((b) => {
+        let message = ResponseMessage.fromBinary(new Uint8Array(b));
+          switch (message.payloadType) {
+            case ResponseMessageType.StartGame: {
+              let data = StartGameResponse.fromBinary(message.payload);
+              console.log(data);
+              break;
+            }
+
+            case ResponseMessageType.ClientState: {
+              let data = ClientState.fromBinary(message.payload);
+              console.log(data);
+              break;
+            }
+          }   
+     
+      })
+    
+    
+    
+      console.log(event.data.type);emitter.emit(event.data.eventName, event);}
 
     return () => {
       if (ws.current) {

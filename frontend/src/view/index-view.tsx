@@ -5,7 +5,7 @@ import ApiService from "../services/api.service.ts";
 import { ClientState } from "../types/client-state.ts";
 import { useNavigate } from "react-router-dom";
 import { useWebSocket } from "../providers/web-socket-provider.tsx";
-import { JoinLobbyRequest } from "../types/join-lobby.request.ts";
+import { JoinLobbyRequest, StartGameRequest } from "../types/requests.ts";
 
 function IndexView() {
     // const { connection, addEventListener, removeEventListener } = useWebSocket();
@@ -16,8 +16,9 @@ function IndexView() {
     let navigate = useNavigate();
     
     const onClickHandler: React.MouseEventHandler<HTMLButtonElement> = () => {
-        navigate("/table");
-        ApiService.startGame();
+        // navigate("/table");
+        let request = StartGameRequest.create({lobbyId:1, playerId: 1})
+        ApiService.startGame(request);
     }
 
     const onJoinLobbyHandler = () => {

@@ -1,5 +1,7 @@
 use std::{
+    any::Any,
     collections::HashMap,
+    iter,
     net::TcpStream,
     sync::{mpsc, Arc, Mutex},
     time::Duration,
@@ -8,7 +10,12 @@ use std::{
 use prost::Message;
 use tungstenite::{Error as TError, Message as TMessage, WebSocket};
 
-use crate::{dealer::Dealer, protos::client_state::ClientState, ThreadPool};
+use crate::{
+    dealer::Dealer,
+    protos::{client_state::ClientState, responses::ResponseMessage},
+    responses::{EncodableMessage, TMessageResponse},
+    ThreadPool,
+};
 
 pub struct PlayerChannelClient {
     pub player_id: i32,
@@ -71,9 +78,10 @@ impl SocketPool {
         let (tx, rx) = mpsc::channel();
 
         self.thread_pool.execute(move || {
-            let mut player_channels = arc_pool.lock().unwrap();
-            let socket = player_channels.get_mut(&player_id).unwrap();
-                
+            let mut client_channels: std::sync::MutexGuard<HashMap<i32, WebSocket<TcpStream>>> =
+                arc_pool.lock().unwrap();
+            let socket = client_channels.get_mut(&player_id).unwrap();
+
             let result: Result<TMessage, TError> = socket.read();
             tx.send(result).unwrap();
         });
@@ -119,20 +127,25 @@ impl SocketPool {
         Ok(request)
     }
 
-    pub fn close_connection(&self, player_id: i32) {
-        let mut player_channels = self.pool.lock().unwrap();
-        let mut socket = player_channels.remove(&player_id).unwrap();
+    pub fn close_connection(&self, client_id: i32) {
+        let mut client_channels = self.pool.lock().unwrap();
+        let mut socket: WebSocket<TcpStream> = client_channels.remove(&client_id).unwrap();
         socket.close(None).unwrap();
     }
 
-    pub fn update_clients(&self, states: Vec<ClientState>) {
-        let mut player_channels = self.pool.lock().unwrap();
-        
-        for state in states {
-            let socket = player_channels.get_mut(&state.player_id).unwrap();
-            let mut buf = Vec::new();
-            state.encode(&mut buf).unwrap();
-            socket.send(TMessage::binary(buf)).unwrap();
+    pub fn update_clients(&self, responses: Vec<TMessageResponse>) {
+        let mut client_channels = self.pool.lock().unwrap();
+
+        for response in responses {
+            let response_message = ResponseMessage {
+                payload: response.message.encode_message(),
+                payload_type: response.message_type.into(),
+            };
+
+            let socket = client_channels.get_mut(&response.receiver_id).unwrap();
+
+            let encoded: Vec<u8> = response_message.encode_message();
+            socket.send(TMessage::Binary(encoded)).unwrap();
         }
     }
 }

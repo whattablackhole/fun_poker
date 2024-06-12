@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package responses;
+
+message StartGameResponse {
+    int32 lobby_id = 1;
+    int32 game_started_delay = 2;
+}
+
+enum ResponseMessageType {
+    StartGame = 0;
+    ClientState = 1;
+}
+
+message ResponseMessage {
+    ResponseMessageType payload_type = 1;
+    bytes payload = 2; 
+
+}
+
+// {
+//     StartGameResponse start_game_message = 2;
+//     client_state.ClientState client_state_message = 3;
+//      raw_payload = 4;
+// }

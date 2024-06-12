@@ -1,7 +1,7 @@
 import { PlayerPayload } from "../types";
 import { ClientState } from "../types/client-state";
-import { JoinLobbyRequest } from "../types/join-lobby.request";
 import { LobbyList } from "../types/lobby";
+import { CreateLobbyRequest, JoinLobbyRequest, StartGameRequest } from "../types/requests";
 
 const localhost = "http://127.0.0.1:7878";
 
@@ -77,7 +77,7 @@ class ApiService {
                 if (s.value) {
                     console.log(s);
                 }
-              
+
             });
         })
     }
@@ -106,8 +106,12 @@ class ApiService {
 
     // }
 
-    public static startGame() {
-        fetch(`${localhost}/startGame`, { method: "POST" }).then();
+    public static startGame(request: StartGameRequest) {
+        fetch(`${localhost}/createLobby`, { method: "POST", body: StartGameRequest.toBinary(request) }).then();
+    }
+
+    public static createLobby(request: CreateLobbyRequest) {
+        fetch(`${localhost}/createLobby`, { method: "POST", body: CreateLobbyRequest.toBinary(request) }).then();
     }
 }
 
