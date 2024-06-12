@@ -14,33 +14,30 @@ function App() {
   const emitter = new EventEmitter();
 
   useEffect(() => {
-    let connected = false;
     ws.current = new WebSocket('ws://127.0.0.1:7878/socket?user_id=1');
-    ws.current.onopen = () => { connected = true; console.log("WebSocket connection established") };
+    ws.current.onopen = () => { console.log("WebSocket connection established") };
     ws.current.onclose = () => console.log('WebSocket connection closed');
     ws.current.onerror = (error) => console.log('WebSocket error:', error);
     ws.current.onmessage = (event) => {
       (event.data as Blob).arrayBuffer().then((b) => {
         let message = ResponseMessage.fromBinary(new Uint8Array(b));
-          switch (message.payloadType) {
-            case ResponseMessageType.StartGame: {
-              let data = StartGameResponse.fromBinary(message.payload);
-              console.log(data);
-              break;
-            }
+        switch (message.payloadType) {
+          case ResponseMessageType.StartGame: {
+            let data = StartGameResponse.fromBinary(message.payload);
+            console.log(data);
+            break;
+          }
 
-            case ResponseMessageType.ClientState: {
-              let data = ClientState.fromBinary(message.payload);
-              console.log(data);
-              break;
-            }
-          }   
-     
+          case ResponseMessageType.ClientState: {
+            let data = ClientState.fromBinary(message.payload);
+            console.log(data);
+            break;
+          }
+        }
+
       })
-    
-    
-    
-      console.log(event.data.type);emitter.emit(event.data.eventName, event);}
+
+    }
 
     return () => {
       if (ws.current) {

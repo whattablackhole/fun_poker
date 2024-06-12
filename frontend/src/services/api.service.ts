@@ -107,7 +107,7 @@ class ApiService {
     // }
 
     public static startGame(request: StartGameRequest) {
-        fetch(`${localhost}/createLobby`, { method: "POST", body: StartGameRequest.toBinary(request) }).then();
+        fetch(`${localhost}/startGame`, { method: "POST", body: StartGameRequest.toBinary(request) }).then();
     }
 
     public static createLobby(request: CreateLobbyRequest) {
