@@ -17,6 +17,14 @@ pub struct StartGameRequest {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ObserveLobbyRequest {
+    #[prost(int32, tag = "2")]
+    pub player_id: i32,
+    #[prost(int32, tag = "1")]
+    pub lobby_id: i32,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CreateLobbyRequest {
     #[prost(message, optional, tag = "1")]
     pub payload: ::core::option::Option<super::lobby::Lobby>,

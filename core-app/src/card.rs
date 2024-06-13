@@ -1,7 +1,6 @@
 use rand::seq::SliceRandom;
 use std::collections::VecDeque;
 
-
 use crate::protos::card::{Card, CardSuit, CardValue};
 
 impl CardValue {
@@ -133,22 +132,24 @@ impl Iterator for CardSuit {
     }
 }
 impl CardDeck {
-    pub fn new(random: bool) -> Self {
+    pub fn new() -> Self {
+        CardDeck {
+            cards: VecDeque::new(),
+        }
+    }
+
+    pub fn new_random() -> CardDeck {
         let mut new_deck = VecDeque::new();
         for suit in CardSuit::Clubs {
             for value in CardValue::Two {
                 new_deck.push_back(Card::new(suit, value));
             }
         }
-        if random == true {
-            let mut rng = rand::thread_rng();
-            new_deck.make_contiguous().shuffle(&mut rng);
-        }
-        CardDeck { cards: new_deck }
-    }
+        
+        let mut rng = rand::thread_rng();
+        new_deck.make_contiguous().shuffle(&mut rng);
 
-    pub fn new_random() -> CardDeck {
-        Self::new(true)
+        CardDeck { cards: new_deck }
     }
 }
 

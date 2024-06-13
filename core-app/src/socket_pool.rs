@@ -1,24 +1,20 @@
 use std::{
-    any::Any,
     collections::HashMap,
-    iter,
     net::TcpStream,
     sync::{mpsc, Arc, Mutex},
     time::Duration,
 };
 
-use prost::Message;
 use tungstenite::{Error as TError, Message as TMessage, WebSocket};
 
 use crate::{
-    dealer::Dealer,
-    protos::{client_state::ClientState, responses::ResponseMessage},
+    protos::responses::ResponseMessage,
     responses::{EncodableMessage, TMessageResponse},
-    ThreadPool,
+    thread_pool::ThreadPool,
 };
 
 pub struct PlayerChannelClient {
-    pub player_id: i32,
+    pub client_id: i32,
     pub socket: WebSocket<TcpStream>,
 }
 pub struct SocketPool {
@@ -41,19 +37,19 @@ impl SocketPool {
 
     pub fn add(&self, v: PlayerChannelClient) {
         let mut pool = self.pool.lock().unwrap();
-        pool.insert(v.player_id, v.socket);
+        pool.insert(v.client_id, v.socket);
 
         println!("LENGTH: {}", pool.len())
     }
 
-    // pub fn get_active_player_ids_by_lobby_id(&self, lobby_id: i32) -> Vec<i32> {
+    // pub fn get_active_client_ids_by_lobby_id(&self, lobby_id: i32) -> Vec<i32> {
     //     let mut pool = self.pool.lock().unwrap();
     //     let result = pool.get_mut(&lobby_id).unwrap();
 
     //     let mut ids = Vec::new();
 
     //     for channel in result {
-    //         ids.push(channel.player_id);
+    //         ids.push(channel.client_id);
     //     }
     //     ids
     // }
@@ -71,8 +67,7 @@ impl SocketPool {
 
     pub fn read_client_message<T: prost::Message + Default>(
         &self,
-        player_id: i32,
-        lobby_id: i32,
+        client_id: i32,
     ) -> Result<T, ReadMessageError> {
         let arc_pool = Arc::clone(&self.pool);
         let (tx, rx) = mpsc::channel();
@@ -80,7 +75,7 @@ impl SocketPool {
         self.thread_pool.execute(move || {
             let mut client_channels: std::sync::MutexGuard<HashMap<i32, WebSocket<TcpStream>>> =
                 arc_pool.lock().unwrap();
-            let socket = client_channels.get_mut(&player_id).unwrap();
+            let socket = client_channels.get_mut(&client_id).unwrap();
 
             let result: Result<TMessage, TError> = socket.read();
             tx.send(result).unwrap();
@@ -89,7 +84,7 @@ impl SocketPool {
         let result = rx.recv_timeout(Duration::from_secs(30));
 
         let message = match result {
-            Err(e) => return Err(ReadMessageError::Iddle),
+            Err(_e) => return Err(ReadMessageError::Iddle),
             Ok(r) => match r {
                 Ok(m) => match m {
                     TMessage::Binary(_) => m,

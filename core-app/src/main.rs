@@ -1,29 +1,24 @@
 use fun_poker::{
-    dealer::Dealer,
     dealer_pool::DealerPool,
-    player::PlayerPayloadError,
+    game::GameSettings,
+    game_orchestrator::GameOrchestrator,
     postgres_database::PostgresDatabase,
     protos::{
-        client_state::ClientState,
-        player::{Player, PlayerPayload},
-        requests::{CreateLobbyRequest, JoinLobbyRequest, StartGameRequest},
-        responses::{ResponseMessageType, StartGameResponse},
+        requests::{CreateLobbyRequest, JoinLobbyRequest, ObserveLobbyRequest, StartGameRequest},
         user::User,
     },
-    responses::{EncodableMessage, TMessageResponse},
-    socket_pool::{PlayerChannelClient, ReadMessageError, SocketPool},
-    ThreadPool,
+    responses::EncodableMessage,
+    socket_pool::{PlayerChannelClient, SocketPool},
+    thread_pool::ThreadPool
 };
 
 use prost::{DecodeError, Message};
 
 use std::{
     collections::HashMap,
-    io::{prelude::*, BufReader, Cursor, SeekFrom},
+    io::{BufRead, BufReader, Cursor, Read, Seek, SeekFrom, Write},
     net::{TcpListener, TcpStream},
     sync::Arc,
-    thread::{self},
-    time::Duration,
 };
 
 use tungstenite::accept;
@@ -44,13 +39,18 @@ fn main() {
     let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
     let socket_pool = SocketPool::new();
     let dealer_pool = DealerPool::new();
+    let game_orchestrator = GameOrchestrator::new();
+
     let arc_dealer_pool = Arc::new(dealer_pool);
     let arc_socket_pool: Arc<SocketPool> = Arc::new(socket_pool);
+    let arc_game_orchestrator: Arc<GameOrchestrator> = Arc::new(game_orchestrator);
+
     let pool = ThreadPool::new(20);
     let arc_thread_pool: Arc<ThreadPool> = Arc::new(pool);
     let arc_repo: Arc<PostgresDatabase> = Arc::new(repository);
     for stream in listener.incoming() {
         let stream = stream.unwrap();
+        let clone_game_orchestrator = Arc::clone(&arc_game_orchestrator);
         let clone_pool = Arc::clone(&arc_thread_pool);
         let clone_repo = Arc::clone(&arc_repo);
         let clone_dealer_pool = Arc::clone(&arc_dealer_pool);
@@ -62,6 +62,7 @@ fn main() {
                 clone_socket_pool,
                 clone_dealer_pool,
                 clone_pool,
+                clone_game_orchestrator,
             );
         });
     }
@@ -106,7 +107,7 @@ fn handle_web_socket_connection_handshake(stream: TcpStream, socket_pool: Arc<So
     let websocket = accept(stream).unwrap();
 
     socket_pool.add(PlayerChannelClient {
-        player_id: user_id,
+        client_id: user_id,
         socket: websocket,
     });
 }
@@ -115,8 +116,9 @@ fn handle_http_request(
     mut stream: TcpStream,
     repo: Arc<PostgresDatabase>,
     socket_pool: Arc<SocketPool>,
-    dealer_pool: Arc<DealerPool>,
+    _dealer_pool: Arc<DealerPool>,
     thread_pool: Arc<ThreadPool>,
+    game_orchestrator: Arc<GameOrchestrator>,
 ) {
     let mut buf_reader = BufReader::new(&stream);
 
@@ -127,16 +129,34 @@ fn handle_http_request(
     let path = request_line.split(" ").skip(1).next().unwrap();
 
     let (message, status_line): (Box<dyn EncodableMessage>, &str) = match path {
-        "/createLobby" => create_lobby_handler(buf_reader, repo),
+        "/createLobby" => create_lobby_handler(buf_reader, repo, game_orchestrator),
         "/getLobbies" => (Box::new(repo.get_lobbies()), &status_line),
-        "/startGame" => start_game_request_handler(buf_reader, repo, socket_pool, thread_pool),
+        "/startGame" => start_game_request_handler(
+            buf_reader,
+            repo,
+            socket_pool,
+            thread_pool,
+            game_orchestrator,
+        ),
         "/joinLobby" => join_lobby_request_handler(buf_reader, repo),
+        // "/observeLobby" => observe_lobby_request_handler(buff_reader),
         _ => (Box::new(EmptyMessage {}), "HTTP/1.1 400 Bad Request"),
     };
 
     let response = construct_response(status_line, message);
 
     stream.write_all(&response).unwrap();
+}
+
+fn _observe_lobby_request_handler(buf_reader: BufReader<&TcpStream>) {
+    let decode_fn = |cursor: &mut Cursor<&[u8]>| ObserveLobbyRequest::decode(cursor);
+
+    let result = parse_message(buf_reader, decode_fn);
+
+    let _request = match result {
+        Ok(v) => v,
+        _ => todo!(),
+    };
 }
 
 fn parse_message<T, F>(mut buf_reader: BufReader<&TcpStream>, decode: F) -> Result<T, DecodeError>
@@ -159,6 +179,7 @@ where
 fn create_lobby_handler(
     buf_reader: BufReader<&TcpStream>,
     repo: Arc<PostgresDatabase>,
+    game_orchestrator: Arc<GameOrchestrator>,
 ) -> (Box<dyn EncodableMessage>, &str) {
     let decode_fn = |cursor: &mut Cursor<&[u8]>| CreateLobbyRequest::decode(cursor);
 
@@ -169,10 +190,15 @@ fn create_lobby_handler(
         _ => return (Box::new(EmptyMessage {}), "HTTP/1.1 400 Bad Request"),
     };
 
-    repo.create_lobby(create_lobby_request.payload.unwrap());
-    
+    let lobby_id = repo.create_lobby(create_lobby_request.payload.unwrap());
 
-    (Box::new(EmptyMessage {}), "HTTP/1.1 200 OK")
+    let created = game_orchestrator.create_game(lobby_id, GameSettings { blind_size: 100 });
+
+    if created {
+        (Box::new(EmptyMessage {}), "HTTP/1.1 200 OK")
+    } else {
+        (Box::new(EmptyMessage {}), "HTTP/1.1 400 Bad Request")
+    }
 }
 
 fn parse_queries_from_url(url: &str) -> HashMap<&str, &str> {
@@ -195,7 +221,7 @@ fn parse_queries_from_url(url: &str) -> HashMap<&str, &str> {
     keys_values
 }
 
-fn parse_body(mut buf_reader: BufReader<&TcpStream>) -> Vec<u8> {
+fn _parse_body(mut buf_reader: BufReader<&TcpStream>) -> Vec<u8> {
     let mut headers = Vec::new();
 
     loop {
@@ -238,57 +264,12 @@ fn get_body_buffer_position(buf_reader: &BufReader<&TcpStream>) -> usize {
     headers_end
 }
 
-fn create_message_response<T>(
-    message: T,
-    t: ResponseMessageType,
-    receiver_id: i32,
-) -> TMessageResponse
-where
-    T: Message + 'static,
-{
-    return TMessageResponse {
-        message: Box::new(message),
-        receiver_id,
-        message_type: t,
-    };
-}
-
-fn generate_client_state_responses(states: Vec<ClientState>) -> Vec<TMessageResponse> {
-    return states
-        .into_iter()
-        .map(|state| {
-            let receiver_id = state.player_id;
-            create_message_response(state, ResponseMessageType::ClientState, receiver_id)
-        })
-        .collect();
-}
-
-fn generate_game_started_responses(
-    lobby_id: i32,
-    users: &Vec<User>,
-    delay: i32,
-) -> Vec<TMessageResponse> {
-    return users
-        .into_iter()
-        .map(|user| {
-            let receiver_id = user.id;
-            create_message_response(
-                StartGameResponse {
-                    game_started_delay: delay,
-                    lobby_id,
-                },
-                ResponseMessageType::StartGame,
-                receiver_id,
-            )
-        })
-        .collect();
-}
-
 fn start_game_request_handler(
     buf_reader: BufReader<&TcpStream>,
     repo: Arc<PostgresDatabase>,
     socket_pool: Arc<SocketPool>,
     thread_pool: Arc<ThreadPool>,
+    game_orchestrator: Arc<GameOrchestrator>,
 ) -> (Box<dyn EncodableMessage>, &str) {
     let decode_fn = |cursor: &mut Cursor<&[u8]>| StartGameRequest::decode(cursor);
 
@@ -296,85 +277,11 @@ fn start_game_request_handler(
 
     // TODO: if game started return error;
     // TODO: retrieve lobby id, player id from request and validate them;
-    // TODO: in future we need to generate tables in lobbies;
-    // TODO: move this logic into ~GameOrchestrator
 
-    let users: Vec<User> = repo.get_users_by_lobby_id(request.lobby_id);
+    // THINK ABOUT HOW AND WHEN USER SHOULD BE ABLE TO JOIN THE GAME
+    let _users: Vec<User> = repo.get_users_by_lobby_id(request.lobby_id);
 
-    let cur_lobby_id = request.lobby_id;
-
-
-    thread_pool.execute(move || {
-        let game_started_responses = generate_game_started_responses(cur_lobby_id, &users, 10);
-
-        socket_pool.update_clients(game_started_responses);
-
-        let mut dealer = Dealer::new(cur_lobby_id, Player::from_users(users));
-
-        thread::sleep(Duration::from_secs(10));
-
-        let game_states = dealer.start_new_game().unwrap();
-
-        socket_pool.update_clients(generate_client_state_responses(game_states));
-
-        loop {
-            //TODO: handle the cases where a client is not responding, or has closed the connection;
-            //TODO: use seperate messages for separated responses to decrease memory load and bandwidth
-            let request: Result<PlayerPayload, ReadMessageError> =
-                socket_pool.read_client_message(dealer.get_next_player_id(), cur_lobby_id);
-
-            let result: Result<PlayerPayload, PlayerPayloadError> = match request {
-                Ok(p) => Ok(p),
-                Err(ReadMessageError::Disconnected) => {
-                    socket_pool.close_connection(dealer.get_next_player_id());
-                    Err(PlayerPayloadError::Disconnected {
-                        id: dealer.get_next_player_id(),
-                        lobby_id: cur_lobby_id,
-                    })
-                }
-                Err(ReadMessageError::Iddle) => Err(PlayerPayloadError::Iddle {
-                    id: dealer.get_next_player_id(),
-                    lobby_id: cur_lobby_id,
-                }),
-            };
-
-            let updated_state = dealer.update_game_state(result);
-
-            socket_pool
-                .update_clients(generate_client_state_responses(updated_state.client_states));
-
-            let mut is_ready = updated_state.is_ready_for_next_hand;
-
-            if updated_state.should_complete_game_cycle_automatically {
-                let updated_state = dealer.complete_game_cycle_automatically();
-                socket_pool
-                    .update_clients(generate_client_state_responses(updated_state.client_states));
-                is_ready = updated_state.is_ready_for_next_hand;
-            }
-
-            while is_ready {
-                let updated_state = dealer.setup_next_hand();
-
-                socket_pool
-                    .update_clients(generate_client_state_responses(updated_state.client_states));
-
-                if updated_state.should_complete_game_cycle_automatically {
-                    let updated_state = dealer.complete_game_cycle_automatically();
-                    is_ready = updated_state.is_ready_for_next_hand;
-                    socket_pool.update_clients(generate_client_state_responses(
-                        updated_state.client_states,
-                    ));
-                } else {
-                    is_ready = updated_state.is_ready_for_next_hand;
-                }
-            }
-
-            // use dealer api instead
-            // if game_state.game_status == GameStatus::None {
-            //     break;
-            // }
-        }
-    });
+    game_orchestrator.start_game(request.lobby_id, thread_pool, socket_pool);
 
     (Box::new(EmptyMessage {}), "HTTP/1.1 200 OK")
 }
@@ -405,12 +312,20 @@ fn handle_connection(
     socket_pool: Arc<SocketPool>,
     dealer_pool: Arc<DealerPool>,
     pool: Arc<ThreadPool>,
+    game_orchestrator: Arc<GameOrchestrator>,
 ) {
     let reqest_type = determine_request_type(&stream);
 
     match reqest_type {
         RequestType::WebSocket => handle_web_socket_connection_handshake(stream, socket_pool),
-        RequestType::Http => handle_http_request(stream, repo, socket_pool, dealer_pool, pool),
+        RequestType::Http => handle_http_request(
+            stream,
+            repo,
+            socket_pool,
+            dealer_pool,
+            pool,
+            game_orchestrator,
+        ),
     };
 }
 

@@ -77,12 +77,16 @@ impl PostgresDatabase {
         users
     }
 
-    pub fn create_lobby(&self, lobby: Lobby) {
+    pub fn create_lobby(&self, lobby: Lobby) -> i32 {
         let mut guard= self.client.lock().unwrap();
    
-        let query = "INSERT INTO lobbies VALUES($1, $2, $3, $4, $5)";
+        let query = "INSERT INTO lobbies VALUES($1, $2, $3, $4, $5) RETURNING lobby_id";
 
-        guard.execute(query, &[&lobby.name, &lobby.author_id, &lobby.players_registered, &lobby.game_name, &lobby.game_type]).unwrap();
+        let row = guard.query_one(query, &[&lobby.name, &lobby.author_id, &lobby.players_registered, &lobby.game_name, &lobby.game_type]).unwrap();
+   
+        let lobby_id: i32 = row.get(0);
+
+        lobby_id
     }
 
     pub fn get_lobbies(&self) -> LobbyList {

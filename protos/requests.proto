@@ -14,6 +14,11 @@ message StartGameRequest {
     int32 player_id = 2;
 }
 
+message ObserveLobbyRequest {
+    int32 player_id = 2;
+    int32 lobby_id = 1;
+}
+
 message CreateLobbyRequest {
     lobby.Lobby payload = 1;
 }
