@@ -3,7 +3,7 @@ import { OrbitControls } from '@react-three/drei';
 import { Html } from "@react-three/drei";
 import { TextureLoader, Vector3 } from 'three';
 import Card3d from './card3d';
-import { Player } from '../../types';
+import { Player, PlayerStatus } from '../../types';
 import "./poker-table3d.css";
 import { FlagIcon, FlagIconCode } from "react-flag-kit";
 import PokerCard from '../poker_card/poker-card';
@@ -11,7 +11,7 @@ import PokerButton from './poker-button';
 import Chips from './chips3d';
 import TimerBanner from '../timer_banner/timer-banner';
 import BetHistory from '../../types/bet-history';
-import { Street } from '../../types/game_state';
+import { GameStatus, Street } from '../../types/game_state';
 
 const LogCameraSettings = () => {
   const { camera } = useThree();
@@ -41,7 +41,7 @@ const offsetXY = (x: number, y: number, offsetDistance: number): { x: number, y:
 }
 
 
-function PokerTable3d({ selfPlayer, players, buttonId, street, betHistory, currPlayerId }: { selfPlayer: Player, betHistory: BetHistory, players: Player[], buttonId: number, currPlayerId: number, street?: Street }) {
+function PokerTable3d({ players, buttonId, street, betHistory, currPlayerId, gameStatus }: { betHistory: BetHistory, players: Player[], buttonId?: number, currPlayerId?: number, street?: Street, gameStatus: GameStatus }) {
   const radius = 5;
 
   const playersAndPosition = [];
@@ -61,7 +61,15 @@ function PokerTable3d({ selfPlayer, players, buttonId, street, betHistory, currP
 
     playersAndPosition.push({ player: players[i], position: { x, y, z } });
   }
-  let buttonPos = playersAndPosition.find((p) => p.player.userId == buttonId)
+  
+  let buttonPlayer = playersAndPosition.find((p) => p.player.userId == buttonId);
+  let buttonPos;
+  
+  if (buttonPlayer) {
+    buttonPos = offsetXY(buttonPlayer.position.x, buttonPlayer.position.y, 4);
+  }
+  
+
   let borderTexture = new TextureLoader().load("./src/assets/rubber.avif")
   let deskTexture = new TextureLoader().load("./src/assets/desk-texture.jpg")
 
@@ -77,15 +85,24 @@ function PokerTable3d({ selfPlayer, players, buttonId, street, betHistory, currP
       <ambientLight intensity={0.5} />
       <pointLight position={[10, 10, 10]} castShadow />
 
+      {gameStatus === GameStatus.WaitingForPlayers ?
+        <Html position={[-0.5, 1, 1]}>
+          <h1 className='waiting_for_players'></h1>
+        </Html>
+        : null}
+
 
       <group>
-
         <mesh scale={[1.5, 1, 1]}>
           <torusGeometry args={[5, 0.15, 10, 100]} />
           <meshBasicMaterial map={borderTexture} />
         </mesh>
 
-        <PokerButton x={buttonPos?.position.x! - 0.2} y={buttonPos?.position.y! + 0.5}></PokerButton>
+        {buttonPos ?
+          <PokerButton x={buttonPos.x - 0.2} y={buttonPos.y + 0.5}></PokerButton>
+          : null
+        }
+
         {/* TODO: */}
         <Html position={[-3, 2, 0]} style={{ display: 'flex' }}>
           {street?.cards?.map((card, index) => {
@@ -101,7 +118,13 @@ function PokerTable3d({ selfPlayer, players, buttonId, street, betHistory, currP
 
           return <>
             <Chips amount={betHistory.getPlayerBetAmount(player.userId, street?.streetStatus)} x={chipsCords.x} y={chipsCords.y} />
-            <Card3d cards={player.cards} position={playerBlockCords} index={index} />
+            {
+              player.status === PlayerStatus.Ready && gameStatus === GameStatus.Active ?
+                <Card3d cards={player.cards} position={playerBlockCords} index={index}/>
+                : null
+            }
+
+
             <Html position={new Vector3(playerBlockCords.x, playerBlockCords.y, playerBlockCords.z)}>
               <FlagIcon code={player.country as FlagIconCode} size={34} style={{ position: "absolute", top: "116px" }} />
               <div className="player_info trapezium" style={{ alignSelf: 'center', textAlign: "center" }}>

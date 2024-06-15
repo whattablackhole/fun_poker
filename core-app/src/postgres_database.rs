@@ -54,7 +54,7 @@ impl PostgresDatabase {
 
     pub fn get_users_by_lobby_id(&self, lobby_id: i32) -> Vec<User> {
         let mut guard = self.client.lock().unwrap();
-      
+
         let query = "SELECT * FROM users WHERE id IN (SELECT player_id FROM players_lobbies WHERE lobby_id = $1)";
 
         let rows = guard.query(query, &[&lobby_id]).unwrap();
@@ -78,12 +78,23 @@ impl PostgresDatabase {
     }
 
     pub fn create_lobby(&self, lobby: Lobby) -> i32 {
-        let mut guard= self.client.lock().unwrap();
-   
+        let mut guard = self.client.lock().unwrap();
+
         let query = "INSERT INTO lobbies VALUES($1, $2, $3, $4, $5) RETURNING id";
 
-        let row = guard.query_one(query, &[&lobby.name, &lobby.author_id, &lobby.players_registered, &lobby.game_name, &lobby.game_type]).unwrap();
-   
+        let row = guard
+            .query_one(
+                query,
+                &[
+                    &lobby.name,
+                    &lobby.author_id,
+                    &lobby.players_registered,
+                    &lobby.game_name,
+                    &lobby.game_type,
+                ],
+            )
+            .unwrap();
+
         let lobby_id: i32 = row.get(0);
 
         lobby_id
@@ -118,6 +129,26 @@ impl PostgresDatabase {
         }
 
         LobbyList { list: lobbies }
+    }
+
+    pub fn get_user_by_id(&self, user_id: i32) -> User {
+        let mut client_lock = self.client.lock().unwrap();
+
+        let query = "SELECT * FROM users WHERE id = $1";
+
+        let row = client_lock.query_one(query, &[&user_id]).unwrap();
+
+        let id: i32 = row.get("id");
+        let name: String = row.get("name");
+        let country: String = row.get("country");
+        let email: String = row.get("email");
+
+        User {
+            id,
+            name,
+            country,
+            email,
+        }
     }
 
     pub fn add_user_to_lobby(&self, lobby_id: i32, user_id: i32) {

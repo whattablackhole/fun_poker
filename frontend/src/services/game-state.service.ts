@@ -5,7 +5,7 @@ import BetHistory from "../types/bet-history";
 class GameStateService {
     static async processNewState(newState: ClientState, prevState: ClientState | undefined, betHistory: BetHistory, setBoardCards: React.Dispatch<React.SetStateAction<Card[] | undefined>>, setBetHistory: React.Dispatch<React.SetStateAction<BetHistory>>, setPlayers: React.Dispatch<React.SetStateAction<Player[] | undefined>>) {
         if (prevState == null) {
-            setPlayers(GameStateProcessHelper.center_players_by_self(newState.players, newState.playerId));
+            this.setupPlayers(newState, setPlayers);
             betHistory.calculateBetHistory(newState, false);
             setBetHistory(betHistory);
             setBoardCards(newState.street?.cards);
@@ -24,9 +24,21 @@ class GameStateService {
             setBetHistory(betHistory);
             setBoardCards(newState.street?.cards);
         }
-        setPlayers(GameStateProcessHelper.center_players_by_self(newState.players, newState.playerId));
+        this.setupPlayers(newState, setPlayers);
 
         return newState;
+    }
+
+    private static setupPlayers(state: ClientState, setPlayers: React.Dispatch<React.SetStateAction<Player[] | undefined>>,) {
+        let selfId = state.playerId;
+
+        let player = state.players.find((p)=>p.userId == selfId);
+
+        if (player && state.cards) {
+            player.cards = state.cards;
+        }
+
+        setPlayers(GameStateProcessHelper.center_players_by_self(state.players, state.playerId));
     }
 
 
@@ -44,7 +56,8 @@ class GameStateService {
             this.updatePlayerAction(player, lastAction);
         }
 
-        setPlayers(GameStateProcessHelper.center_players_by_self(prevState.players, prevState.playerId));
+        this.setupPlayers(prevState, setPlayers);
+
         betHistory.calculateBetHistory(newState, true);
         setBetHistory(betHistory);
     }
@@ -53,6 +66,7 @@ class GameStateService {
         return players.find((p) => p.userId === playerId);
     }
 
+    // TODO: refactor to be able to remove this
     private static updatePlayerAction(player: Player, action: any) {
         player.action = action;
 

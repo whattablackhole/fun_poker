@@ -16,6 +16,8 @@ pub struct Player {
     pub cards: ::core::option::Option<super::card::CardPair>,
     #[prost(int32, tag = "7")]
     pub bet_in_current_seed: i32,
+    #[prost(enumeration = "PlayerStatus", tag = "8")]
+    pub status: i32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -39,6 +41,35 @@ pub struct Action {
     pub player_id: i32,
     #[prost(enumeration = "super::game_state::StreetStatus", tag = "4")]
     pub street_status: i32,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum PlayerStatus {
+    WaitingForPlayers = 0,
+    SitOut = 1,
+    Ready = 2,
+}
+impl PlayerStatus {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            PlayerStatus::WaitingForPlayers => "WaitingForPlayers",
+            PlayerStatus::SitOut => "SitOut",
+            PlayerStatus::Ready => "Ready",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "WaitingForPlayers" => Some(Self::WaitingForPlayers),
+            "SitOut" => Some(Self::SitOut),
+            "Ready" => Some(Self::Ready),
+            _ => None,
+        }
+    }
 }
 /// remove last two??
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]

@@ -1,4 +1,4 @@
-use crate::protos::{player::Player, user::User};
+use crate::protos::{player::{Player, PlayerStatus}, user::User};
 
 impl Player {
     // pass Settings with tournament settings
@@ -14,11 +14,25 @@ impl Player {
                     user_id: u.id,
                     // can be nickname
                     user_name: u.name.clone(),
-                    cards: Option::None,
+                    cards: None,
                     bet_in_current_seed: 0,
+                    status: PlayerStatus::SitOut.into()
                 }
             })
             .collect()
+    }
+
+    pub fn from_user(u: User) -> Player {
+        Player {
+            action: None,
+            bank: 10000,
+            country: u.country,
+            user_id: u.id,
+            user_name: u.name,
+            cards: None,
+            bet_in_current_seed: 0,
+            status: PlayerStatus::SitOut.into()
+        }
     }
 }
 

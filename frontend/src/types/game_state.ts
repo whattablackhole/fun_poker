@@ -108,7 +108,11 @@ export enum GameStatus {
     /**
      * @generated from protobuf enum value: Active = 2;
      */
-    Active = 2
+    Active = 2,
+    /**
+     * @generated from protobuf enum value: WaitingForPlayers = 3;
+     */
+    WaitingForPlayers = 3
 }
 // @generated message type with reflection information, may provide speed optimized methods
 class Street$Type extends MessageType<Street> {

@@ -19,6 +19,7 @@ enum StreetStatus {
     Pause = 0;
     None = 1;
     Active = 2;
+    WaitingForPlayers = 3;
 }
 
 

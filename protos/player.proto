@@ -12,7 +12,14 @@ message Player {
     optional Action action = 4;
     int32 bank = 5;
     card.CardPair cards = 6;
-    int32 bet_in_current_seed = 7; 
+    int32 bet_in_current_seed = 7;
+    PlayerStatus status = 8;
+}
+
+enum PlayerStatus {
+  WaitingForPlayers = 0;
+  SitOut = 1;
+  Ready = 2;
 }
 
 message PlayerPayload {

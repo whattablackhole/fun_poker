@@ -10,6 +10,7 @@ import { UnknownFieldHandler } from "@protobuf-ts/runtime";
 import type { PartialMessage } from "@protobuf-ts/runtime";
 import { reflectionMergePartial } from "@protobuf-ts/runtime";
 import { MessageType } from "@protobuf-ts/runtime";
+import { Lobby } from "./lobby";
 /**
  * @generated from protobuf message requests.JoinLobbyRequest
  */
@@ -37,13 +38,26 @@ export interface StartGameRequest {
     playerId: number;
 }
 /**
+ * @generated from protobuf message requests.ObserveLobbyRequest
+ */
+export interface ObserveLobbyRequest {
+    /**
+     * @generated from protobuf field: int32 player_id = 2;
+     */
+    playerId: number;
+    /**
+     * @generated from protobuf field: int32 lobby_id = 1;
+     */
+    lobbyId: number;
+}
+/**
  * @generated from protobuf message requests.CreateLobbyRequest
  */
 export interface CreateLobbyRequest {
     /**
-     * @generated from protobuf field: int32 player_id = 2;
+     * @generated from protobuf field: lobby.Lobby payload = 1;
      */
-    playerId: number; // settings...
+    payload?: Lobby;
 }
 // @generated message type with reflection information, may provide speed optimized methods
 class JoinLobbyRequest$Type extends MessageType<JoinLobbyRequest> {
@@ -156,15 +170,69 @@ class StartGameRequest$Type extends MessageType<StartGameRequest> {
  */
 export const StartGameRequest = new StartGameRequest$Type();
 // @generated message type with reflection information, may provide speed optimized methods
+class ObserveLobbyRequest$Type extends MessageType<ObserveLobbyRequest> {
+    constructor() {
+        super("requests.ObserveLobbyRequest", [
+            { no: 2, name: "player_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 1, name: "lobby_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<ObserveLobbyRequest>): ObserveLobbyRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.playerId = 0;
+        message.lobbyId = 0;
+        if (value !== undefined)
+            reflectionMergePartial<ObserveLobbyRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: ObserveLobbyRequest): ObserveLobbyRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 player_id */ 2:
+                    message.playerId = reader.int32();
+                    break;
+                case /* int32 lobby_id */ 1:
+                    message.lobbyId = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: ObserveLobbyRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 player_id = 2; */
+        if (message.playerId !== 0)
+            writer.tag(2, WireType.Varint).int32(message.playerId);
+        /* int32 lobby_id = 1; */
+        if (message.lobbyId !== 0)
+            writer.tag(1, WireType.Varint).int32(message.lobbyId);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message requests.ObserveLobbyRequest
+ */
+export const ObserveLobbyRequest = new ObserveLobbyRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
 class CreateLobbyRequest$Type extends MessageType<CreateLobbyRequest> {
     constructor() {
         super("requests.CreateLobbyRequest", [
-            { no: 2, name: "player_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+            { no: 1, name: "payload", kind: "message", T: () => Lobby }
         ]);
     }
     create(value?: PartialMessage<CreateLobbyRequest>): CreateLobbyRequest {
         const message = globalThis.Object.create((this.messagePrototype!));
-        message.playerId = 0;
         if (value !== undefined)
             reflectionMergePartial<CreateLobbyRequest>(this, message, value);
         return message;
@@ -174,8 +242,8 @@ class CreateLobbyRequest$Type extends MessageType<CreateLobbyRequest> {
         while (reader.pos < end) {
             let [fieldNo, wireType] = reader.tag();
             switch (fieldNo) {
-                case /* int32 player_id */ 2:
-                    message.playerId = reader.int32();
+                case /* lobby.Lobby payload */ 1:
+                    message.payload = Lobby.internalBinaryRead(reader, reader.uint32(), options, message.payload);
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -189,9 +257,9 @@ class CreateLobbyRequest$Type extends MessageType<CreateLobbyRequest> {
         return message;
     }
     internalBinaryWrite(message: CreateLobbyRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
-        /* int32 player_id = 2; */
-        if (message.playerId !== 0)
-            writer.tag(2, WireType.Varint).int32(message.playerId);
+        /* lobby.Lobby payload = 1; */
+        if (message.payload)
+            Lobby.internalBinaryWrite(message.payload, writer.tag(1, WireType.LengthDelimited).fork(), options).join();
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);

@@ -15,9 +15,9 @@ import { MessageType } from "@protobuf-ts/runtime";
  */
 export interface Lobby {
     /**
-     * @generated from protobuf field: int32 id = 1;
+     * @generated from protobuf field: optional int32 id = 1;
      */
-    id: number;
+    id?: number;
     /**
      * @generated from protobuf field: string name = 2;
      */
@@ -74,7 +74,7 @@ export enum GameType {
 class Lobby$Type extends MessageType<Lobby> {
     constructor() {
         super("lobby.Lobby", [
-            { no: 1, name: "id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 1, name: "id", kind: "scalar", opt: true, T: 5 /*ScalarType.INT32*/ },
             { no: 2, name: "name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
             { no: 3, name: "author_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
             { no: 4, name: "players_registered", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
@@ -84,7 +84,6 @@ class Lobby$Type extends MessageType<Lobby> {
     }
     create(value?: PartialMessage<Lobby>): Lobby {
         const message = globalThis.Object.create((this.messagePrototype!));
-        message.id = 0;
         message.name = "";
         message.authorId = 0;
         message.playersRegistered = 0;
@@ -99,7 +98,7 @@ class Lobby$Type extends MessageType<Lobby> {
         while (reader.pos < end) {
             let [fieldNo, wireType] = reader.tag();
             switch (fieldNo) {
-                case /* int32 id */ 1:
+                case /* optional int32 id */ 1:
                     message.id = reader.int32();
                     break;
                 case /* string name */ 2:
@@ -129,8 +128,8 @@ class Lobby$Type extends MessageType<Lobby> {
         return message;
     }
     internalBinaryWrite(message: Lobby, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
-        /* int32 id = 1; */
-        if (message.id !== 0)
+        /* optional int32 id = 1; */
+        if (message.id !== undefined)
             writer.tag(1, WireType.Varint).int32(message.id);
         /* string name = 2; */
         if (message.name !== "")

@@ -44,6 +44,10 @@ export interface Player {
      * @generated from protobuf field: int32 bet_in_current_seed = 7;
      */
     betInCurrentSeed: number;
+    /**
+     * @generated from protobuf field: player.PlayerStatus status = 8;
+     */
+    status: PlayerStatus;
 }
 /**
  * @generated from protobuf message player.PlayerPayload
@@ -86,6 +90,23 @@ export interface Action {
     streetStatus: StreetStatus;
 }
 /**
+ * @generated from protobuf enum player.PlayerStatus
+ */
+export enum PlayerStatus {
+    /**
+     * @generated from protobuf enum value: WaitingForPlayers = 0;
+     */
+    WaitingForPlayers = 0,
+    /**
+     * @generated from protobuf enum value: SitOut = 1;
+     */
+    SitOut = 1,
+    /**
+     * @generated from protobuf enum value: Ready = 2;
+     */
+    Ready = 2
+}
+/**
  * remove last two??
  *
  * @generated from protobuf enum player.ActionType
@@ -122,7 +143,8 @@ class Player$Type extends MessageType<Player> {
             { no: 4, name: "action", kind: "message", T: () => Action },
             { no: 5, name: "bank", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
             { no: 6, name: "cards", kind: "message", T: () => CardPair },
-            { no: 7, name: "bet_in_current_seed", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+            { no: 7, name: "bet_in_current_seed", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 8, name: "status", kind: "enum", T: () => ["player.PlayerStatus", PlayerStatus] }
         ]);
     }
     create(value?: PartialMessage<Player>): Player {
@@ -132,6 +154,7 @@ class Player$Type extends MessageType<Player> {
         message.country = "";
         message.bank = 0;
         message.betInCurrentSeed = 0;
+        message.status = 0;
         if (value !== undefined)
             reflectionMergePartial<Player>(this, message, value);
         return message;
@@ -161,6 +184,9 @@ class Player$Type extends MessageType<Player> {
                     break;
                 case /* int32 bet_in_current_seed */ 7:
                     message.betInCurrentSeed = reader.int32();
+                    break;
+                case /* player.PlayerStatus status */ 8:
+                    message.status = reader.int32();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -195,6 +221,9 @@ class Player$Type extends MessageType<Player> {
         /* int32 bet_in_current_seed = 7; */
         if (message.betInCurrentSeed !== 0)
             writer.tag(7, WireType.Varint).int32(message.betInCurrentSeed);
+        /* player.PlayerStatus status = 8; */
+        if (message.status !== 0)
+            writer.tag(8, WireType.Varint).int32(message.status);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);

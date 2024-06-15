@@ -5,7 +5,7 @@ import InputSlider from "./bet-slider";
 import { Button, Grid } from "@mui/material";
 import { Box } from "@react-three/drei";
 
-function GameControls({ gameState, selfPlayer, betClickHandler }: { gameState: ClientState, selfPlayer: Player, betClickHandler: (value: number, type: ActionType) => void }) {
+function GameControls({ gameState, betClickHandler }: { gameState: ClientState, betClickHandler: (value: number, type: ActionType) => void }) {
     const [betSizeInputValue, setBetSizeInputValue] = useState<number>(0);
 
     

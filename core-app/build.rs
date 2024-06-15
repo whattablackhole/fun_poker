@@ -4,6 +4,8 @@ use prost_build::Config;
 
 fn main() -> Result<()> {
     let mut config = Config::new();
+    // comment out when not needed?
+    config.compile_well_known_types();
     config.out_dir("src/protos_rs");
 
     let proto_files: Vec<_> = fs::read_dir("../protos")?
@@ -22,6 +24,5 @@ fn main() -> Result<()> {
         .collect();
 
     config.compile_protos(&proto_files, &["../protos"])?;
-
     Ok(())
 }

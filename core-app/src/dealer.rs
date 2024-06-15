@@ -7,13 +7,9 @@ use crate::{
     game::{DeckState, GameState, KeyPositions, PlayerState},
     player::PlayerPayloadError,
     protos::{
-        card::CardPair,
-        client_state::ClientState,
-        game_state::{PlayerCards, ShowdownOutcome, Street, StreetStatus, Winner},
-        player::{Action, ActionType, Player, PlayerPayload},
+        card::CardPair, client_state::ClientState, game_state::{GameStatus, PlayerCards, ShowdownOutcome, Street, StreetStatus, Winner}, google::protobuf::{BoolValue, Int32Value}, player::{Action, ActionType, Player, PlayerPayload, PlayerStatus}
     },
 };
-
 pub struct Dealer {
     lobby_id: i32,
 }
@@ -40,7 +36,7 @@ impl Dealer {
     }
 
     // PUBLIC --------------------------------------------------
-
+   
     pub fn start_new_game(
         &self,
         game_state: &mut GameState,
@@ -53,7 +49,12 @@ impl Dealer {
             self.calculate_key_positions(button_index, player_state.players.len() as i32);
 
         game_state.positions = positions;
-        // TODO: rethink what entity has to manage cards
+        game_state.status = GameStatus::Active;
+
+        // TODO: let player decide whether he ready or not
+        player_state.players.iter_mut().for_each(|p|{p.status = PlayerStatus::Ready.into()});
+        
+
         self.deal_cards(deck_state, player_state, game_state);
 
         self.setup_blinds(
@@ -64,8 +65,13 @@ impl Dealer {
             game_state,
         );
 
-        let state = self.create_client_states(None, game_state, player_state);
+        let state = self.create_client_states( game_state, player_state);
         Ok(state)
+    }
+
+    pub fn get_client_state(&self, player_id: &i32, game_state: &GameState, player_state: &PlayerState) -> ClientState {
+        let player = player_state.players.iter().find(|p|p.user_id == *player_id).unwrap();
+        self.create_client_state(player, game_state, player_state)
     }
 
     pub fn complete_game_cycle_automatically(
@@ -82,8 +88,11 @@ impl Dealer {
                 .push(deck_state.deck.cards.pop_front().unwrap());
         }
         let showdown_outcome = self.calculate_winner(true, game_state, player_state);
+
+        game_state.showdown_outcome = Some(showdown_outcome);
+
         // let eliminated_players = self.calculate_eliminated_players(player_state);
-        let states = self.create_client_states(Some(showdown_outcome), game_state, player_state);
+        let states = self.create_client_states(game_state, player_state);
 
         UpdatedState {
             client_states: states,
@@ -130,9 +139,10 @@ impl Dealer {
                 let result = self.can_determine_winner(player_state);
                 if result.is_some() && result.unwrap() == true {
                     let showdown_outcome = self.calculate_winner(false, game_state, player_state);
+                    game_state.showdown_outcome = Some(showdown_outcome);
                     // let eliminated_players = self.calculate_eliminated_players(player_state);
                     let states =
-                        self.create_client_states(Some(showdown_outcome), game_state, player_state);
+                        self.create_client_states(game_state, player_state);
                     return UpdatedState {
                         client_states: states,
                         is_ready_for_next_hand: true,
@@ -170,9 +180,10 @@ impl Dealer {
             if curr_street == StreetStatus::River as i32 {
                 let showdown_outcome = self.calculate_winner(false, game_state, player_state);
                 // let eliminated_players = self.calculate_eliminated_players(player_state);
-
+                // TODO: set showdown in seperate fn
+                game_state.showdown_outcome = Some(showdown_outcome);
                 let states =
-                    self.create_client_states(Some(showdown_outcome), game_state, player_state);
+                    self.create_client_states(game_state, player_state);
                 return UpdatedState {
                     client_states: states,
                     is_ready_for_next_hand: true,
@@ -182,7 +193,8 @@ impl Dealer {
             }
             if self.should_complete_game_cycle_automatically(player_state) == true {
                 // let eliminated_players = self.calculate_eliminated_players(player_state);
-                let states = self.create_client_states(None, game_state, player_state);
+                game_state.showdown_outcome = None;
+                let states = self.create_client_states(game_state, player_state);
                 return UpdatedState {
                     client_states: states,
                     is_ready_for_next_hand: false,
@@ -194,8 +206,8 @@ impl Dealer {
         } else {
             self.next_player(&player_state, game_state);
         }
-
-        let states = self.create_client_states(None, game_state, player_state);
+        game_state.showdown_outcome = None;
+        let states = self.create_client_states(game_state, player_state);
         return UpdatedState {
             client_states: states,
             is_ready_for_next_hand: false,
@@ -304,50 +316,73 @@ impl Dealer {
         players
     }
 
+    fn create_client_state(&self, p: &Player, game_state: &GameState, player_state: &PlayerState) -> ClientState {
+        let filtered_players = self.get_filtered_players(game_state, player_state);
+
+        // TODO: think about using optional fields in game_state instead
+        if game_state.status == GameStatus::WaitingForPlayers {
+           return ClientState {
+            player_id: p.user_id,
+            cards: None,
+            amount_to_call: None,
+            min_amount_to_raise: None,
+            action_history: Vec::new(),
+            can_raise: None,
+            curr_big_blind_id: None,
+            curr_button_id: None,
+            curr_player_id: None,
+            curr_small_blind_id: None,
+            game_status: game_state.status.clone().into(),
+            lobby_id: self.lobby_id,
+            players: filtered_players,
+            showdown_outcome: None,
+            street: None
+           }
+        }
+        
+        ClientState {
+            player_id: p.user_id,
+            cards: p.cards.clone(),
+            amount_to_call: Some(Int32Value{value:self.calculate_valid_call_amount(p, game_state, player_state)}),
+            min_amount_to_raise: Some(Int32Value{value:self.calculate_min_raise(p, game_state)}),
+            can_raise: Some(BoolValue{value:self.can_raise(p, game_state, player_state)}),
+            players: filtered_players.clone(),
+            game_status: game_state.status.into(),
+            curr_player_id: Some(Int32Value{value:self.get_player_id_by_index(
+                game_state.positions.curr_player_index.unwrap(),
+                player_state,
+            )}),
+            curr_button_id: Some(Int32Value { value: self.get_player_id_by_index(
+                game_state.positions.button_index.unwrap(),
+                player_state,
+            ) }),
+            curr_big_blind_id: Some(Int32Value { value: self.get_player_id_by_index(
+                game_state.positions.big_blind_index.unwrap(),
+                player_state,
+            ) }),
+            curr_small_blind_id: Some(Int32Value { value: self.get_player_id_by_index(
+                game_state.positions.small_blind_index.unwrap(),
+                player_state,
+            ) }),
+            street: Some(game_state.street.clone()),
+            lobby_id: self.lobby_id,
+            showdown_outcome: game_state.showdown_outcome.clone(),
+            action_history: game_state.action_history.clone(),
+        }
+    }
+
+    
     // TODO: Send delta updates in future
     fn create_client_states(
         &self,
-        showdown_outcome: Option<ShowdownOutcome>,
         game_state: &GameState,
         player_state: &PlayerState,
     ) -> Vec<ClientState> {
-        let filtered_players = self.get_filtered_players(game_state, player_state);
-
         let states = player_state
             .players
             .iter()
             .map(|p| {
-                let client = ClientState {
-                    player_id: p.user_id,
-                    cards: p.cards.clone(),
-                    amount_to_call: self.calculate_valid_call_amount(p, game_state, player_state),
-                    min_amount_to_raise: self.calculate_min_raise(p, game_state),
-                    can_raise: self.can_raise(p, game_state, player_state),
-                    players: filtered_players.clone(),
-                    game_status: game_state.status.into(),
-                    curr_player_id: self.get_player_id_by_index(
-                        game_state.positions.curr_player_index.unwrap(),
-                        player_state,
-                    ),
-                    curr_button_id: self.get_player_id_by_index(
-                        game_state.positions.button_index.unwrap(),
-                        player_state,
-                    ),
-                    curr_big_blind_id: self.get_player_id_by_index(
-                        game_state.positions.big_blind_index.unwrap(),
-                        player_state,
-                    ),
-                    curr_small_blind_id: self.get_player_id_by_index(
-                        game_state.positions.small_blind_index.unwrap(),
-                        player_state,
-                    ),
-                    street: Some(game_state.street.clone()),
-                    lobby_id: self.lobby_id,
-                    showdown_outcome: showdown_outcome.clone(),
-                    action_history: game_state.action_history.clone(),
-                };
-
-                client
+                self.create_client_state(p, game_state, player_state)
             })
             .collect();
 
@@ -593,8 +628,9 @@ impl Dealer {
         deck_state: &mut DeckState,
     ) -> UpdatedState {
         self.setup_next_hand(player_state, deck_state, game_state);
-
-        let states = self.create_client_states(None, game_state, player_state);
+        // TODO: refactor showdown automation cycle handling;
+        game_state.showdown_outcome = None;
+        let states = self.create_client_states(game_state, player_state);
         return UpdatedState {
             client_states: states,
             is_ready_for_next_hand: false,

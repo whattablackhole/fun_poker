@@ -1,5 +1,4 @@
 import { PlayerPayload } from "../types";
-import { ClientState } from "../types/client-state";
 import { LobbyList } from "../types/lobby";
 import { CreateLobbyRequest, JoinLobbyRequest, StartGameRequest } from "../types/requests";
 

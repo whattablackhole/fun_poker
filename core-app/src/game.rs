@@ -5,8 +5,9 @@ use crate::{
     dealer::Dealer,
     player::PlayerPayloadError,
     protos::{
-        game_state::{GameStatus, Street, StreetStatus},
+        game_state::{GameStatus, ShowdownOutcome, Street, StreetStatus},
         player::{Action, Player, PlayerPayload},
+        user::User,
     },
     responses::generate_client_state_responses,
     socket_pool::{ReadMessageError, SocketPool},
@@ -53,12 +54,13 @@ pub struct GameState {
     pub positions: KeyPositions,
     pub biggest_bet_on_curr_street: i32,
     pub action_history: Vec<Action>,
+    pub showdown_outcome: Option<ShowdownOutcome>,
 }
 
 impl GameState {
     pub fn new(_players_amount: i32, blind_size: i32) -> GameState {
         GameState {
-            status: GameStatus::Pause,
+            status: GameStatus::WaitingForPlayers,
             street: Street {
                 street_status: StreetStatus::Preflop.into(),
                 cards: Vec::new(),
@@ -70,6 +72,7 @@ impl GameState {
             raiser_index: None,
             positions: KeyPositions::new(),
             action_history: Vec::new(),
+            showdown_outcome: None,
         }
     }
 }
@@ -111,14 +114,56 @@ impl Game {
     pub fn new(lobby_id: i32, settings: GameSettings) -> Self {
         Game {
             dealer: Dealer::new(lobby_id),
-            deck_state: DeckState::new(CardDeck::new()),
+            deck_state: DeckState::new(CardDeck::new_random()),
             game_state: GameState::new(0, settings.blind_size),
             player_state: PlayerState::new(),
             lobby_id,
         }
     }
+    pub fn get_game_status(&self) -> GameStatus {
+        self.game_state.status
+    }
+
+    pub fn is_ready_to_start(&self) -> bool {
+        // TODO: improve checking in case of player game status is not ready
+        self.game_state.status != GameStatus::Active && self.player_state.players.len() > 1
+    }
+
+    pub fn add_player(&mut self, user: User, socket_pool: &Arc<SocketPool>) {
+        let player = Player::from_user(user);
+
+        let id = player.user_id;
+        
+        // TODO: refactor ....
+        match self
+            .player_state
+            .players
+            .iter()
+            .find(|p| p.user_id == player.user_id)
+        {
+            Some(_) => {}
+            None => {
+                self.player_state.players.push(player);
+            }
+        }
+
+        let mut states = Vec::new();
+
+        let state = self
+            .dealer
+            .get_client_state(&id, &self.game_state, &self.player_state);
+
+
+        states.push(state);
+
+        // TODO: add hash sum for clientstate to check if client received current state or not
+        socket_pool.update_clients(generate_client_state_responses(states));
+    }
 
     pub fn run(&mut self, socket_pool: Arc<SocketPool>) {
+        // TODO: think about how can we manage game status and state:
+        // e.g. stopping and continue loop mechanisms - pause game
+        // using channels, boolean variables etc...
         let game_states = self
             .dealer
             .start_new_game(

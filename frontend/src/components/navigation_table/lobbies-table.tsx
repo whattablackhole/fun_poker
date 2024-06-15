@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import ApiService from "../../services/api.service";
 import { GameName, GameType, LobbyList } from "../../types";
+import { Button } from "@mui/material";
 
-function LobbiesTable() {
+function LobbiesTable({joinLobbyHandler}: {joinLobbyHandler: (...args: any) => void}) {
     let [lobbyData, setLobbyData] = useState<LobbyList | null>(null)
 
     useEffect(() => {
@@ -14,7 +15,7 @@ function LobbiesTable() {
     }, [lobbyData]);
 
     const tableDefinition = {
-        columns: [{ columnName: 'Name' }, { columnName: 'Author' }, { columnName: 'Game' }, { columnName: 'Type' }, { columnName: 'Players registered' }]
+        columns: [{ columnName: 'Name' }, { columnName: 'Author' }, { columnName: 'Game' }, { columnName: 'Type' }, { columnName: 'Players registered' }, {columnName: 'Id'}]
     };
 
     if (!lobbyData) {
@@ -30,14 +31,15 @@ function LobbiesTable() {
         author: el.authorId,
         game: GameName[el.gameName],
         type: GameType[el.gameType],
-        registered: el.playersRegistered.toString()
+        registered: el.playersRegistered.toString(),
+        id: el.id!
     }))
 
     const rows = rowsData.map((row, i) => {
         const tds = Object.values(row).map((value, y) => <td key={y}>{value}</td>);
 
         return <tr key={i} style={{ border: '1px solid black' }}>
-            {tds}
+            {tds}<td><Button  onClick={()=>joinLobbyHandler(row.id)}>Join Lobby</Button></td>
         </tr>
     });
 

@@ -14,3 +14,4 @@ pokereval_cactus = "0.1.2"
 
 [build-dependencies]
 prost-build = "0.12.4"
+prost-types = "0.12"

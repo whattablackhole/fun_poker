@@ -46,4 +46,10 @@ pub mod protos {
     pub mod responses {
         include!("protos_rs/responses.rs");
     }
+
+    pub mod google {
+        pub mod protobuf {
+            include!("protos_rs/google.protobuf.rs");
+        }
+    }
 }

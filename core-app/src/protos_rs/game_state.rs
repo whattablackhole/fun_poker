@@ -73,6 +73,7 @@ pub enum GameStatus {
     Pause = 0,
     None = 1,
     Active = 2,
+    WaitingForPlayers = 3,
 }
 impl GameStatus {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -84,6 +85,7 @@ impl GameStatus {
             GameStatus::Pause => "Pause",
             GameStatus::None => "None",
             GameStatus::Active => "Active",
+            GameStatus::WaitingForPlayers => "WaitingForPlayers",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -92,6 +94,7 @@ impl GameStatus {
             "Pause" => Some(Self::Pause),
             "None" => Some(Self::None),
             "Active" => Some(Self::Active),
+            "WaitingForPlayers" => Some(Self::WaitingForPlayers),
             _ => None,
         }
     }

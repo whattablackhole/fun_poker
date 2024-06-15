@@ -11,11 +11,13 @@ import type { PartialMessage } from "@protobuf-ts/runtime";
 import { reflectionMergePartial } from "@protobuf-ts/runtime";
 import { MessageType } from "@protobuf-ts/runtime";
 import { Action } from "./player";
+import { BoolValue } from "./google/protobuf/wrappers";
 import { ShowdownOutcome } from "./game_state";
 import { Player } from "./player";
 import { GameStatus } from "./game_state";
 import { Street } from "./game_state";
 import { CardPair } from "./card";
+import { Int32Value } from "./google/protobuf/wrappers";
 /**
  * @generated from protobuf message client_state.ClientState
  */
@@ -25,96 +27,89 @@ export interface ClientState {
      */
     playerId: number;
     /**
-     * @generated from protobuf field: card.CardPair cards = 2;
-     */
-    cards?: CardPair;
-    /**
-     * @generated from protobuf field: int32 curr_player_id = 3;
-     */
-    currPlayerId: number;
-    /**
-     * @generated from protobuf field: int32 curr_button_id = 4;
-     */
-    currButtonId: number;
-    /**
-     * @generated from protobuf field: int32 curr_small_blind_id = 5;
-     */
-    currSmallBlindId: number;
-    /**
-     * @generated from protobuf field: int32 curr_big_blind_id = 6;
-     */
-    currBigBlindId: number;
-    /**
-     * @generated from protobuf field: int32 lobby_id = 7;
+     * @generated from protobuf field: int32 lobby_id = 2;
      */
     lobbyId: number;
     /**
+     * @generated from protobuf field: google.protobuf.Int32Value curr_player_id = 3;
+     */
+    currPlayerId?: Int32Value; // Optional because the game might not be started
+    /**
+     * @generated from protobuf field: google.protobuf.Int32Value curr_button_id = 4;
+     */
+    currButtonId?: Int32Value; // Optional because the game might not be started
+    /**
+     * @generated from protobuf field: google.protobuf.Int32Value curr_small_blind_id = 5;
+     */
+    currSmallBlindId?: Int32Value; // Optional because the game might not be started
+    /**
+     * @generated from protobuf field: google.protobuf.Int32Value curr_big_blind_id = 6;
+     */
+    currBigBlindId?: Int32Value; // Optional because the game might not be started
+    /**
+     * @generated from protobuf field: card.CardPair cards = 7;
+     */
+    cards?: CardPair; // Optional because it might not be dealt yet
+    /**
      * @generated from protobuf field: game_state.Street street = 8;
      */
-    street?: Street;
+    street?: Street; // Optional because the game might not be started
     /**
      * @generated from protobuf field: game_state.GameStatus game_status = 9;
      */
-    gameStatus: GameStatus;
+    gameStatus: GameStatus; // GameStatus could be WAITING_FOR_PLAYERS or similar
     /**
      * @generated from protobuf field: repeated player.Player players = 10;
      */
-    players: Player[];
+    players: Player[]; // This would include only the joined player(s)
     /**
-     * @generated from protobuf field: optional game_state.ShowdownOutcome showdown_outcome = 11;
+     * @generated from protobuf field: game_state.ShowdownOutcome showdown_outcome = 11;
      */
-    showdownOutcome?: ShowdownOutcome;
+    showdownOutcome?: ShowdownOutcome; // Optional because the game might not have reached this stage
     /**
-     * @generated from protobuf field: int32 amount_to_call = 12;
+     * @generated from protobuf field: google.protobuf.Int32Value amount_to_call = 12;
      */
-    amountToCall: number;
+    amountToCall?: Int32Value; // Optional because the game might not be started
     /**
-     * @generated from protobuf field: int32 min_amount_to_raise = 13;
+     * @generated from protobuf field: google.protobuf.Int32Value min_amount_to_raise = 13;
      */
-    minAmountToRaise: number;
+    minAmountToRaise?: Int32Value; // Optional because the game might not be started
     /**
-     * @generated from protobuf field: bool can_raise = 14;
+     * @generated from protobuf field: google.protobuf.BoolValue can_raise = 14;
      */
-    canRaise: boolean;
+    canRaise?: BoolValue; // Optional because the game might not be started
     /**
      * @generated from protobuf field: repeated player.Action action_history = 15;
      */
-    actionHistory: Action[];
+    actionHistory: Action[]; // Might be empty if the game hasn't started
 }
 // @generated message type with reflection information, may provide speed optimized methods
 class ClientState$Type extends MessageType<ClientState> {
     constructor() {
         super("client_state.ClientState", [
             { no: 1, name: "player_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
-            { no: 2, name: "cards", kind: "message", T: () => CardPair },
-            { no: 3, name: "curr_player_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
-            { no: 4, name: "curr_button_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
-            { no: 5, name: "curr_small_blind_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
-            { no: 6, name: "curr_big_blind_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
-            { no: 7, name: "lobby_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "lobby_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 3, name: "curr_player_id", kind: "message", T: () => Int32Value },
+            { no: 4, name: "curr_button_id", kind: "message", T: () => Int32Value },
+            { no: 5, name: "curr_small_blind_id", kind: "message", T: () => Int32Value },
+            { no: 6, name: "curr_big_blind_id", kind: "message", T: () => Int32Value },
+            { no: 7, name: "cards", kind: "message", T: () => CardPair },
             { no: 8, name: "street", kind: "message", T: () => Street },
             { no: 9, name: "game_status", kind: "enum", T: () => ["game_state.GameStatus", GameStatus] },
             { no: 10, name: "players", kind: "message", repeat: 1 /*RepeatType.PACKED*/, T: () => Player },
             { no: 11, name: "showdown_outcome", kind: "message", T: () => ShowdownOutcome },
-            { no: 12, name: "amount_to_call", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
-            { no: 13, name: "min_amount_to_raise", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
-            { no: 14, name: "can_raise", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 12, name: "amount_to_call", kind: "message", T: () => Int32Value },
+            { no: 13, name: "min_amount_to_raise", kind: "message", T: () => Int32Value },
+            { no: 14, name: "can_raise", kind: "message", T: () => BoolValue },
             { no: 15, name: "action_history", kind: "message", repeat: 1 /*RepeatType.PACKED*/, T: () => Action }
         ]);
     }
     create(value?: PartialMessage<ClientState>): ClientState {
         const message = globalThis.Object.create((this.messagePrototype!));
         message.playerId = 0;
-        message.currPlayerId = 0;
-        message.currButtonId = 0;
-        message.currSmallBlindId = 0;
-        message.currBigBlindId = 0;
         message.lobbyId = 0;
         message.gameStatus = 0;
         message.players = [];
-        message.amountToCall = 0;
-        message.minAmountToRaise = 0;
-        message.canRaise = false;
         message.actionHistory = [];
         if (value !== undefined)
             reflectionMergePartial<ClientState>(this, message, value);
@@ -128,23 +123,23 @@ class ClientState$Type extends MessageType<ClientState> {
                 case /* int32 player_id */ 1:
                     message.playerId = reader.int32();
                     break;
-                case /* card.CardPair cards */ 2:
-                    message.cards = CardPair.internalBinaryRead(reader, reader.uint32(), options, message.cards);
-                    break;
-                case /* int32 curr_player_id */ 3:
-                    message.currPlayerId = reader.int32();
-                    break;
-                case /* int32 curr_button_id */ 4:
-                    message.currButtonId = reader.int32();
-                    break;
-                case /* int32 curr_small_blind_id */ 5:
-                    message.currSmallBlindId = reader.int32();
-                    break;
-                case /* int32 curr_big_blind_id */ 6:
-                    message.currBigBlindId = reader.int32();
-                    break;
-                case /* int32 lobby_id */ 7:
+                case /* int32 lobby_id */ 2:
                     message.lobbyId = reader.int32();
+                    break;
+                case /* google.protobuf.Int32Value curr_player_id */ 3:
+                    message.currPlayerId = Int32Value.internalBinaryRead(reader, reader.uint32(), options, message.currPlayerId);
+                    break;
+                case /* google.protobuf.Int32Value curr_button_id */ 4:
+                    message.currButtonId = Int32Value.internalBinaryRead(reader, reader.uint32(), options, message.currButtonId);
+                    break;
+                case /* google.protobuf.Int32Value curr_small_blind_id */ 5:
+                    message.currSmallBlindId = Int32Value.internalBinaryRead(reader, reader.uint32(), options, message.currSmallBlindId);
+                    break;
+                case /* google.protobuf.Int32Value curr_big_blind_id */ 6:
+                    message.currBigBlindId = Int32Value.internalBinaryRead(reader, reader.uint32(), options, message.currBigBlindId);
+                    break;
+                case /* card.CardPair cards */ 7:
+                    message.cards = CardPair.internalBinaryRead(reader, reader.uint32(), options, message.cards);
                     break;
                 case /* game_state.Street street */ 8:
                     message.street = Street.internalBinaryRead(reader, reader.uint32(), options, message.street);
@@ -155,17 +150,17 @@ class ClientState$Type extends MessageType<ClientState> {
                 case /* repeated player.Player players */ 10:
                     message.players.push(Player.internalBinaryRead(reader, reader.uint32(), options));
                     break;
-                case /* optional game_state.ShowdownOutcome showdown_outcome */ 11:
+                case /* game_state.ShowdownOutcome showdown_outcome */ 11:
                     message.showdownOutcome = ShowdownOutcome.internalBinaryRead(reader, reader.uint32(), options, message.showdownOutcome);
                     break;
-                case /* int32 amount_to_call */ 12:
-                    message.amountToCall = reader.int32();
+                case /* google.protobuf.Int32Value amount_to_call */ 12:
+                    message.amountToCall = Int32Value.internalBinaryRead(reader, reader.uint32(), options, message.amountToCall);
                     break;
-                case /* int32 min_amount_to_raise */ 13:
-                    message.minAmountToRaise = reader.int32();
+                case /* google.protobuf.Int32Value min_amount_to_raise */ 13:
+                    message.minAmountToRaise = Int32Value.internalBinaryRead(reader, reader.uint32(), options, message.minAmountToRaise);
                     break;
-                case /* bool can_raise */ 14:
-                    message.canRaise = reader.bool();
+                case /* google.protobuf.BoolValue can_raise */ 14:
+                    message.canRaise = BoolValue.internalBinaryRead(reader, reader.uint32(), options, message.canRaise);
                     break;
                 case /* repeated player.Action action_history */ 15:
                     message.actionHistory.push(Action.internalBinaryRead(reader, reader.uint32(), options));
@@ -185,24 +180,24 @@ class ClientState$Type extends MessageType<ClientState> {
         /* int32 player_id = 1; */
         if (message.playerId !== 0)
             writer.tag(1, WireType.Varint).int32(message.playerId);
-        /* card.CardPair cards = 2; */
-        if (message.cards)
-            CardPair.internalBinaryWrite(message.cards, writer.tag(2, WireType.LengthDelimited).fork(), options).join();
-        /* int32 curr_player_id = 3; */
-        if (message.currPlayerId !== 0)
-            writer.tag(3, WireType.Varint).int32(message.currPlayerId);
-        /* int32 curr_button_id = 4; */
-        if (message.currButtonId !== 0)
-            writer.tag(4, WireType.Varint).int32(message.currButtonId);
-        /* int32 curr_small_blind_id = 5; */
-        if (message.currSmallBlindId !== 0)
-            writer.tag(5, WireType.Varint).int32(message.currSmallBlindId);
-        /* int32 curr_big_blind_id = 6; */
-        if (message.currBigBlindId !== 0)
-            writer.tag(6, WireType.Varint).int32(message.currBigBlindId);
-        /* int32 lobby_id = 7; */
+        /* int32 lobby_id = 2; */
         if (message.lobbyId !== 0)
-            writer.tag(7, WireType.Varint).int32(message.lobbyId);
+            writer.tag(2, WireType.Varint).int32(message.lobbyId);
+        /* google.protobuf.Int32Value curr_player_id = 3; */
+        if (message.currPlayerId)
+            Int32Value.internalBinaryWrite(message.currPlayerId, writer.tag(3, WireType.LengthDelimited).fork(), options).join();
+        /* google.protobuf.Int32Value curr_button_id = 4; */
+        if (message.currButtonId)
+            Int32Value.internalBinaryWrite(message.currButtonId, writer.tag(4, WireType.LengthDelimited).fork(), options).join();
+        /* google.protobuf.Int32Value curr_small_blind_id = 5; */
+        if (message.currSmallBlindId)
+            Int32Value.internalBinaryWrite(message.currSmallBlindId, writer.tag(5, WireType.LengthDelimited).fork(), options).join();
+        /* google.protobuf.Int32Value curr_big_blind_id = 6; */
+        if (message.currBigBlindId)
+            Int32Value.internalBinaryWrite(message.currBigBlindId, writer.tag(6, WireType.LengthDelimited).fork(), options).join();
+        /* card.CardPair cards = 7; */
+        if (message.cards)
+            CardPair.internalBinaryWrite(message.cards, writer.tag(7, WireType.LengthDelimited).fork(), options).join();
         /* game_state.Street street = 8; */
         if (message.street)
             Street.internalBinaryWrite(message.street, writer.tag(8, WireType.LengthDelimited).fork(), options).join();
@@ -212,18 +207,18 @@ class ClientState$Type extends MessageType<ClientState> {
         /* repeated player.Player players = 10; */
         for (let i = 0; i < message.players.length; i++)
             Player.internalBinaryWrite(message.players[i], writer.tag(10, WireType.LengthDelimited).fork(), options).join();
-        /* optional game_state.ShowdownOutcome showdown_outcome = 11; */
+        /* game_state.ShowdownOutcome showdown_outcome = 11; */
         if (message.showdownOutcome)
             ShowdownOutcome.internalBinaryWrite(message.showdownOutcome, writer.tag(11, WireType.LengthDelimited).fork(), options).join();
-        /* int32 amount_to_call = 12; */
-        if (message.amountToCall !== 0)
-            writer.tag(12, WireType.Varint).int32(message.amountToCall);
-        /* int32 min_amount_to_raise = 13; */
-        if (message.minAmountToRaise !== 0)
-            writer.tag(13, WireType.Varint).int32(message.minAmountToRaise);
-        /* bool can_raise = 14; */
-        if (message.canRaise !== false)
-            writer.tag(14, WireType.Varint).bool(message.canRaise);
+        /* google.protobuf.Int32Value amount_to_call = 12; */
+        if (message.amountToCall)
+            Int32Value.internalBinaryWrite(message.amountToCall, writer.tag(12, WireType.LengthDelimited).fork(), options).join();
+        /* google.protobuf.Int32Value min_amount_to_raise = 13; */
+        if (message.minAmountToRaise)
+            Int32Value.internalBinaryWrite(message.minAmountToRaise, writer.tag(13, WireType.LengthDelimited).fork(), options).join();
+        /* google.protobuf.BoolValue can_raise = 14; */
+        if (message.canRaise)
+            BoolValue.internalBinaryWrite(message.canRaise, writer.tag(14, WireType.LengthDelimited).fork(), options).join();
         /* repeated player.Action action_history = 15; */
         for (let i = 0; i < message.actionHistory.length; i++)
             Action.internalBinaryWrite(message.actionHistory[i], writer.tag(15, WireType.LengthDelimited).fork(), options).join();

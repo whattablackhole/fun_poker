@@ -4,27 +4,24 @@ package client_state;
 
 import "player.proto";
 import "card.proto";
-
 import "game_state.proto";
-
-
-
+import "google/protobuf/wrappers.proto";
 message ClientState {
     int32 player_id = 1;
-    card.CardPair cards = 2;
-    int32 curr_player_id = 3;
-    int32 curr_button_id = 4;
-    int32 curr_small_blind_id = 5;
-    int32 curr_big_blind_id = 6;
-    int32 lobby_id = 7;
-    game_state.Street street = 8;
-    game_state.GameStatus game_status = 9;
-    repeated player.Player players = 10;
-    optional game_state.ShowdownOutcome showdown_outcome = 11;
-    int32 amount_to_call = 12;
-    int32 min_amount_to_raise = 13;
-    bool can_raise = 14;
-    repeated player.Action action_history = 15;
+    int32 lobby_id = 2;
+    google.protobuf.Int32Value curr_player_id = 3; // Optional because the game might not be started
+    google.protobuf.Int32Value  curr_button_id = 4; // Optional because the game might not be started
+    google.protobuf.Int32Value  curr_small_blind_id = 5; // Optional because the game might not be started
+    google.protobuf.Int32Value  curr_big_blind_id = 6; // Optional because the game might not be started
+    card.CardPair cards = 7; // Optional because it might not be dealt yet
+    game_state.Street street = 8; // Optional because the game might not be started
+    game_state.GameStatus game_status = 9; // GameStatus could be WAITING_FOR_PLAYERS or similar
+    repeated player.Player players = 10; // This would include only the joined player(s)
+    game_state.ShowdownOutcome showdown_outcome = 11; // Optional because the game might not have reached this stage
+    google.protobuf.Int32Value amount_to_call = 12; // Optional because the game might not be started
+    google.protobuf.Int32Value min_amount_to_raise = 13; // Optional because the game might not be started
+    google.protobuf.BoolValue can_raise = 14; // Optional because the game might not be started
+    repeated player.Action action_history = 15; // Might be empty if the game hasn't started
 }
 
 

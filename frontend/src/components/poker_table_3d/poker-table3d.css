@@ -42,3 +42,17 @@
     color: #00ffff;
     font-size: 18px;
 }
+
+.waiting_for_players:before{
+    content: 'Waiting For Players';
+    animation-name: WaitingForPlayers;
+    animation-duration: 3s;
+    color:rgb(25, 118, 210);
+    animation-iteration-count: infinite;
+}
+
+@keyframes WaitingForPlayers {
+    25% {content: 'Waiting For Players.'}
+    50% {content: 'Waiting For Players..'}
+    75% {content: 'Waiting For Players...'}
+}
