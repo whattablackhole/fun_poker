@@ -18,13 +18,15 @@ function Game() {
     const [betHistory, setBetHistory] = useState<BetHistory>(new BetHistory());
     const [boardCards, setBoardCards] = useState<Card[] | undefined>();
     const [players, setPlayers] = useState<Player[]>();
-
+    const selfPlayer = players?.find((p) => p.userId === gameState?.playerId)!;
     let prevStateCopy = gameState;
 
     let { addEventListener, removeEventListener, connection } = useWebSocket();
 
     let stateUpdateHandler = async (state: ClientState) => {
-        let newState = await GameStateService.processNewState(state, prevStateCopy, betHistory, setBoardCards,setBetHistory,setPlayers);
+        console.log(state)
+
+        let newState = await GameStateService.processNewState(state, prevStateCopy, betHistory, setBoardCards, setBetHistory, setPlayers);
         prevStateCopy = newState;
         setState(newState);
     }
@@ -38,9 +40,9 @@ function Game() {
     }, []);
 
     const betClickHandler = (value: number, type: ActionType) => {
-        let payload = PlayerPayload.create({ action: { actionType: type, bet: value }, lobbyId: gameState?.lobbyId, playerId: gameState?.playerId });
-
-        // ApiService.sendMessage(payload);
+        let payload = PlayerPayload.create({ action: { actionType: type, bet: value, playerId: selfPlayer.userId }, lobbyId: gameState?.lobbyId, playerId: selfPlayer.userId });
+        console.log(payload);
+        connection?.send(PlayerPayload.toBinary(payload));
     };
 
     if (!gameState || !players) {
@@ -53,7 +55,7 @@ function Game() {
         <div>
             <PokerTable3d players={players} gameStatus={gameState.gameStatus} betHistory={betHistory} buttonId={gameState.currButtonId?.value} currPlayerId={gameState.currPlayerId?.value} street={gameState.street} />
             <div className="game-controls">
-                <GameControls gameState={gameState} betClickHandler={betClickHandler} />
+                <GameControls gameState={gameState} player={selfPlayer} betClickHandler={betClickHandler} />
             </div>
 
         </div>

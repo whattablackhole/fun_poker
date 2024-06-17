@@ -7,7 +7,11 @@ use crate::{
     game::{DeckState, GameState, KeyPositions, PlayerState},
     player::PlayerPayloadError,
     protos::{
-        card::CardPair, client_state::ClientState, game_state::{GameStatus, PlayerCards, ShowdownOutcome, Street, StreetStatus, Winner}, google::protobuf::{BoolValue, Int32Value}, player::{Action, ActionType, Player, PlayerPayload, PlayerStatus}
+        card::CardPair,
+        client_state::ClientState,
+        game_state::{GameStatus, PlayerCards, ShowdownOutcome, Street, StreetStatus, Winner},
+        google::protobuf::{BoolValue, Int32Value},
+        player::{Action, ActionType, Player, PlayerPayload, PlayerStatus},
     },
 };
 pub struct Dealer {
@@ -36,7 +40,7 @@ impl Dealer {
     }
 
     // PUBLIC --------------------------------------------------
-   
+
     pub fn start_new_game(
         &self,
         game_state: &mut GameState,
@@ -52,8 +56,10 @@ impl Dealer {
         game_state.status = GameStatus::Active;
 
         // TODO: let player decide whether he ready or not
-        player_state.players.iter_mut().for_each(|p|{p.status = PlayerStatus::Ready.into()});
-        
+        player_state
+            .players
+            .iter_mut()
+            .for_each(|p| p.status = PlayerStatus::Ready.into());
 
         self.deal_cards(deck_state, player_state, game_state);
 
@@ -65,13 +71,30 @@ impl Dealer {
             game_state,
         );
 
-        let state = self.create_client_states( game_state, player_state);
+        let state = self.create_client_states(game_state, player_state);
         Ok(state)
     }
 
-    pub fn get_client_state(&self, player_id: &i32, game_state: &GameState, player_state: &PlayerState) -> ClientState {
-        let player = player_state.players.iter().find(|p|p.user_id == *player_id).unwrap();
+    pub fn get_client_state(
+        &self,
+        player_id: &i32,
+        game_state: &GameState,
+        player_state: &PlayerState,
+    ) -> ClientState {
+        let player = player_state
+            .players
+            .iter()
+            .find(|p| p.user_id == *player_id)
+            .unwrap();
         self.create_client_state(player, game_state, player_state)
+    }
+
+    pub fn get_client_states(
+        &self,
+        game_state: &GameState,
+        player_state: &PlayerState,
+    ) -> Vec<ClientState> {
+        self.create_client_states( game_state, player_state)
     }
 
     pub fn complete_game_cycle_automatically(
@@ -113,6 +136,62 @@ impl Dealer {
         )
     }
 
+    pub fn handle_disconnect(
+        &self,
+        player_id: i32,
+        lobby_id: i32,
+        game_state: &mut GameState,
+        player_state: &mut PlayerState,
+    ) -> PlayerPayload {
+        let player = player_state
+            .players
+            .iter_mut()
+            .find(|p| p.user_id == player_id)
+            .unwrap();
+
+        player.status = PlayerStatus::Disconnected.into();
+
+        let action = Action {
+            action_type: ActionType::Fold.into(),
+            bet: 0,
+            player_id,
+            street_status: None,
+        };
+        PlayerPayload {
+            action: Some(action),
+            lobby_id,
+            player_id,
+        }
+    }
+
+    pub fn handle_idle(
+        &self,
+        player_id: i32,
+        lobby_id: i32,
+        game_state: &mut GameState,
+        player_state: &mut PlayerState,
+    ) -> PlayerPayload {
+        let player = player_state
+            .players
+            .iter_mut()
+            .find(|p| p.user_id == player_id)
+            .unwrap();
+
+        player.status = PlayerStatus::SitOut.into();
+
+        let action = Action {
+            action_type: ActionType::Fold.into(),
+            bet: 0,
+            player_id,
+            street_status: None,
+        };
+        PlayerPayload {
+            action: Some(action),
+            lobby_id,
+            player_id,
+        }
+    }
+
     pub fn update_game_state(
         &self,
         payload: Result<PlayerPayload, PlayerPayloadError>,
@@ -120,7 +199,15 @@ impl Dealer {
         player_state: &mut PlayerState,
         deck_state: &mut DeckState,
     ) -> UpdatedState {
-        let payload = payload.unwrap();
+        let payload = match payload {
+            Ok(p) => p.clone(),
+            Err(e) => {
+                match e {
+                    PlayerPayloadError::Disconnected { id, lobby_id } => self.handle_disconnect(id, lobby_id, game_state, player_state),
+                    PlayerPayloadError::Iddle { id, lobby_id } => self.handle_idle(id, lobby_id, game_state, player_state),
+                }
+            }
+        };
 
         if payload.lobby_id != self.lobby_id {
             panic!("Wrong lobby id in payload");
@@ -141,8 +228,7 @@ impl Dealer {
                     let showdown_outcome = self.calculate_winner(false, game_state, player_state);
                     game_state.showdown_outcome = Some(showdown_outcome);
                     // let eliminated_players = self.calculate_eliminated_players(player_state);
-                    let states =
-                        self.create_client_states(game_state, player_state);
+                    let states = self.create_client_states(game_state, player_state);
                     return UpdatedState {
                         client_states: states,
                         is_ready_for_next_hand: true,
@@ -182,8 +268,7 @@ impl Dealer {
                 // let eliminated_players = self.calculate_eliminated_players(player_state);
                 // TODO: set showdown in seperate fn
                 game_state.showdown_outcome = Some(showdown_outcome);
-                let states =
-                    self.create_client_states(game_state, player_state);
+                let states = self.create_client_states(game_state, player_state);
                 return UpdatedState {
                     client_states: states,
                     is_ready_for_next_hand: true,
@@ -316,54 +401,73 @@ impl Dealer {
         players
     }
 
-    fn create_client_state(&self, p: &Player, game_state: &GameState, player_state: &PlayerState) -> ClientState {
+    fn create_client_state(
+        &self,
+        p: &Player,
+        game_state: &GameState,
+        player_state: &PlayerState,
+    ) -> ClientState {
         let filtered_players = self.get_filtered_players(game_state, player_state);
 
         // TODO: think about using optional fields in game_state instead
         if game_state.status == GameStatus::WaitingForPlayers {
-           return ClientState {
-            player_id: p.user_id,
-            cards: None,
-            amount_to_call: None,
-            min_amount_to_raise: None,
-            action_history: Vec::new(),
-            can_raise: None,
-            curr_big_blind_id: None,
-            curr_button_id: None,
-            curr_player_id: None,
-            curr_small_blind_id: None,
-            game_status: game_state.status.clone().into(),
-            lobby_id: self.lobby_id,
-            players: filtered_players,
-            showdown_outcome: None,
-            street: None
-           }
+            return ClientState {
+                player_id: p.user_id,
+                cards: None,
+                amount_to_call: None,
+                min_amount_to_raise: None,
+                action_history: Vec::new(),
+                can_raise: None,
+                curr_big_blind_id: None,
+                curr_button_id: None,
+                curr_player_id: None,
+                curr_small_blind_id: None,
+                game_status: game_state.status.clone().into(),
+                lobby_id: self.lobby_id,
+                players: filtered_players,
+                showdown_outcome: None,
+                street: None,
+            };
         }
-        
+
         ClientState {
             player_id: p.user_id,
             cards: p.cards.clone(),
-            amount_to_call: Some(Int32Value{value:self.calculate_valid_call_amount(p, game_state, player_state)}),
-            min_amount_to_raise: Some(Int32Value{value:self.calculate_min_raise(p, game_state)}),
-            can_raise: Some(BoolValue{value:self.can_raise(p, game_state, player_state)}),
+            amount_to_call: Some(Int32Value {
+                value: self.calculate_valid_call_amount(p, game_state, player_state),
+            }),
+            min_amount_to_raise: Some(Int32Value {
+                value: self.calculate_min_raise(p, game_state),
+            }),
+            can_raise: Some(BoolValue {
+                value: self.can_raise(p, game_state, player_state),
+            }),
             players: filtered_players.clone(),
             game_status: game_state.status.into(),
-            curr_player_id: Some(Int32Value{value:self.get_player_id_by_index(
-                game_state.positions.curr_player_index.unwrap(),
-                player_state,
-            )}),
-            curr_button_id: Some(Int32Value { value: self.get_player_id_by_index(
-                game_state.positions.button_index.unwrap(),
-                player_state,
-            ) }),
-            curr_big_blind_id: Some(Int32Value { value: self.get_player_id_by_index(
-                game_state.positions.big_blind_index.unwrap(),
-                player_state,
-            ) }),
-            curr_small_blind_id: Some(Int32Value { value: self.get_player_id_by_index(
-                game_state.positions.small_blind_index.unwrap(),
-                player_state,
-            ) }),
+            curr_player_id: Some(Int32Value {
+                value: self.get_player_id_by_index(
+                    game_state.positions.curr_player_index.unwrap(),
+                    player_state,
+                ),
+            }),
+            curr_button_id: Some(Int32Value {
+                value: self.get_player_id_by_index(
+                    game_state.positions.button_index.unwrap(),
+                    player_state,
+                ),
+            }),
+            curr_big_blind_id: Some(Int32Value {
+                value: self.get_player_id_by_index(
+                    game_state.positions.big_blind_index.unwrap(),
+                    player_state,
+                ),
+            }),
+            curr_small_blind_id: Some(Int32Value {
+                value: self.get_player_id_by_index(
+                    game_state.positions.small_blind_index.unwrap(),
+                    player_state,
+                ),
+            }),
             street: Some(game_state.street.clone()),
             lobby_id: self.lobby_id,
             showdown_outcome: game_state.showdown_outcome.clone(),
@@ -371,7 +475,6 @@ impl Dealer {
         }
     }
 
-    
     // TODO: Send delta updates in future
     fn create_client_states(
         &self,
@@ -381,9 +484,8 @@ impl Dealer {
         let states = player_state
             .players
             .iter()
-            .map(|p| {
-                self.create_client_state(p, game_state, player_state)
-            })
+            .filter(|p| p.status != PlayerStatus::Disconnected.into())
+            .map(|p| self.create_client_state(p, game_state, player_state))
             .collect();
 
         states
@@ -563,7 +665,7 @@ impl Dealer {
             action_type: ActionType::Fold.into(),
             bet: 0,
             player_id: player.user_id,
-            street_status: game_state.street.street_status,
+            street_status: Some(game_state.street.street_status),
         };
 
         player.action = Some(action.clone());
@@ -613,7 +715,7 @@ impl Dealer {
             action_type: ActionType::Call.into(),
             bet: bet_amount,
             player_id: player.user_id,
-            street_status: game_state.street.street_status,
+            street_status: game_state.street.street_status.into(),
         };
         player.action = Some(action.clone());
         game_state.action_history.push(action.clone());
@@ -712,7 +814,7 @@ impl Dealer {
                 action_type: ActionType::Raise.into(),
                 bet: bet_amount,
                 player_id: player.user_id,
-                street_status: game_state.street.street_status,
+                street_status: Some(game_state.street.street_status),
             };
 
             player.action = Some(action.clone());
@@ -751,7 +853,7 @@ impl Dealer {
             action_type: ActionType::Blind.into(),
             bet: player.bet_in_current_seed,
             player_id: player.user_id,
-            street_status: game_state.street.street_status,
+            street_status: Some(game_state.street.street_status),
         };
         game_state.action_history.push(action.clone());
         player.action = Some(action);
@@ -770,7 +872,7 @@ impl Dealer {
             action_type: ActionType::Blind.into(),
             bet: player.bet_in_current_seed,
             player_id: player.user_id,
-            street_status: game_state.street.street_status,
+            street_status: Some(game_state.street.street_status),
         };
         game_state.action_history.push(action.clone());
         player.action = Some(action);

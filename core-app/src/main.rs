@@ -41,8 +41,8 @@ fn main() {
     let dealer_pool = DealerPool::new();
 
     let game_orchestrator = GameOrchestrator::new();
-    init_games(&repository,&game_orchestrator);
-    
+    init_games(&repository, &game_orchestrator);
+
     let arc_dealer_pool = Arc::new(dealer_pool);
     let arc_socket_pool: Arc<SocketPool> = Arc::new(socket_pool);
     let arc_game_orchestrator: Arc<GameOrchestrator> = Arc::new(game_orchestrator);
@@ -74,11 +74,10 @@ fn main() {
 fn init_games(repo: &PostgresDatabase, game_orchestrator: &GameOrchestrator) {
     let lobbies = repo.get_lobbies();
     lobbies.list.iter().for_each(|lobby| {
-
-        let created = game_orchestrator.create_game(lobby.id.unwrap(), GameSettings { blind_size: 100 });
+        let created =
+            game_orchestrator.create_game(lobby.id.unwrap(), GameSettings { blind_size: 100 });
         println!("games inited: {}", created);
     })
-   
 }
 
 fn determine_request_type(stream: &TcpStream) -> RequestType {
@@ -117,6 +116,8 @@ fn handle_web_socket_connection_handshake(stream: TcpStream, socket_pool: Arc<So
         Err(_) => todo!("Bad request"),
     };
 
+    stream.set_nonblocking(true).unwrap();
+
     let websocket = accept(stream).unwrap();
 
     socket_pool.add(PlayerChannelClient {
@@ -151,9 +152,13 @@ fn handle_http_request(
             thread_pool,
             game_orchestrator,
         ),
-        "/joinLobby" => {
-            join_lobby_request_handler(buf_reader, repo, game_orchestrator, socket_pool, thread_pool)
-        }
+        "/joinLobby" => join_lobby_request_handler(
+            buf_reader,
+            repo,
+            game_orchestrator,
+            socket_pool,
+            thread_pool,
+        ),
         // "/observeLobby" => observe_lobby_request_handler(buff_reader),
         _ => (Box::new(EmptyMessage {}), "HTTP/1.1 400 Bad Request"),
     };
@@ -296,7 +301,7 @@ fn start_game_request_handler(
     // THINK ABOUT HOW AND WHEN USER SHOULD BE ABLE TO JOIN THE GAME
     let _users: Vec<User> = repo.get_users_by_lobby_id(request.lobby_id);
 
-    game_orchestrator.start_game(request.lobby_id, &thread_pool, socket_pool);
+    game_orchestrator.start_game(request.lobby_id, thread_pool, socket_pool);
 
     (Box::new(EmptyMessage {}), "HTTP/1.1 200 OK")
 }
@@ -319,9 +324,8 @@ fn join_lobby_request_handler(
     };
 
     let user = repo.get_user_by_id(request.player_id);
-
+    
     repo.add_user_to_lobby(request.lobby_id, user.id);
-
 
     // TODO: think about sending messages to game_orchestrator...
     game_orchestrator.join_game(request.lobby_id, user, &socket_pool);
@@ -329,7 +333,7 @@ fn join_lobby_request_handler(
     let can_start = game_orchestrator.can_start_game(request.lobby_id);
 
     if can_start {
-        game_orchestrator.start_game(request.lobby_id, &thread_pool, socket_pool)
+        game_orchestrator.start_game(request.lobby_id, thread_pool, socket_pool)
     }
 
     (Box::new(EmptyMessage {}), "HTTP/1.1 200 OK")

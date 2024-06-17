@@ -1,9 +1,16 @@
+use std::error::Error;
+
 use prost::Message;
 
-use crate::protos::{
-    client_state::ClientState,
-    responses::{ResponseMessageType, StartGameResponse},
-    user::User,
+use crate::{
+    game_orchestrator::JoinGameMessage,
+    protos::{
+        client_state::ClientState,
+        player::PlayerPayload,
+        responses::{ResponseMessageType, StartGameResponse},
+        user::User,
+    },
+    socket_pool::ReadMessageError,
 };
 
 pub struct TMessageResponse {
@@ -11,6 +18,10 @@ pub struct TMessageResponse {
     pub message_type: ResponseMessageType,
     pub message: Box<dyn EncodableMessage>,
 }
+
+pub type DynMessage = Box<dyn Message>;
+pub type DynMessageError = Box<dyn Error + Send + Sync>;
+pub type DynMessageResult = Result<DynMessage, DynMessageError>;
 
 pub trait EncodableMessage {
     fn encode_message(&self) -> Vec<u8>;
@@ -22,6 +33,11 @@ impl<M: Message> EncodableMessage for M {
         self.encode(&mut buf).unwrap();
         buf
     }
+}
+
+pub enum GameChannelMessage {
+    DynMessageResult(Result<PlayerPayload, ReadMessageError>),
+    HttpRequestSource(JoinGameMessage),
 }
 
 fn create_message_response<T>(

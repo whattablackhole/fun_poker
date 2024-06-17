@@ -39,8 +39,8 @@ pub struct Action {
     pub bet: i32,
     #[prost(int32, tag = "3")]
     pub player_id: i32,
-    #[prost(enumeration = "super::game_state::StreetStatus", tag = "4")]
-    pub street_status: i32,
+    #[prost(enumeration = "super::game_state::StreetStatus", optional, tag = "4")]
+    pub street_status: ::core::option::Option<i32>,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
@@ -48,6 +48,7 @@ pub enum PlayerStatus {
     WaitingForPlayers = 0,
     SitOut = 1,
     Ready = 2,
+    Disconnected = 3,
 }
 impl PlayerStatus {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -59,6 +60,7 @@ impl PlayerStatus {
             PlayerStatus::WaitingForPlayers => "WaitingForPlayers",
             PlayerStatus::SitOut => "SitOut",
             PlayerStatus::Ready => "Ready",
+            PlayerStatus::Disconnected => "Disconnected",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -67,6 +69,7 @@ impl PlayerStatus {
             "WaitingForPlayers" => Some(Self::WaitingForPlayers),
             "SitOut" => Some(Self::SitOut),
             "Ready" => Some(Self::Ready),
+            "Disconnected" => Some(Self::Disconnected),
             _ => None,
         }
     }

@@ -39,8 +39,8 @@ const CustomSlider = styled(Slider)(({ theme }) => ({
   },
 }));
 
-export default function InputSlider({ onValueChange } : { onValueChange : React.Dispatch<React.SetStateAction<number>>}) {
-  const [value, setValue] = React.useState(30);
+export default function InputSlider({ defaultValue, maxValue, onValueChange } : { defaultValue: number, maxValue:number, onValueChange : React.Dispatch<React.SetStateAction<number>>}) {
+  const [value, setValue] = React.useState(defaultValue);
 
   const handleSliderChange = (event: Event, newValue: number | number[]) => {
     setValue(newValue as number);
@@ -51,14 +51,6 @@ export default function InputSlider({ onValueChange } : { onValueChange : React.
     setValue(event.target.value === '' ? 0 : Number(event.target.value));
 
     onValueChange(Number(event.target.value));
-  };
-
-  const handleBlur = () => {
-    if (value < 0) {
-      setValue(0);
-    } else if (value > 100) {
-      setValue(100);
-    }
   };
 
   return (
@@ -76,7 +68,6 @@ export default function InputSlider({ onValueChange } : { onValueChange : React.
             value={value}
             size="small"
             onChange={handleInputChange}
-            onBlur={handleBlur}
             sx={{
               border: '2px solid #ccc',
               borderRadius: '5px',
@@ -84,9 +75,9 @@ export default function InputSlider({ onValueChange } : { onValueChange : React.
               width: '90px',
             }}
             inputProps={{
-              step: 10,
-              min: 0,
-              max: 100,
+              step: 50,
+              min: defaultValue,
+              max: maxValue,
               type: 'number',
               'aria-labelledby': 'input-slider',
             }}
@@ -96,7 +87,9 @@ export default function InputSlider({ onValueChange } : { onValueChange : React.
         </Grid>
         <Grid item xs alignItems="center" display="flex">
           <CustomSlider
-            value={typeof value === 'number' ? value : 0}
+            value={value}
+            min={defaultValue}
+            max={maxValue}
             onChange={handleSliderChange}
             aria-labelledby="input-slider"
           />

@@ -85,9 +85,9 @@ export interface Action {
      */
     playerId: number;
     /**
-     * @generated from protobuf field: game_state.StreetStatus street_status = 4;
+     * @generated from protobuf field: optional game_state.StreetStatus street_status = 4;
      */
-    streetStatus: StreetStatus;
+    streetStatus?: StreetStatus;
 }
 /**
  * @generated from protobuf enum player.PlayerStatus
@@ -104,7 +104,11 @@ export enum PlayerStatus {
     /**
      * @generated from protobuf enum value: Ready = 2;
      */
-    Ready = 2
+    Ready = 2,
+    /**
+     * @generated from protobuf enum value: Disconnected = 3;
+     */
+    Disconnected = 3
 }
 /**
  * remove last two??
@@ -303,7 +307,7 @@ class Action$Type extends MessageType<Action> {
             { no: 1, name: "action_type", kind: "enum", T: () => ["player.ActionType", ActionType] },
             { no: 2, name: "bet", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
             { no: 3, name: "player_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
-            { no: 4, name: "street_status", kind: "enum", T: () => ["game_state.StreetStatus", StreetStatus] }
+            { no: 4, name: "street_status", kind: "enum", opt: true, T: () => ["game_state.StreetStatus", StreetStatus] }
         ]);
     }
     create(value?: PartialMessage<Action>): Action {
@@ -311,7 +315,6 @@ class Action$Type extends MessageType<Action> {
         message.actionType = 0;
         message.bet = 0;
         message.playerId = 0;
-        message.streetStatus = 0;
         if (value !== undefined)
             reflectionMergePartial<Action>(this, message, value);
         return message;
@@ -330,7 +333,7 @@ class Action$Type extends MessageType<Action> {
                 case /* int32 player_id */ 3:
                     message.playerId = reader.int32();
                     break;
-                case /* game_state.StreetStatus street_status */ 4:
+                case /* optional game_state.StreetStatus street_status */ 4:
                     message.streetStatus = reader.int32();
                     break;
                 default:
@@ -354,8 +357,8 @@ class Action$Type extends MessageType<Action> {
         /* int32 player_id = 3; */
         if (message.playerId !== 0)
             writer.tag(3, WireType.Varint).int32(message.playerId);
-        /* game_state.StreetStatus street_status = 4; */
-        if (message.streetStatus !== 0)
+        /* optional game_state.StreetStatus street_status = 4; */
+        if (message.streetStatus !== undefined)
             writer.tag(4, WireType.Varint).int32(message.streetStatus);
         let u = options.writeUnknownFields;
         if (u !== false)

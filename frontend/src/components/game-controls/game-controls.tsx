@@ -5,16 +5,16 @@ import InputSlider from "./bet-slider";
 import { Button, Grid } from "@mui/material";
 import { Box } from "@react-three/drei";
 
-function GameControls({ gameState, betClickHandler }: { gameState: ClientState, betClickHandler: (value: number, type: ActionType) => void }) {
+function GameControls({ gameState, player, betClickHandler }: { gameState: ClientState, player: Player, betClickHandler: (value: number, type: ActionType) => void }) {
     const [betSizeInputValue, setBetSizeInputValue] = useState<number>(0);
 
-    
+
 
     return (
         <Box>
             <Grid container alignItems="flex-end" flexDirection="column" sx={{ gap: '10px' }}>
-                <Grid  item sx={{ gap: '10px', display:'flex', flexDirection:'column' }}>
-                    <div style={{display:'flex', justifyContent:'space-between'}}>
+                <Grid item sx={{ gap: '10px', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <Button
                             size="small"
                             sx={{
@@ -23,7 +23,8 @@ function GameControls({ gameState, betClickHandler }: { gameState: ClientState, 
                                 boxShadow: '0 0 0 1px black, 0 0 0 2px grey',
                             }}
                             className="control-button"
-                        // disabled={gameState?.currPlayerId !== selfPlayer.userId}
+                            // get min size size
+                            disabled={gameState?.currPlayerId?.value !== player.userId || player.action?.actionType === ActionType.Fold || 50 > player.bank || (gameState.amountToCall?.value ?? 0) > 50}
                         >
                             Min
                         </Button>
@@ -35,7 +36,8 @@ function GameControls({ gameState, betClickHandler }: { gameState: ClientState, 
                                 boxShadow: '0 0 0 1px black, 0 0 0 2px grey',
                             }}
                             className="control-button"
-                        // disabled={gameState?.currPlayerId !== selfPlayer.userId}
+                            // get half blind size
+                            disabled={gameState?.currPlayerId?.value !== player.userId || player.action?.actionType === ActionType.Fold || 50 > player.bank || (gameState.amountToCall?.value ?? 0) > 50}
                         >
                             1/2
                         </Button>
@@ -47,7 +49,8 @@ function GameControls({ gameState, betClickHandler }: { gameState: ClientState, 
                                 boxShadow: '0 0 0 1px black, 0 0 0 2px grey',
                             }}
                             className="control-button"
-                        // disabled={gameState?.currPlayerId !== selfPlayer.userId}
+                            // get pot size
+                            disabled={gameState?.currPlayerId?.value !== player.userId || player.action?.actionType === ActionType.Fold || player.bank < 100}
                         >
                             Pot
                         </Button>
@@ -59,13 +62,13 @@ function GameControls({ gameState, betClickHandler }: { gameState: ClientState, 
                                 boxShadow: '0 0 0 1px black, 0 0 0 2px grey',
                             }}
                             className="control-button"
-                        // disabled={gameState?.currPlayerId !== selfPlayer.userId}
+                            disabled={gameState?.currPlayerId?.value !== player.userId || player.action?.actionType === ActionType.Fold || player.bank === 0}
                         >
                             Max
                         </Button>
                     </div>
 
-                    <InputSlider onValueChange={setBetSizeInputValue}></InputSlider>
+                    <InputSlider defaultValue={gameState.amountToCall?.value ?? 0} maxValue={player.bank} onValueChange={setBetSizeInputValue}></InputSlider>
                 </Grid>
                 <Grid item sx={{ gap: '20px', display: 'flex' }}>
                     {/* <ButtonGroup variant="outlined" aria-label="betting options" sx={{
@@ -84,8 +87,9 @@ function GameControls({ gameState, betClickHandler }: { gameState: ClientState, 
                             width: '150px',
                         }}
                         className="fold_button control-button"
-                        // disabled={gameState?.currPlayerId !== selfPlayer.userId}
-                        onClick={(e) => betClickHandler(0, ActionType.Fold)}
+
+                        disabled={gameState?.currPlayerId?.value !== player.userId || player.action?.actionType === ActionType.Fold}
+                        onClick={() => betClickHandler(0, ActionType.Fold)}
                     >
                         Fold
                     </Button>
@@ -100,8 +104,9 @@ function GameControls({ gameState, betClickHandler }: { gameState: ClientState, 
 
                         }}
                         className="call-check_button control-button"
-                        // disabled={gameState?.currPlayerId !== selfPlayer.userId}
-                        onClick={(e) => betClickHandler(betSizeInputValue, ActionType.Call)}
+                        disabled={gameState?.currPlayerId?.value !== gameState.playerId || player.action?.actionType === ActionType.Fold || player.bank < (gameState.amountToCall?.value ?? 0)}
+
+                        onClick={() => betClickHandler(betSizeInputValue, ActionType.Call)}
                     >
                         Call
                     </Button>
@@ -115,8 +120,9 @@ function GameControls({ gameState, betClickHandler }: { gameState: ClientState, 
                             width: '150px',
                         }}
                         className="raise_button control-button"
-                        // disabled={gameState?.currPlayerId !== selfPlayer.userId}
-                        onClick={(e) => betClickHandler(betSizeInputValue, ActionType.Raise)}
+                        disabled={gameState?.currPlayerId?.value !== gameState.playerId || player.action?.actionType === ActionType.Fold || player.bank < (gameState.minAmountToRaise?.value ?? 0) || betSizeInputValue < (gameState.minAmountToRaise?.value ?? 0)}
+
+                        onClick={() => betClickHandler(betSizeInputValue, ActionType.Raise)}
                     >
                         Raise
                     </Button>

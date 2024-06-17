@@ -1,4 +1,10 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::HashMap,
+    sync::{
+        mpsc::{Receiver, Sender},
+        Arc, Mutex, RwLock,
+    },
+};
 
 use crate::{
     card::CardDeck,
@@ -6,11 +12,12 @@ use crate::{
     player::PlayerPayloadError,
     protos::{
         game_state::{GameStatus, ShowdownOutcome, Street, StreetStatus},
-        player::{Action, Player, PlayerPayload},
+        player::{Action, Player, PlayerPayload, PlayerStatus},
         user::User,
     },
-    responses::generate_client_state_responses,
+    responses::{generate_client_state_responses, GameChannelMessage},
     socket_pool::{ReadMessageError, SocketPool},
+    thread_pool::ThreadPool,
 };
 
 pub struct DeckState {
@@ -130,37 +137,98 @@ impl Game {
     }
 
     pub fn add_player(&mut self, user: User, socket_pool: &Arc<SocketPool>) {
-        let player = Player::from_user(user);
+        let user_id = user.id;
 
-        let id = player.user_id;
-        
         // TODO: refactor ....
         match self
             .player_state
             .players
-            .iter()
-            .find(|p| p.user_id == player.user_id)
+            .iter_mut()
+            .find(|p| p.user_id == user_id)
         {
-            Some(_) => {}
+            Some(p) => {
+                if self.game_state.status == GameStatus::Active {
+                    p.status = PlayerStatus::Ready.into();
+                } else {
+                    p.status = PlayerStatus::WaitingForPlayers.into();
+                }
+            }
             None => {
+                let mut player = Player::from_user(user);
+
+                if self.game_state.status == GameStatus::Active {
+                    player.status = PlayerStatus::Ready.into();
+                }
                 self.player_state.players.push(player);
             }
         }
-
-        let mut states = Vec::new();
-
-        let state = self
+        let states = self
             .dealer
-            .get_client_state(&id, &self.game_state, &self.player_state);
-
-
-        states.push(state);
+            .get_client_states(&self.game_state, &self.player_state);
 
         // TODO: add hash sum for clientstate to check if client received current state or not
         socket_pool.update_clients(generate_client_state_responses(states));
     }
 
-    pub fn run(&mut self, socket_pool: Arc<SocketPool>) {
+    fn update_game_state(
+        &mut self,
+        socket_pool: &Arc<SocketPool>,
+        result: Result<PlayerPayload, PlayerPayloadError>,
+    ) {
+        let updated_state = self.dealer.update_game_state(
+            result,
+            &mut self.game_state,
+            &mut self.player_state,
+            &mut self.deck_state,
+        );
+
+        socket_pool.update_clients(generate_client_state_responses(updated_state.client_states));
+
+        let mut is_ready = updated_state.is_ready_for_next_hand;
+
+        if updated_state.should_complete_game_cycle_automatically {
+            let updated_state = self.dealer.complete_game_cycle_automatically(
+                &mut self.game_state,
+                &mut self.player_state,
+                &mut self.deck_state,
+            );
+            socket_pool
+                .update_clients(generate_client_state_responses(updated_state.client_states));
+            is_ready = updated_state.is_ready_for_next_hand;
+        }
+
+        while is_ready {
+            let updated_state = self.dealer.setup_next_cycle(
+                &mut self.game_state,
+                &mut self.player_state,
+                &mut self.deck_state,
+            );
+
+            socket_pool
+                .update_clients(generate_client_state_responses(updated_state.client_states));
+
+            if updated_state.should_complete_game_cycle_automatically {
+                let updated_state = self.dealer.complete_game_cycle_automatically(
+                    &mut self.game_state,
+                    &mut self.player_state,
+                    &mut self.deck_state,
+                );
+                is_ready = updated_state.is_ready_for_next_hand;
+                socket_pool
+                    .update_clients(generate_client_state_responses(updated_state.client_states));
+            } else {
+                is_ready = updated_state.is_ready_for_next_hand;
+            }
+        }
+    }
+
+    pub fn run(
+        &mut self,
+        socket_pool: Arc<SocketPool>,
+        thread_pool: Arc<ThreadPool>,
+        rx: Arc<Mutex<Receiver<GameChannelMessage>>>,
+        tx: Arc<RwLock<Sender<GameChannelMessage>>>,
+    ) {
         // TODO: think about how can we manage game status and state:
         // e.g. stopping and continue loop mechanisms - pause game
         // using channels, boolean variables etc...
@@ -178,80 +246,56 @@ impl Game {
         loop {
             //TODO: handle the cases where a client is not responding, or has closed the connection;
             //TODO: use seperate messages for separated responses to decrease memory load and bandwidth
-            let request: Result<PlayerPayload, ReadMessageError> = socket_pool.read_client_message(
-                self.dealer
-                    .get_next_player_id(&mut self.game_state, &mut self.player_state),
-            );
+            let user_id = self
+                .dealer
+                .get_next_player_id(&mut self.game_state, &mut self.player_state);
+            let clone_s_pool = Arc::clone(&socket_pool);
+            let clone_tx: Arc<RwLock<Sender<GameChannelMessage>>> = Arc::clone(&tx);
 
-            let result: Result<PlayerPayload, PlayerPayloadError> = match request {
-                Ok(p) => Ok(p),
-                Err(ReadMessageError::Disconnected) => {
-                    socket_pool.close_connection(
-                        self.dealer
-                            .get_next_player_id(&mut self.game_state, &mut self.player_state),
-                    );
-                    Err(PlayerPayloadError::Disconnected {
-                        id: self
-                            .dealer
-                            .get_next_player_id(&mut self.game_state, &mut self.player_state),
-                        lobby_id: self.lobby_id,
-                    })
-                }
-                Err(ReadMessageError::Iddle) => Err(PlayerPayloadError::Iddle {
-                    id: self
-                        .dealer
-                        .get_next_player_id(&mut self.game_state, &mut self.player_state),
-                    lobby_id: self.lobby_id,
-                }),
+            thread_pool.execute(move || {
+                let result: Result<PlayerPayload, ReadMessageError> =
+                    clone_s_pool.read_client_message::<PlayerPayload>(user_id);
+
+                clone_tx
+                    .read()
+                    .unwrap()
+                    .send(GameChannelMessage::DynMessageResult(result))
+                    .unwrap();
+            });
+
+            let message = rx.lock().unwrap().recv().unwrap();
+            
+            match message {
+                GameChannelMessage::DynMessageResult(r) => match r {
+                    Ok(m) => self.update_game_state(&socket_pool, Ok(m)),
+                    Err(e) => {
+                        let error: PlayerPayloadError = match e {
+                            ReadMessageError::Disconnected => {
+                                socket_pool.close_connection(self.dealer.get_next_player_id(
+                                    &mut self.game_state,
+                                    &mut self.player_state,
+                                ));
+                                PlayerPayloadError::Disconnected {
+                                    id: self.dealer.get_next_player_id(
+                                        &mut self.game_state,
+                                        &mut self.player_state,
+                                    ),
+                                    lobby_id: self.lobby_id,
+                                }
+                            }
+                            ReadMessageError::Iddle => PlayerPayloadError::Iddle {
+                                id: self.dealer.get_next_player_id(
+                                    &mut self.game_state,
+                                    &mut self.player_state,
+                                ),
+                                lobby_id: self.lobby_id,
+                            },
+                        };
+                        self.update_game_state(&socket_pool, Err(error))
+                    }
+                },
+                GameChannelMessage::HttpRequestSource(r) => self.add_player(r.user, &socket_pool),
             };
-
-            let updated_state = self.dealer.update_game_state(
-                result,
-                &mut self.game_state,
-                &mut self.player_state,
-                &mut self.deck_state,
-            );
-
-            socket_pool
-                .update_clients(generate_client_state_responses(updated_state.client_states));
-
-            let mut is_ready = updated_state.is_ready_for_next_hand;
-
-            if updated_state.should_complete_game_cycle_automatically {
-                let updated_state = self.dealer.complete_game_cycle_automatically(
-                    &mut self.game_state,
-                    &mut self.player_state,
-                    &mut self.deck_state,
-                );
-                socket_pool
-                    .update_clients(generate_client_state_responses(updated_state.client_states));
-                is_ready = updated_state.is_ready_for_next_hand;
-            }
-
-            while is_ready {
-                let updated_state = self.dealer.setup_next_cycle(
-                    &mut self.game_state,
-                    &mut self.player_state,
-                    &mut self.deck_state,
-                );
-
-                socket_pool
-                    .update_clients(generate_client_state_responses(updated_state.client_states));
-
-                if updated_state.should_complete_game_cycle_automatically {
-                    let updated_state = self.dealer.complete_game_cycle_automatically(
-                        &mut self.game_state,
-                        &mut self.player_state,
-                        &mut self.deck_state,
-                    );
-                    is_ready = updated_state.is_ready_for_next_hand;
-                    socket_pool.update_clients(generate_client_state_responses(
-                        updated_state.client_states,
-                    ));
-                } else {
-                    is_ready = updated_state.is_ready_for_next_hand;
-                }
-            }
         }
     }
 }
