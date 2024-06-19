@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::{
         mpsc::{channel, Receiver, Sender},
         Arc, Mutex, RwLock,
@@ -9,13 +9,14 @@ use std::{
 use crate::{
     game::{Game, GameSettings},
     protos::user::User,
-    responses::{generate_game_started_responses, GameChannelMessage},
-    socket_pool::SocketPool,
+    responses::{generate_game_started_responses, GameChannelMessage, SocketSourceMessage},
+    socket_pool::{ConnectionClosedEvent, SocketPool},
     thread_pool::ThreadPool,
 };
 
 pub struct GameOrchestrator {
     game_pool: Mutex<HashMap<i32, GameClient>>,
+    user_map: Mutex<HashMap<i32, HashSet<i32>>>,
 }
 pub struct GameClient {
     game: Arc<RwLock<Game>>,
@@ -30,7 +31,43 @@ impl GameOrchestrator {
     pub fn new() -> Self {
         return GameOrchestrator {
             game_pool: Mutex::new(HashMap::new()),
+            user_map: Mutex::new(HashMap::new()),
         };
+    }
+    // TODO: add More ConnectionEvents:
+    // e.g. ConnectionRestored
+    pub fn update_player_connection_status(
+        &self,
+        event: ConnectionClosedEvent,
+        socket_pool: &Arc<SocketPool>,
+    ) {
+        let user_map = self.user_map.lock().unwrap();
+
+        match user_map.get(&event.user_id) {
+            None => return,
+            Some(game_ids) => {
+                game_ids.iter().for_each(move |id| {
+                    let mut game_pool = self.game_pool.lock().unwrap();
+                    let game_client = game_pool.get_mut(id).unwrap();
+
+                    match game_client.game.try_write() {
+                        Ok(mut game) => {
+                            game.hande_connection_update(&event, socket_pool);
+                        }
+                        Err(_) => {
+                            game_client
+                                .sender
+                                .read()
+                                .unwrap()
+                                .send(GameChannelMessage::SocketSource(
+                                    SocketSourceMessage::ConnectionClosed(event.clone()),
+                                ))
+                                .unwrap();
+                        }
+                    };
+                });
+            }
+        }
     }
 
     pub fn create_game(&self, lobby_id: i32, settings: GameSettings) -> bool {
@@ -55,6 +92,8 @@ impl GameOrchestrator {
     }
 
     pub fn join_game(&self, lobby_id: i32, user: User, socket_pool: &Arc<SocketPool>) {
+        let id = user.id;
+
         let pool = match self.game_pool.try_lock() {
             Ok(v) => v,
             Err(e) => {
@@ -75,6 +114,12 @@ impl GameOrchestrator {
             }))
             .unwrap();
         }
+        self.user_map
+            .lock()
+            .unwrap()
+            .entry(id)
+            .or_insert_with(HashSet::new)
+            .insert(lobby_id);
     }
 
     pub fn can_start_game(&self, lobby_id: i32) -> bool {

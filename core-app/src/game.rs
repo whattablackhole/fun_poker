@@ -12,11 +12,11 @@ use crate::{
     player::PlayerPayloadError,
     protos::{
         game_state::{GameStatus, ShowdownOutcome, Street, StreetStatus},
-        player::{Action, Player, PlayerPayload, PlayerStatus},
+        player::{Action, ActionType, Player, PlayerPayload, PlayerStatus},
         user::User,
     },
-    responses::{generate_client_state_responses, GameChannelMessage},
-    socket_pool::{ReadMessageError, SocketPool},
+    responses::{generate_client_state_responses, GameChannelMessage, SocketSourceMessage},
+    socket_pool::{ConnectionClosedEvent, ReadMessageError, SocketPool},
     thread_pool::ThreadPool,
 };
 
@@ -131,9 +131,35 @@ impl Game {
         self.game_state.status
     }
 
+    fn get_player(&mut self, user_id: &i32) -> Option<&mut Player> {
+        self.player_state
+            .players
+            .iter_mut()
+            .find(|p| p.user_id == *user_id)
+    }
+
     pub fn is_ready_to_start(&self) -> bool {
         // TODO: improve checking in case of player game status is not ready
         self.game_state.status != GameStatus::Active && self.player_state.players.len() > 1
+    }
+
+    pub fn hande_connection_update(
+        &mut self,
+        event: &ConnectionClosedEvent,
+        socket_pool: &Arc<SocketPool>,
+    ) -> bool {
+        let player = self.get_player(&event.user_id).unwrap();
+
+        player.set_status(PlayerStatus::Disconnected);
+
+        let states = self
+            .dealer
+            .get_client_states(&self.game_state, &self.player_state);
+
+        // TODO: add hash sum for clientstate to check if client received current state or not
+        socket_pool.update_clients(generate_client_state_responses(states));
+
+        true
     }
 
     pub fn add_player(&mut self, user: User, socket_pool: &Arc<SocketPool>) {
@@ -149,6 +175,9 @@ impl Game {
             Some(p) => {
                 if self.game_state.status == GameStatus::Active {
                     p.status = PlayerStatus::Ready.into();
+                    let mut action = Action::default();
+                    action.set_action_type(ActionType::Fold);
+                    p.action = Some(action);
                 } else {
                     p.status = PlayerStatus::WaitingForPlayers.into();
                 }
@@ -158,6 +187,9 @@ impl Game {
 
                 if self.game_state.status == GameStatus::Active {
                     player.status = PlayerStatus::Ready.into();
+                    let mut action = Action::default();
+                    action.set_action_type(ActionType::Fold);
+                    player.action = Some(action);
                 }
                 self.player_state.players.push(player);
             }
@@ -229,9 +261,6 @@ impl Game {
         rx: Arc<Mutex<Receiver<GameChannelMessage>>>,
         tx: Arc<RwLock<Sender<GameChannelMessage>>>,
     ) {
-        // TODO: think about how can we manage game status and state:
-        // e.g. stopping and continue loop mechanisms - pause game
-        // using channels, boolean variables etc...
         let game_states = self
             .dealer
             .start_new_game(
@@ -243,9 +272,7 @@ impl Game {
 
         socket_pool.update_clients(generate_client_state_responses(game_states));
 
-        loop {
-            //TODO: handle the cases where a client is not responding, or has closed the connection;
-            //TODO: use seperate messages for separated responses to decrease memory load and bandwidth
+        'outer_loop: loop {
             let user_id = self
                 .dealer
                 .get_next_player_id(&mut self.game_state, &mut self.player_state);
@@ -255,47 +282,55 @@ impl Game {
             thread_pool.execute(move || {
                 let result: Result<PlayerPayload, ReadMessageError> =
                     clone_s_pool.read_client_message::<PlayerPayload>(user_id);
-
                 clone_tx
                     .read()
                     .unwrap()
-                    .send(GameChannelMessage::DynMessageResult(result))
+                    .send(GameChannelMessage::SocketSource(
+                        SocketSourceMessage::PlayerPayload(result),
+                    ))
                     .unwrap();
             });
-
-            let message = rx.lock().unwrap().recv().unwrap();
-            
-            match message {
-                GameChannelMessage::DynMessageResult(r) => match r {
-                    Ok(m) => self.update_game_state(&socket_pool, Ok(m)),
-                    Err(e) => {
-                        let error: PlayerPayloadError = match e {
-                            ReadMessageError::Disconnected => {
-                                socket_pool.close_connection(self.dealer.get_next_player_id(
-                                    &mut self.game_state,
-                                    &mut self.player_state,
-                                ));
-                                PlayerPayloadError::Disconnected {
-                                    id: self.dealer.get_next_player_id(
-                                        &mut self.game_state,
-                                        &mut self.player_state,
-                                    ),
-                                    lobby_id: self.lobby_id,
-                                }
+            loop {
+                let message = rx.lock().unwrap().recv().unwrap();
+                match message {
+                    GameChannelMessage::SocketSource(r) => match r {
+                        SocketSourceMessage::PlayerPayload(p) => match p {
+                            Ok(m) => {
+                                self.update_game_state(&socket_pool, Ok(m));
+                                continue 'outer_loop;
                             }
-                            ReadMessageError::Iddle => PlayerPayloadError::Iddle {
-                                id: self.dealer.get_next_player_id(
-                                    &mut self.game_state,
-                                    &mut self.player_state,
-                                ),
-                                lobby_id: self.lobby_id,
-                            },
-                        };
-                        self.update_game_state(&socket_pool, Err(error))
+                            Err(e) => {
+                                let error: PlayerPayloadError = match e {
+                                    ReadMessageError::Disconnected => {
+                                        PlayerPayloadError::Disconnected {
+                                            id: self.dealer.get_next_player_id(
+                                                &mut self.game_state,
+                                                &mut self.player_state,
+                                            ),
+                                            lobby_id: self.lobby_id,
+                                        }
+                                    }
+                                    ReadMessageError::Iddle => PlayerPayloadError::Iddle {
+                                        id: self.dealer.get_next_player_id(
+                                            &mut self.game_state,
+                                            &mut self.player_state,
+                                        ),
+                                        lobby_id: self.lobby_id,
+                                    },
+                                };
+                                self.update_game_state(&socket_pool, Err(error));
+                                continue 'outer_loop;
+                            }
+                        },
+                        SocketSourceMessage::ConnectionClosed(e) => {
+                            self.hande_connection_update(&e, &socket_pool);
+                        }
+                    },
+                    GameChannelMessage::HttpRequestSource(r) => {
+                        self.add_player(r.user, &socket_pool)
                     }
-                },
-                GameChannelMessage::HttpRequestSource(r) => self.add_player(r.user, &socket_pool),
-            };
+                };
+            }
         }
     }
 }

@@ -2,16 +2,22 @@ use std::{
     collections::HashMap,
     io::ErrorKind,
     net::TcpStream,
-    sync::{Arc, Mutex, RwLock},
+    sync::{Arc, Mutex, MutexGuard, RwLock},
+    thread::{self},
     time::{Duration, SystemTime},
 };
 
-use tungstenite::{Error as TError, Message as TMessage, WebSocket};
+use tungstenite::{protocol::CloseFrame, Error as TError, Message as TMessage, WebSocket};
 
 use crate::{
     protos::responses::ResponseMessage,
     responses::{EncodableMessage, TMessageResponse},
 };
+
+#[derive(Clone)]
+pub struct ConnectionClosedEvent {
+    pub user_id: i32,
+}
 
 pub struct PlayerChannelClient {
     pub client_id: i32,
@@ -48,52 +54,27 @@ impl SocketPool {
         println!("LENGTH: {}", pool.len())
     }
 
-    fn get_channel(&self, client_id: &i32) -> Option<Arc<Mutex<WebSocket<TcpStream>>>> {
-        let client_channels = self.pool.read().unwrap();
-
-        client_channels.get(client_id).cloned()
-    }
-
-    fn read_sync(&self, socket: Arc<Mutex<WebSocket<TcpStream>>>) -> Result<TMessage, TError> {
-        let start_time = SystemTime::now();
-        loop {
-            let message = socket.lock().unwrap().read();
-            match message {
-                Ok(msg) => {
-                    return Ok(msg);
-                }
-                Err(tungstenite::Error::Io(ref err)) if err.kind() == ErrorKind::WouldBlock => {
-                    if start_time.elapsed().unwrap() >= Duration::from_secs(300) {
-                        return Err(tungstenite::Error::Io(std::io::Error::new(
-                            ErrorKind::TimedOut,
-                            "Read operation timed out",
-                        )));
-                    }
-                    std::thread::sleep(Duration::from_millis(1000));
-                }
-                Err(err) => {
-                    return Err(err);
-                }
-            };
-        }
-    }
-
     pub fn read_client_message<T: prost::Message + Default + 'static>(
         &self,
         client_id: i32,
     ) -> Result<T, ReadMessageError> {
         let socket = self.get_channel(&client_id).unwrap();
-
         let result = self.read_sync(socket);
 
         let message = match result {
             Err(e) => match e {
-                TError::ConnectionClosed => return Err(ReadMessageError::Disconnected),
-                TError::AlreadyClosed => return Err(ReadMessageError::Disconnected),
+                TError::ConnectionClosed => {
+                    self.remove_connection(client_id);
+                    return Err(ReadMessageError::Disconnected);
+                }
+                TError::AlreadyClosed => {
+                    self.remove_connection(client_id);
+                    return Err(ReadMessageError::Disconnected);
+                }
                 TError::Io(_) => return Err(ReadMessageError::Iddle),
                 TError::Tls(_) => todo!(),
                 TError::Capacity(_) => todo!(),
-                TError::Protocol(_) => return Err(ReadMessageError::Disconnected),
+                TError::Protocol(_) => todo!(),
                 TError::WriteBufferFull(_) => todo!(),
                 TError::Utf8 => todo!(),
                 TError::AttackAttempt => todo!(),
@@ -103,9 +84,14 @@ impl SocketPool {
             },
             Ok(r) => r,
         };
+
         let bytes = match message {
             TMessage::Binary(bytes) => bytes,
-            TMessage::Close(_) => return Err(ReadMessageError::Disconnected),
+            TMessage::Close(frame) => {
+                let connection = self.remove_connection(client_id);
+                self.close_connection(connection, frame);
+                return Err(ReadMessageError::Disconnected);
+            }
             _ => panic!("Expected binary message"),
         };
 
@@ -113,15 +99,6 @@ impl SocketPool {
 
         let request = T::decode(&mut reader).unwrap();
         Ok(request)
-    }
-
-    pub fn close_connection(&self, client_id: i32) {
-        // let mut client_channels = self.pool.write().unwrap();
-        // let socket = client_channels.remove(&client_id).unwrap();
-        // let mut guard = socket.lock().unwrap();
-        // if guard.can_write() {
-        //     guard.close(None).unwrap();
-        // }
     }
 
     pub fn update_clients(&self, responses: Vec<TMessageResponse>) {
@@ -146,6 +123,105 @@ impl SocketPool {
                 .unwrap()
                 .send(TMessage::Binary(encoded))
                 .unwrap();
+        }
+    }
+
+    pub fn check_connections(
+        &self,
+    ) -> Arc<Mutex<Vec<Box<dyn Fn(ConnectionClosedEvent) + Send + Sync>>>> {
+        let pool_clone = Arc::clone(&self.pool);
+
+        let jobs: Arc<Mutex<Vec<Box<dyn Fn(ConnectionClosedEvent) + Send + Sync>>>> =
+            Arc::new(Mutex::new(Vec::new()));
+
+        let jobs_clone = Arc::clone(&jobs);
+
+        thread::spawn(move || loop {
+            thread::sleep(Duration::from_millis(5000));
+
+            let closed_connections: Vec<i32> = {
+                let pool = pool_clone.read().unwrap();
+                pool.iter()
+                    .filter_map(|(user_id, socket)| {
+                        let mut socket_guard = socket.lock().unwrap();
+                        if !SocketPool::ping(&mut socket_guard) {
+                            Some(*user_id)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            };
+
+            for connection_id in closed_connections {
+                pool_clone.write().unwrap().remove(&connection_id);
+
+                let jobs = jobs_clone.lock().unwrap();
+
+                for job in jobs.iter() {
+                    job(ConnectionClosedEvent {
+                        user_id: connection_id,
+                    });
+                }
+            }
+        });
+        Arc::clone(&jobs)
+    }
+
+    fn ping(socket_guard: &mut MutexGuard<WebSocket<TcpStream>>) -> bool {
+        if let Err(_) = socket_guard.write(TMessage::Ping(Vec::new())) {
+            return false;
+        }
+        if let Err(_) = socket_guard.flush() {
+            return false;
+        }
+        true
+    }
+    fn remove_connection(&self, client_id: i32) -> Arc<Mutex<WebSocket<TcpStream>>> {
+        let mut client_channels = self.pool.write().unwrap();
+        client_channels.remove(&client_id).unwrap()
+    }
+
+    fn close_connection(
+        &self,
+        connection: Arc<Mutex<WebSocket<TcpStream>>>,
+        frame: Option<CloseFrame<'static>>,
+    ) {
+        let mut guard = connection.lock().unwrap();
+        guard.close(frame).unwrap();
+        guard.flush().unwrap();
+    }
+
+    fn get_channel(&self, client_id: &i32) -> Option<Arc<Mutex<WebSocket<TcpStream>>>> {
+        let client_channels = self.pool.read().unwrap();
+
+        client_channels.get(client_id).cloned()
+    }
+
+    fn read_sync(&self, socket: Arc<Mutex<WebSocket<TcpStream>>>) -> Result<TMessage, TError> {
+        let start_time = SystemTime::now();
+        loop {
+            let message: Result<TMessage, TError> = socket.lock().unwrap().read();
+            match message {
+                Ok(msg) => {
+                    if !msg.is_pong() {
+                        return Ok(msg);
+                    }
+                }
+                Err(tungstenite::Error::Io(ref err)) if err.kind() == ErrorKind::WouldBlock => {
+                    if start_time.elapsed().unwrap() >= Duration::from_secs(300) {
+                        return Err(tungstenite::Error::Io(std::io::Error::new(
+                            ErrorKind::TimedOut,
+                            "Read operation timed out",
+                        )));
+                    }
+                    // think about optimizing sleeping time to balance between cpu usage and responsiveness
+                    std::thread::sleep(Duration::from_millis(200));
+                }
+                Err(err) => {
+                    return Err(err);
+                }
+            };
         }
     }
 
@@ -182,5 +258,5 @@ impl SocketPool {
     //     } else {
     //         None
     //     }
-    // }
+    //     }
 }

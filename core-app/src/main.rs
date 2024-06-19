@@ -8,7 +8,7 @@ use fun_poker::{
         user::User,
     },
     responses::EncodableMessage,
-    socket_pool::{PlayerChannelClient, SocketPool},
+    socket_pool::{ConnectionClosedEvent, PlayerChannelClient, SocketPool},
     thread_pool::ThreadPool,
 };
 
@@ -41,6 +41,7 @@ fn main() {
     let dealer_pool = DealerPool::new();
 
     let game_orchestrator = GameOrchestrator::new();
+
     init_games(&repository, &game_orchestrator);
 
     let arc_dealer_pool = Arc::new(dealer_pool);
@@ -50,6 +51,9 @@ fn main() {
     let pool = ThreadPool::new(20);
     let arc_thread_pool: Arc<ThreadPool> = Arc::new(pool);
     let arc_repo: Arc<PostgresDatabase> = Arc::new(repository);
+
+    setup_sockets_health_checker(&arc_game_orchestrator, &arc_socket_pool);
+
     for stream in listener.incoming() {
         // TODO: think about dependecy injection pattern to decrease arguments amount
         let stream = stream.unwrap();
@@ -69,6 +73,25 @@ fn main() {
             );
         });
     }
+}
+
+fn setup_sockets_health_checker(
+    game_orchestrator: &Arc<GameOrchestrator>,
+    socket_pool: &Arc<SocketPool>,
+) {
+    let socket_event_listener = socket_pool.check_connections();
+
+    let game_o = Arc::clone(game_orchestrator);
+    let socket_o = Arc::clone(socket_pool);
+
+    let on_connection_closed = Box::new(move |e: ConnectionClosedEvent| {
+        game_o.update_player_connection_status(e, &socket_o);
+    });
+
+    socket_event_listener
+        .lock()
+        .unwrap()
+        .push(on_connection_closed);
 }
 
 fn init_games(repo: &PostgresDatabase, game_orchestrator: &GameOrchestrator) {
@@ -324,7 +347,7 @@ fn join_lobby_request_handler(
     };
 
     let user = repo.get_user_by_id(request.player_id);
-    
+
     repo.add_user_to_lobby(request.lobby_id, user.id);
 
     // TODO: think about sending messages to game_orchestrator...

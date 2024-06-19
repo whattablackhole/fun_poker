@@ -10,7 +10,7 @@ use crate::{
         responses::{ResponseMessageType, StartGameResponse},
         user::User,
     },
-    socket_pool::ReadMessageError,
+    socket_pool::{ConnectionClosedEvent, ReadMessageError},
 };
 
 pub struct TMessageResponse {
@@ -35,9 +35,14 @@ impl<M: Message> EncodableMessage for M {
     }
 }
 
+pub enum SocketSourceMessage {
+    ConnectionClosed(ConnectionClosedEvent),
+    PlayerPayload(Result<PlayerPayload, ReadMessageError>),
+}
+
 pub enum GameChannelMessage {
-    DynMessageResult(Result<PlayerPayload, ReadMessageError>),
     HttpRequestSource(JoinGameMessage),
+    SocketSource(SocketSourceMessage),
 }
 
 fn create_message_response<T>(
