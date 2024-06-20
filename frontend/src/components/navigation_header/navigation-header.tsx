@@ -1,14 +1,28 @@
-import { HeaderMenuItemsDefinition } from "../../types";
-import NavigationMenuBuilder from "../../utils/navigation-menu-builder";
+import { AppBar } from '@mui/material';
+import React from 'react';
 
+interface NavigationHeaderProps {
+  children: React.ReactNode;
+}
 
+const NavigationHeader: React.FC<NavigationHeaderProps> = ({ children }) => {
+  return (
+    <AppBar
+      position="sticky"
+      style={{
+        width: '100%',
+        height: '90px',
+        display: 'flex',
+        backgroundColor: 'unset',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexDirection: 'row',
+        gap: '10px',
+      }}
+    >
+      {children}
+    </AppBar>
+  );
+};
 
-export default function NavigationHeader() {
-    const headerMenuItemsDefinition: HeaderMenuItemsDefinition = { items: [{ textContent: 'Create New Lobby', type: 'button-link', navigationUrl: '/new-lobby' }] };
-
-    const menuItems = NavigationMenuBuilder.buildMenuItems(headerMenuItemsDefinition);
-
-    return <div style={{ width: '100%', height: "40px", display: 'flex', alignItems: 'center', justifyContent: 'left', gap: "10px" }}>
-        {menuItems}
-    </div>
-} 
+export default NavigationHeader;

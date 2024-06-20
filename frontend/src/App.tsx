@@ -35,7 +35,7 @@ function App() {
   // settings  user id for debug 
   const onClick = () => {
     emitter.current = new EventEmitter();
-    
+
     const id = reff.current!.value;
     setId(parseInt(id));
     ws.current = new WebSocket(`ws://127.0.0.1:7878/socket?user_id=${id}`);
@@ -139,7 +139,6 @@ function App() {
         <button onClick={() => { onClick() }}>set player id</button>
       </UserContext.Provider>
     </WebSocketContext.Provider>
-
   );
 }
 export default App

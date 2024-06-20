@@ -1,6 +1,6 @@
-use postgres::types::{FromSql, Type};
+use postgres::types::{to_sql_checked, FromSql, IsNull, ToSql, Type};
 use postgres::{Client, NoTls};
-use prost::bytes::Buf;
+use prost::bytes::{Buf, BytesMut};
 use std::io::BufRead;
 use std::sync::Mutex;
 
@@ -26,6 +26,51 @@ impl FromSql<'_> for GameName {
         sql_type.name() == "game_name_enum"
     }
 }
+
+impl ToSql for GameType {
+    fn to_sql(
+        &self,
+        ty: &Type,
+        out: &mut BytesMut,
+    ) -> Result<IsNull, Box<dyn std::error::Error + Sync + Send>> {
+        match self {
+            GameType::Tournament => "Tournament".to_sql(ty, out)?,
+            GameType::Cash => "Cash".to_sql(ty, out)?,
+
+            _ => return Ok(IsNull::Yes),
+        };
+
+        Ok(IsNull::No)
+    }
+
+    fn accepts(ty: &Type) -> bool {
+        ty.name() == "game_type_enum"
+    }
+
+    to_sql_checked!();
+}
+
+impl ToSql for GameName {
+    fn to_sql(
+        &self,
+        ty: &Type,
+        out: &mut BytesMut,
+    ) -> Result<IsNull, Box<dyn std::error::Error + Sync + Send>> {
+        match self {
+            GameName::Holdem => "Holdem".to_sql(ty, out)?,
+            _ => return Ok(IsNull::Yes),
+        };
+
+        Ok(IsNull::No)
+    }
+
+    fn accepts(ty: &Type) -> bool {
+        ty.name() == "game_name_enum"
+    }
+
+    to_sql_checked!();
+}
+
 
 impl FromSql<'_> for GameType {
     fn from_sql<'a>(
@@ -80,8 +125,8 @@ impl PostgresDatabase {
     pub fn create_lobby(&self, lobby: Lobby) -> i32 {
         let mut guard = self.client.lock().unwrap();
 
-        let query = "INSERT INTO lobbies VALUES($1, $2, $3, $4, $5) RETURNING id";
-
+        let query = "INSERT INTO lobbies(name, author_id, players_registered, game_name, game_type) VALUES($1, $2, $3, $4, $5) RETURNING id";
+        
         let row = guard
             .query_one(
                 query,
@@ -89,8 +134,8 @@ impl PostgresDatabase {
                     &lobby.name,
                     &lobby.author_id,
                     &lobby.players_registered,
-                    &lobby.game_name,
-                    &lobby.game_type,
+                    &lobby.game_name(),
+                    &lobby.game_type(),
                 ],
             )
             .unwrap();

@@ -40,9 +40,11 @@ pub enum SocketSourceMessage {
     PlayerPayload(Result<PlayerPayload, ReadMessageError>),
 }
 
+
 pub enum GameChannelMessage {
     HttpRequestSource(JoinGameMessage),
     SocketSource(SocketSourceMessage),
+    InnerSource(PlayerPayload)
 }
 
 fn create_message_response<T>(

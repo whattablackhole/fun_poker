@@ -6,16 +6,20 @@ use std::{
     },
 };
 
+use prost::Message;
+
 use crate::{
     card::CardDeck,
     dealer::Dealer,
     player::PlayerPayloadError,
     protos::{
+        client_state::ClientState,
         game_state::{GameStatus, ShowdownOutcome, Street, StreetStatus},
         player::{Action, ActionType, Player, PlayerPayload, PlayerStatus},
-        user::User,
     },
-    responses::{generate_client_state_responses, GameChannelMessage, SocketSourceMessage},
+    responses::{
+        generate_client_state_responses, EncodableMessage, GameChannelMessage, SocketSourceMessage,
+    },
     socket_pool::{ConnectionClosedEvent, ReadMessageError, SocketPool},
     thread_pool::ThreadPool,
 };
@@ -162,8 +166,8 @@ impl Game {
         true
     }
 
-    pub fn add_player(&mut self, user: User, socket_pool: &Arc<SocketPool>) {
-        let user_id = user.id;
+    pub fn add_player(&mut self, mut player: Player, socket_pool: &Arc<SocketPool>) {
+        let user_id = player.user_id;
 
         // TODO: refactor ....
         match self
@@ -183,8 +187,6 @@ impl Game {
                 }
             }
             None => {
-                let mut player = Player::from_user(user);
-
                 if self.game_state.status == GameStatus::Active {
                     player.status = PlayerStatus::Ready.into();
                     let mut action = Action::default();
@@ -273,23 +275,78 @@ impl Game {
         socket_pool.update_clients(generate_client_state_responses(game_states));
 
         'outer_loop: loop {
+            // TODO: refactor
             let user_id = self
                 .dealer
                 .get_next_player_id(&mut self.game_state, &mut self.player_state);
-            let clone_s_pool = Arc::clone(&socket_pool);
-            let clone_tx: Arc<RwLock<Sender<GameChannelMessage>>> = Arc::clone(&tx);
+            let player = self
+                .dealer
+                .get_next_player(&mut self.game_state, &mut self.player_state);
+            let is_bot = player.is_bot;
 
-            thread_pool.execute(move || {
-                let result: Result<PlayerPayload, ReadMessageError> =
-                    clone_s_pool.read_client_message::<PlayerPayload>(user_id);
-                clone_tx
-                    .read()
-                    .unwrap()
-                    .send(GameChannelMessage::SocketSource(
-                        SocketSourceMessage::PlayerPayload(result),
-                    ))
-                    .unwrap();
-            });
+            if is_bot {
+                let lobby_id = self.lobby_id;
+                let id = player.user_id;
+                let clone_tx: Arc<RwLock<Sender<GameChannelMessage>>> = Arc::clone(&tx);
+                let client_state =
+                    self.dealer
+                        .get_client_state(&id, &mut self.game_state, &mut self.player_state);
+                let llama_bot_api_url = "http://127.0.0.1:5000/pocker_move";
+
+                thread_pool.execute(move || {
+                    let response = ureq::post(llama_bot_api_url)
+                        .set("Content-Type", "application/json")
+                        .send_bytes(&ClientState::encode_message(&client_state));
+
+                    match response {
+                        Ok(response) => {
+                            if response.status() == 200 {
+                                println!("Response: {:?}", response);
+
+                                let mut buf: Vec<u8> = Vec::new();
+                                response.into_reader().read_to_end(&mut buf).unwrap();
+
+                                let mut reader = std::io::Cursor::new(buf);
+
+                                let mut action = Action::default();
+                                action.merge(&mut reader).unwrap();
+
+                                println!("Bot message sent successfully: {:?}", action);
+                                let mut payload = PlayerPayload::default();
+                                payload.action = Some(action);
+                                payload.lobby_id = lobby_id;
+                                payload.player_id = id;
+                                clone_tx
+                                    .read()
+                                    .unwrap()
+                                    .send(GameChannelMessage::InnerSource(payload))
+                                    .unwrap();
+                            } else {
+                                eprintln!("Failed to send bot message: {:?}", response.status());
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("Error sending bot message: {:?}", e);
+                        }
+                    }
+                });
+            } else {
+                let clone_s_pool = Arc::clone(&socket_pool);
+                let clone_tx: Arc<RwLock<Sender<GameChannelMessage>>> = Arc::clone(&tx);
+
+                thread_pool.execute(move || {
+                    let result: Result<PlayerPayload, ReadMessageError> =
+                        clone_s_pool.read_client_message::<PlayerPayload>(user_id);
+                    clone_tx
+                        .read()
+                        .unwrap()
+                        .send(GameChannelMessage::SocketSource(
+                            SocketSourceMessage::PlayerPayload(result),
+                        ))
+                        .unwrap();
+                });
+            }
+
             loop {
                 let message = rx.lock().unwrap().recv().unwrap();
                 match message {
@@ -327,7 +384,11 @@ impl Game {
                         }
                     },
                     GameChannelMessage::HttpRequestSource(r) => {
-                        self.add_player(r.user, &socket_pool)
+                        self.add_player(r.player, &socket_pool)
+                    }
+                    GameChannelMessage::InnerSource(m) => {
+                        self.update_game_state(&socket_pool, Ok(m));
+                        continue 'outer_loop;
                     }
                 };
             }

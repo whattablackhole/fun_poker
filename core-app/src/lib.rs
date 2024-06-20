@@ -43,6 +43,10 @@ pub mod protos {
         include!("protos_rs/requests.rs");
     }
 
+    pub mod ai_bot_player {
+        include!("protos_rs/ai_bot_player.rs");
+    }
+
     pub mod responses {
         include!("protos_rs/responses.rs");
     }

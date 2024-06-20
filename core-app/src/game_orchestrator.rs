@@ -6,9 +6,11 @@ use std::{
     },
 };
 
+use rand::Rng;
+
 use crate::{
     game::{Game, GameSettings},
-    protos::user::User,
+    protos::{player::Player, user::User},
     responses::{generate_game_started_responses, GameChannelMessage, SocketSourceMessage},
     socket_pool::{ConnectionClosedEvent, SocketPool},
     thread_pool::ThreadPool,
@@ -24,7 +26,7 @@ pub struct GameClient {
     receiver: Arc<Mutex<Receiver<GameChannelMessage>>>,
 }
 pub struct JoinGameMessage {
-    pub user: User,
+    pub player: Player,
 }
 
 impl GameOrchestrator {
@@ -93,6 +95,7 @@ impl GameOrchestrator {
 
     pub fn join_game(&self, lobby_id: i32, user: User, socket_pool: &Arc<SocketPool>) {
         let id = user.id;
+        let player = Player::from_user(user);
 
         let pool = match self.game_pool.try_lock() {
             Ok(v) => v,
@@ -106,11 +109,11 @@ impl GameOrchestrator {
         let mut lock = game_m.game.try_write();
 
         if let Ok(ref mut mutex) = lock {
-            mutex.add_player(user, socket_pool);
+            mutex.add_player(player, socket_pool);
         } else {
             let g = game_m.sender.read().unwrap();
             g.send(GameChannelMessage::HttpRequestSource(JoinGameMessage {
-                user,
+                player,
             }))
             .unwrap();
         }
@@ -120,6 +123,35 @@ impl GameOrchestrator {
             .entry(id)
             .or_insert_with(HashSet::new)
             .insert(lobby_id);
+    }
+
+    pub fn spawn_bot(&self, lobby_id: i32, socket_pool: &Arc<SocketPool>) {
+        let mut bot_player = Player::default();
+        bot_player.user_name = String::from("Chat gpt");
+        bot_player.is_bot = true;
+        let mut rng = rand::thread_rng();
+        bot_player.user_id = -rng.gen_range(1..i32::MAX);
+
+        let pool = match self.game_pool.try_lock() {
+            Ok(v) => v,
+            Err(e) => {
+                panic!("error in join game while locking game_pool {:?}", e);
+            }
+        };
+
+        let game_m = pool.get(&lobby_id).unwrap();
+
+        let mut lock = game_m.game.try_write();
+
+        if let Ok(ref mut mutex) = lock {
+            mutex.add_player(bot_player, socket_pool);
+        } else {
+            let g = game_m.sender.read().unwrap();
+            g.send(GameChannelMessage::HttpRequestSource(JoinGameMessage {
+                player: bot_player,
+            }))
+            .unwrap();
+        }
     }
 
     pub fn can_start_game(&self, lobby_id: i32) -> bool {

@@ -18,6 +18,8 @@ pub struct Player {
     pub bet_in_current_seed: i32,
     #[prost(enumeration = "PlayerStatus", tag = "8")]
     pub status: i32,
+    #[prost(bool, tag = "9")]
+    pub is_bot: bool,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

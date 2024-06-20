@@ -94,7 +94,7 @@ impl Dealer {
         game_state: &GameState,
         player_state: &PlayerState,
     ) -> Vec<ClientState> {
-        self.create_client_states( game_state, player_state)
+        self.create_client_states(game_state, player_state)
     }
 
     pub fn complete_game_cycle_automatically(
@@ -134,6 +134,14 @@ impl Dealer {
             game_state.positions.curr_player_index.unwrap(),
             player_state,
         )
+    }
+
+    pub fn get_next_player<'a>(
+        &self,
+        game_state: &mut GameState,
+        player_state: &'a mut PlayerState,
+    ) -> &'a Player {
+        &player_state.players[game_state.positions.curr_player_index.unwrap()]
     }
 
     pub fn handle_disconnect(
@@ -201,12 +209,14 @@ impl Dealer {
     ) -> UpdatedState {
         let payload = match payload {
             Ok(p) => p.clone(),
-            Err(e) => {
-                match e {
-                    PlayerPayloadError::Disconnected { id, lobby_id } => self.handle_disconnect(id, lobby_id, game_state, player_state),
-                    PlayerPayloadError::Iddle { id, lobby_id } => self.handle_idle(id, lobby_id, game_state, player_state),
+            Err(e) => match e {
+                PlayerPayloadError::Disconnected { id, lobby_id } => {
+                    self.handle_disconnect(id, lobby_id, game_state, player_state)
                 }
-            }
+                PlayerPayloadError::Iddle { id, lobby_id } => {
+                    self.handle_idle(id, lobby_id, game_state, player_state)
+                }
+            },
         };
 
         if payload.lobby_id != self.lobby_id {
@@ -484,7 +494,7 @@ impl Dealer {
         let states = player_state
             .players
             .iter()
-            .filter(|p| p.status != PlayerStatus::Disconnected.into())
+            .filter(|p| p.status() != PlayerStatus::Disconnected || p.is_bot == true)
             .map(|p| self.create_client_state(p, game_state, player_state))
             .collect();
 
@@ -657,7 +667,7 @@ impl Dealer {
             .find(|p| p.user_id == player_id)
             .expect("user not found");
 
-        if player.action.as_ref().unwrap().action_type == ActionType::Fold.into() {
+        if player.action.as_ref().unwrap().action_type() == ActionType::Fold {
             println!("Player has folded already and cannot fold again");
             return;
         }
@@ -911,8 +921,8 @@ impl Dealer {
                 .action
                 .as_ref()
                 .unwrap()
-                .action_type
-                != ActionType::Fold.into()
+                .action_type()
+                != ActionType::Fold
             {
                 return Some(new_curr);
             } else {
@@ -1048,7 +1058,7 @@ impl Dealer {
             curr_next = (curr_next + 1) % player_state.players.len();
             if let Some(player) = player_state.players.get(curr_next) {
                 if let Some(action) = &player.action {
-                    if action.action_type != ActionType::Fold.into() {
+                    if action.action_type() != ActionType::Fold {
                         game_state.positions.curr_player_index = Some(curr_next);
                         is_set = true;
                         break;

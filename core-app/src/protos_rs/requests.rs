@@ -29,3 +29,11 @@ pub struct CreateLobbyRequest {
     #[prost(message, optional, tag = "1")]
     pub payload: ::core::option::Option<super::lobby::Lobby>,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SpawnBotRequest {
+    #[prost(int32, tag = "1")]
+    pub lobby_id: i32,
+    #[prost(enumeration = "super::ai_bot_player::BotModel", tag = "2")]
+    pub model: i32,
+}

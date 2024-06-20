@@ -14,6 +14,7 @@ impl Player {
                     user_id: u.id,
                     // can be nickname
                     user_name: u.name.clone(),
+                    is_bot: false,
                     cards: None,
                     bet_in_current_seed: 0,
                     status: PlayerStatus::SitOut.into()
@@ -31,7 +32,8 @@ impl Player {
             user_name: u.name,
             cards: None,
             bet_in_current_seed: 0,
-            status: PlayerStatus::SitOut.into()
+            status: PlayerStatus::SitOut.into(),
+            is_bot: false
         }
     }
 }

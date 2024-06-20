@@ -3,6 +3,7 @@ syntax = "proto3";
 package requests;
 
 import "lobby.proto";
+import "ai_bot_player.proto";
 
 message JoinLobbyRequest {
     int32 lobby_id = 1;
@@ -21,4 +22,9 @@ message ObserveLobbyRequest {
 
 message CreateLobbyRequest {
     lobby.Lobby payload = 1;
+}
+
+message SpawnBotRequest {
+    int32 lobby_id = 1;
+    ai_bot_player.BotModel model = 2;
 }

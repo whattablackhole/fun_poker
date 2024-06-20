@@ -14,6 +14,7 @@ message Player {
     card.CardPair cards = 6;
     int32 bet_in_current_seed = 7;
     PlayerStatus status = 8;
+    bool is_bot = 9;
 }
 
 enum PlayerStatus {

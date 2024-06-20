@@ -1,6 +1,7 @@
+// @ts-nocheck
 import { MouseEvent, RefObject, useEffect, useRef, useState, } from 'react';
 import PokerCard from '../poker_card/poker-card.tsx';
-import { ClientState } from '../../types/client-state.ts';
+import { ClientState } from '../../types/client_state.ts';
 import { Card } from '../../types/card.ts';
 import ApiService from '../../services/api.service.ts';
 import { ActionType, Player, PlayerPayload } from '../../types/player.ts';

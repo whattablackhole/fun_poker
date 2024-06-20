@@ -11,6 +11,7 @@ prost = "0.12.4"
 tungstenite = "=0.21.0"
 rand = "0.8.5"
 pokereval_cactus = "0.1.2"
+ureq = "2.9.7"
 
 [build-dependencies]
 prost-build = "0.12.4"

@@ -4,7 +4,10 @@ use fun_poker::{
     game_orchestrator::GameOrchestrator,
     postgres_database::PostgresDatabase,
     protos::{
-        requests::{CreateLobbyRequest, JoinLobbyRequest, ObserveLobbyRequest, StartGameRequest},
+        requests::{
+            CreateLobbyRequest, JoinLobbyRequest, ObserveLobbyRequest, SpawnBotRequest,
+            StartGameRequest,
+        },
         user::User,
     },
     responses::EncodableMessage,
@@ -182,6 +185,7 @@ fn handle_http_request(
             socket_pool,
             thread_pool,
         ),
+        "/spawnAIBot" => spawn_ai_bot_handler(buf_reader, game_orchestrator, socket_pool),
         // "/observeLobby" => observe_lobby_request_handler(buff_reader),
         _ => (Box::new(EmptyMessage {}), "HTTP/1.1 400 Bad Request"),
     };
@@ -200,6 +204,25 @@ fn _observe_lobby_request_handler(buf_reader: BufReader<&TcpStream>) {
         Ok(v) => v,
         _ => todo!(),
     };
+}
+
+fn spawn_ai_bot_handler(
+    buf_reader: BufReader<&TcpStream>,
+    game_orchestrator: Arc<GameOrchestrator>,
+    socket_pool: Arc<SocketPool>,
+) -> (Box<dyn EncodableMessage>, &str) {
+    let decode_fn = |cursor: &mut Cursor<&[u8]>| SpawnBotRequest::decode(cursor);
+
+    let result = parse_message(buf_reader, decode_fn);
+
+    let request = match result {
+        Ok(v) => v,
+        _ => return (Box::new(EmptyMessage {}), "HTTP/1.1 400 Bad Request"),
+    };
+
+    game_orchestrator.spawn_bot(request.lobby_id, &socket_pool);
+
+    (Box::new(EmptyMessage {}), "HTTP/1.1 200 OK")
 }
 
 fn parse_message<T, F>(mut buf_reader: BufReader<&TcpStream>, decode: F) -> Result<T, DecodeError>
@@ -238,9 +261,9 @@ fn create_lobby_handler(
     let created = game_orchestrator.create_game(lobby_id, GameSettings { blind_size: 100 });
 
     if created {
-        (Box::new(EmptyMessage {}), "HTTP/1.1 200 OK")
+        return (Box::new(EmptyMessage {}), "HTTP/1.1 200 OK");
     } else {
-        (Box::new(EmptyMessage {}), "HTTP/1.1 400 Bad Request")
+        return (Box::new(EmptyMessage {}), "HTTP/1.1 400 Bad Request");
     }
 }
 
