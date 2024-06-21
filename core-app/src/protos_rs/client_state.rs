@@ -44,5 +44,5 @@ pub struct ClientState {
     pub can_raise: ::core::option::Option<super::google::protobuf::BoolValue>,
     /// Might be empty if the game hasn't started
     #[prost(message, repeated, tag = "15")]
-    pub action_history: ::prost::alloc::vec::Vec<super::player::Action>,
+    pub action_history: ::prost::alloc::vec::Vec<super::game_state::Action>,
 }

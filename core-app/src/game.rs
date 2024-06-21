@@ -11,14 +11,15 @@ use prost::Message;
 use crate::{
     card::CardDeck,
     dealer::Dealer,
-    player::PlayerPayloadError,
     protos::{
         client_state::ClientState,
-        game_state::{GameStatus, ShowdownOutcome, Street, StreetStatus},
-        player::{Action, ActionType, Player, PlayerPayload, PlayerStatus},
+        game_state::{Action, ActionType, GameStatus, ShowdownOutcome, Street, StreetStatus},
+        player::{Player, PlayerStatus},
+        requests::PlayerActionRequest,
     },
     responses::{
-        generate_client_state_responses, EncodableMessage, GameChannelMessage, SocketSourceMessage,
+        generate_client_state_responses, EncodableMessage, GameChannelMessage,
+        PlayerActionRequestError, SocketSourceMessage,
     },
     socket_pool::{ConnectionClosedEvent, ReadMessageError, SocketPool},
     thread_pool::ThreadPool,
@@ -204,13 +205,21 @@ impl Game {
         socket_pool.update_clients(generate_client_state_responses(states));
     }
 
+    fn process_elimated_players(&self, players: &Vec<Player>) {
+        // for p in players {
+        //     if p.status == PlayerStatus::Eliminated {
+
+        //     }
+        // }
+    }
+
     fn update_game_state(
         &mut self,
         socket_pool: &Arc<SocketPool>,
-        result: Result<PlayerPayload, PlayerPayloadError>,
+        action: Result<PlayerActionRequest, PlayerActionRequestError>,
     ) {
-        let updated_state = self.dealer.update_game_state(
-            result,
+        let mut updated_state = self.dealer.update_game_state(
+            action,
             &mut self.game_state,
             &mut self.player_state,
             &mut self.deck_state,
@@ -218,41 +227,28 @@ impl Game {
 
         socket_pool.update_clients(generate_client_state_responses(updated_state.client_states));
 
-        let mut is_ready = updated_state.is_ready_for_next_hand;
-
-        if updated_state.should_complete_game_cycle_automatically {
-            let updated_state = self.dealer.complete_game_cycle_automatically(
-                &mut self.game_state,
-                &mut self.player_state,
-                &mut self.deck_state,
-            );
-            socket_pool
-                .update_clients(generate_client_state_responses(updated_state.client_states));
-            is_ready = updated_state.is_ready_for_next_hand;
-        }
-
-        while is_ready {
-            let updated_state = self.dealer.setup_next_cycle(
-                &mut self.game_state,
-                &mut self.player_state,
-                &mut self.deck_state,
-            );
-
-            socket_pool
-                .update_clients(generate_client_state_responses(updated_state.client_states));
-
-            if updated_state.should_complete_game_cycle_automatically {
-                let updated_state = self.dealer.complete_game_cycle_automatically(
+        'a: loop {
+            if updated_state.is_ready_for_next_hand {
+                updated_state = self.dealer.setup_next_cycle(
                     &mut self.game_state,
                     &mut self.player_state,
                     &mut self.deck_state,
                 );
-                is_ready = updated_state.is_ready_for_next_hand;
+
                 socket_pool
                     .update_clients(generate_client_state_responses(updated_state.client_states));
-            } else {
-                is_ready = updated_state.is_ready_for_next_hand;
+                continue 'a;
+            } else if updated_state.should_complete_game_cycle_automatically {
+                updated_state = self.dealer.complete_game_cycle_automatically(
+                    &mut self.game_state,
+                    &mut self.player_state,
+                    &mut self.deck_state,
+                );
+                socket_pool
+                    .update_clients(generate_client_state_responses(updated_state.client_states));
+                continue 'a;
             }
+            break;
         }
     }
 
@@ -312,7 +308,7 @@ impl Game {
                                 action.merge(&mut reader).unwrap();
 
                                 println!("Bot message sent successfully: {:?}", action);
-                                let mut payload = PlayerPayload::default();
+                                let mut payload = PlayerActionRequest::default();
                                 payload.action = Some(action);
                                 payload.lobby_id = lobby_id;
                                 payload.player_id = id;
@@ -335,13 +331,13 @@ impl Game {
                 let clone_tx: Arc<RwLock<Sender<GameChannelMessage>>> = Arc::clone(&tx);
 
                 thread_pool.execute(move || {
-                    let result: Result<PlayerPayload, ReadMessageError> =
-                        clone_s_pool.read_client_message::<PlayerPayload>(user_id);
+                    let result: Result<PlayerActionRequest, ReadMessageError> =
+                        clone_s_pool.read_client_message::<PlayerActionRequest>(user_id);
                     clone_tx
                         .read()
                         .unwrap()
                         .send(GameChannelMessage::SocketSource(
-                            SocketSourceMessage::PlayerPayload(result),
+                            SocketSourceMessage::PlayerActionRequest(result),
                         ))
                         .unwrap();
                 });
@@ -351,15 +347,15 @@ impl Game {
                 let message = rx.lock().unwrap().recv().unwrap();
                 match message {
                     GameChannelMessage::SocketSource(r) => match r {
-                        SocketSourceMessage::PlayerPayload(p) => match p {
+                        SocketSourceMessage::PlayerActionRequest(p) => match p {
                             Ok(m) => {
                                 self.update_game_state(&socket_pool, Ok(m));
                                 continue 'outer_loop;
                             }
                             Err(e) => {
-                                let error: PlayerPayloadError = match e {
+                                let error: PlayerActionRequestError = match e {
                                     ReadMessageError::Disconnected => {
-                                        PlayerPayloadError::Disconnected {
+                                        PlayerActionRequestError::Disconnected {
                                             id: self.dealer.get_next_player_id(
                                                 &mut self.game_state,
                                                 &mut self.player_state,
@@ -367,7 +363,7 @@ impl Game {
                                             lobby_id: self.lobby_id,
                                         }
                                     }
-                                    ReadMessageError::Iddle => PlayerPayloadError::Iddle {
+                                    ReadMessageError::Iddle => PlayerActionRequestError::Iddle {
                                         id: self.dealer.get_next_player_id(
                                             &mut self.game_state,
                                             &mut self.player_state,

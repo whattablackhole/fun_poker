@@ -128,6 +128,7 @@ impl GameOrchestrator {
     pub fn spawn_bot(&self, lobby_id: i32, socket_pool: &Arc<SocketPool>) {
         let mut bot_player = Player::default();
         bot_player.user_name = String::from("Chat gpt");
+        bot_player.bank = 10000;
         bot_player.is_bot = true;
         let mut rng = rand::thread_rng();
         bot_player.user_id = -rng.gen_range(1..i32::MAX);

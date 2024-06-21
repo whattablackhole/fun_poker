@@ -40,3 +40,21 @@ message ShowdownOutcome {
     repeated PlayerCards players_cards = 3;
     bool process_flop_automatically = 4;
 }
+
+enum ActionType {
+  Fold = 0;
+  Call = 1;
+  Raise = 2;
+  Check = 3;
+  Blind = 4;
+}
+
+
+message Action {
+  ActionType action_type = 1;
+  int32 bet = 2;
+  int32 player_id = 3;
+  optional StreetStatus street_status = 4;
+}
+
+

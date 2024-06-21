@@ -37,3 +37,13 @@ pub struct SpawnBotRequest {
     #[prost(enumeration = "super::ai_bot_player::BotModel", tag = "2")]
     pub model: i32,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PlayerActionRequest {
+    #[prost(int32, tag = "1")]
+    pub player_id: i32,
+    #[prost(int32, tag = "2")]
+    pub lobby_id: i32,
+    #[prost(message, optional, tag = "3")]
+    pub action: ::core::option::Option<super::game_state::Action>,
+}

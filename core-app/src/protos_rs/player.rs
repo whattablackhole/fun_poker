@@ -9,7 +9,7 @@ pub struct Player {
     #[prost(string, tag = "3")]
     pub country: ::prost::alloc::string::String,
     #[prost(message, optional, tag = "4")]
-    pub action: ::core::option::Option<Action>,
+    pub action: ::core::option::Option<super::game_state::Action>,
     #[prost(int32, tag = "5")]
     pub bank: i32,
     #[prost(message, optional, tag = "6")]
@@ -21,29 +21,6 @@ pub struct Player {
     #[prost(bool, tag = "9")]
     pub is_bot: bool,
 }
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct PlayerPayload {
-    #[prost(int32, tag = "1")]
-    pub player_id: i32,
-    #[prost(int32, tag = "2")]
-    pub lobby_id: i32,
-    #[prost(message, optional, tag = "3")]
-    pub action: ::core::option::Option<Action>,
-}
-/// ? INTRODUCE ACTION HISTORY ?
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Action {
-    #[prost(enumeration = "ActionType", tag = "1")]
-    pub action_type: i32,
-    #[prost(int32, tag = "2")]
-    pub bet: i32,
-    #[prost(int32, tag = "3")]
-    pub player_id: i32,
-    #[prost(enumeration = "super::game_state::StreetStatus", optional, tag = "4")]
-    pub street_status: ::core::option::Option<i32>,
-}
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum PlayerStatus {
@@ -51,6 +28,7 @@ pub enum PlayerStatus {
     SitOut = 1,
     Ready = 2,
     Disconnected = 3,
+    Eliminated = 4,
 }
 impl PlayerStatus {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -63,6 +41,7 @@ impl PlayerStatus {
             PlayerStatus::SitOut => "SitOut",
             PlayerStatus::Ready => "Ready",
             PlayerStatus::Disconnected => "Disconnected",
+            PlayerStatus::Eliminated => "Eliminated",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -72,42 +51,7 @@ impl PlayerStatus {
             "SitOut" => Some(Self::SitOut),
             "Ready" => Some(Self::Ready),
             "Disconnected" => Some(Self::Disconnected),
-            _ => None,
-        }
-    }
-}
-/// remove last two??
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
-#[repr(i32)]
-pub enum ActionType {
-    Fold = 0,
-    Call = 1,
-    Raise = 2,
-    Blind = 3,
-    Empty = 4,
-}
-impl ActionType {
-    /// String value of the enum field names used in the ProtoBuf definition.
-    ///
-    /// The values are not transformed in any way and thus are considered stable
-    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
-    pub fn as_str_name(&self) -> &'static str {
-        match self {
-            ActionType::Fold => "Fold",
-            ActionType::Call => "Call",
-            ActionType::Raise => "Raise",
-            ActionType::Blind => "Blind",
-            ActionType::Empty => "Empty",
-        }
-    }
-    /// Creates an enum from field names used in the ProtoBuf definition.
-    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
-        match value {
-            "Fold" => Some(Self::Fold),
-            "Call" => Some(Self::Call),
-            "Raise" => Some(Self::Raise),
-            "Blind" => Some(Self::Blind),
-            "Empty" => Some(Self::Empty),
+            "Eliminated" => Some(Self::Eliminated),
             _ => None,
         }
     }

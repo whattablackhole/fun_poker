@@ -5,7 +5,7 @@ import InputSlider from "./bet-slider";
 import { Button, Grid } from "@mui/material";
 import { Box } from "@react-three/drei";
 
-function GameControls({ gameState, player, betClickHandler }: { gameState: ClientState, player: Player, betClickHandler: (value: number, type: ActionType) => void }) {
+function GameControls({ gameState, player, betClickHandler, spawnBotClickHandler }: { gameState: ClientState, player: Player, betClickHandler: (value: number, type: ActionType) => void, spawnBotClickHandler: () => void }) {
     const [betSizeInputValue, setBetSizeInputValue] = useState<number>(0);
 
 
@@ -13,6 +13,16 @@ function GameControls({ gameState, player, betClickHandler }: { gameState: Clien
     return (
         <Box>
             <Grid container alignItems="flex-end" flexDirection="column" sx={{ gap: '10px' }}>
+                <Grid item sx={{ gap: '10px', display: 'flex', flexDirection: 'column' }}>
+                    <Button size="large" sx={{
+                        fontSize: '1.2rem',
+                        background: 'linear-gradient(to bottom, lightgrey, darkgrey)',
+                        boxShadow: '0 0 0 1px black, 0 0 0 4px grey, 0 0 0 5px black',
+                        fontWeight: '800',
+                        width: '150px',
+                    }}
+                        className="control-button" onClick={()=>spawnBotClickHandler()}>Spawn Bot</Button>
+                </Grid>
                 <Grid item sx={{ gap: '10px', display: 'flex', flexDirection: 'column' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <Button

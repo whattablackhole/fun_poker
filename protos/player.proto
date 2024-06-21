@@ -9,7 +9,7 @@ message Player {
     string user_name = 1;
     int32 user_id = 2;
     string country = 3;
-    optional Action action = 4;
+    optional game_state.Action action = 4;
     int32 bank = 5;
     card.CardPair cards = 6;
     int32 bet_in_current_seed = 7;
@@ -22,31 +22,10 @@ enum PlayerStatus {
   SitOut = 1;
   Ready = 2;
   Disconnected = 3;
-}
-
-message PlayerPayload {
-  int32 player_id = 1;
-  int32 lobby_id = 2;
-  Action action = 3;
+  Eliminated = 4;
 }
 
 
 // ? INTRODUCE ACTION HISTORY ?
-message Action {
-  ActionType action_type = 1;
-  int32 bet = 2;
-  int32 player_id = 3;
-  optional game_state.StreetStatus street_status = 4;
-}
-
-
-// remove last two??
-enum ActionType {
-  Fold = 0;
-  Call = 1;
-  Raise = 2;
-  Blind = 3;
-  Empty = 4;
-}
 
 

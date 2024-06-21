@@ -48,6 +48,10 @@ export interface Player {
      * @generated from protobuf field: player.PlayerStatus status = 8;
      */
     status: PlayerStatus;
+    /**
+     * @generated from protobuf field: bool is_bot = 9;
+     */
+    isBot: boolean;
 }
 /**
  * @generated from protobuf message player.PlayerPayload
@@ -148,7 +152,8 @@ class Player$Type extends MessageType<Player> {
             { no: 5, name: "bank", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
             { no: 6, name: "cards", kind: "message", T: () => CardPair },
             { no: 7, name: "bet_in_current_seed", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
-            { no: 8, name: "status", kind: "enum", T: () => ["player.PlayerStatus", PlayerStatus] }
+            { no: 8, name: "status", kind: "enum", T: () => ["player.PlayerStatus", PlayerStatus] },
+            { no: 9, name: "is_bot", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
         ]);
     }
     create(value?: PartialMessage<Player>): Player {
@@ -159,6 +164,7 @@ class Player$Type extends MessageType<Player> {
         message.bank = 0;
         message.betInCurrentSeed = 0;
         message.status = 0;
+        message.isBot = false;
         if (value !== undefined)
             reflectionMergePartial<Player>(this, message, value);
         return message;
@@ -191,6 +197,9 @@ class Player$Type extends MessageType<Player> {
                     break;
                 case /* player.PlayerStatus status */ 8:
                     message.status = reader.int32();
+                    break;
+                case /* bool is_bot */ 9:
+                    message.isBot = reader.bool();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -228,6 +237,9 @@ class Player$Type extends MessageType<Player> {
         /* player.PlayerStatus status = 8; */
         if (message.status !== 0)
             writer.tag(8, WireType.Varint).int32(message.status);
+        /* bool is_bot = 9; */
+        if (message.isBot !== false)
+            writer.tag(9, WireType.Varint).bool(message.isBot);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);

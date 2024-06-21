@@ -3,7 +3,7 @@ import GameView from './view/game-view'
 import IndexView from './view/index-view'
 import Game from './components/game/game';
 import { WebSocketContext } from './providers/web-socket-provider';
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useRef, useState } from 'react';
 import EventEmitter from 'eventemitter3';
 import { ResponseMessage, ResponseMessageType, StartGameResponse } from './types/responses';
 import { ClientState } from './types/client_state';
@@ -55,7 +55,7 @@ function App() {
 
           case ResponseMessageType.ClientState: {
             let data = ClientState.fromBinary(message.payload, { readUnknownField: false });
-            console.log(data);
+           
             emitter.current?.emit(ResponseMessageType.ClientState.toString(), data);
             break;
           }

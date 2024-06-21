@@ -3,6 +3,7 @@ syntax = "proto3";
 package requests;
 
 import "lobby.proto";
+import "game_state.proto";
 import "ai_bot_player.proto";
 
 message JoinLobbyRequest {
@@ -28,3 +29,13 @@ message SpawnBotRequest {
     int32 lobby_id = 1;
     ai_bot_player.BotModel model = 2;
 }
+
+message PlayerActionRequest {
+    int32 player_id = 1;
+    int32 lobby_id = 2;
+    game_state.Action action = 3;
+  }
+  
+  
+
+  

@@ -21,7 +21,7 @@ message ClientState {
     google.protobuf.Int32Value amount_to_call = 12; // Optional because the game might not be started
     google.protobuf.Int32Value min_amount_to_raise = 13; // Optional because the game might not be started
     google.protobuf.BoolValue can_raise = 14; // Optional because the game might not be started
-    repeated player.Action action_history = 15; // Might be empty if the game hasn't started
+    repeated game_state.Action action_history = 15; // Might be empty if the game hasn't started
 }
 
 

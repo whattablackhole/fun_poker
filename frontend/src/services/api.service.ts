@@ -1,5 +1,5 @@
 import { LobbyList } from "../types/lobby";
-import { CreateLobbyRequest, JoinLobbyRequest, StartGameRequest } from "../types/requests";
+import { CreateLobbyRequest, JoinLobbyRequest, SpawnBotRequest, StartGameRequest } from "../types/requests";
 
 const localhost = "http://127.0.0.1:7878";
 
@@ -28,6 +28,10 @@ class ApiService {
 
     public static createLobby(request: CreateLobbyRequest) {
         fetch(`${localhost}/createLobby`, { method: "POST", body: CreateLobbyRequest.toBinary(request) }).then();
+    }
+
+    public static spawnBot(request: SpawnBotRequest) {
+        fetch(`${localhost}/spawnAIBot`, { method: "POST", body: SpawnBotRequest.toBinary(request) }).then();
     }
 }
 

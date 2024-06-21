@@ -5,14 +5,18 @@ use std::collections::BTreeMap;
 
 use crate::{
     game::{DeckState, GameState, KeyPositions, PlayerState},
-    player::PlayerPayloadError,
     protos::{
         card::CardPair,
         client_state::ClientState,
-        game_state::{GameStatus, PlayerCards, ShowdownOutcome, Street, StreetStatus, Winner},
+        game_state::{
+            Action, ActionType, GameStatus, PlayerCards, ShowdownOutcome, Street, StreetStatus,
+            Winner,
+        },
         google::protobuf::{BoolValue, Int32Value},
-        player::{Action, ActionType, Player, PlayerPayload, PlayerStatus},
+        player::{Player, PlayerStatus},
+        requests::PlayerActionRequest,
     },
+    responses::PlayerActionRequestError,
 };
 pub struct Dealer {
     lobby_id: i32,
@@ -22,7 +26,6 @@ pub struct Dealer {
 pub struct UpdatedState {
     pub client_states: Vec<ClientState>,
     pub is_ready_for_next_hand: bool,
-    // pub eliminated_players: Option<Vec<&'a Player>>,
     pub should_complete_game_cycle_automatically: bool,
 }
 
@@ -114,12 +117,11 @@ impl Dealer {
 
         game_state.showdown_outcome = Some(showdown_outcome);
 
-        // let eliminated_players = self.calculate_eliminated_players(player_state);
+        self.mark_eliminated_players(player_state);
         let states = self.create_client_states(game_state, player_state);
 
         UpdatedState {
             client_states: states,
-            // eliminated_players,
             should_complete_game_cycle_automatically: false,
             is_ready_for_next_hand: true,
         }
@@ -150,7 +152,7 @@ impl Dealer {
         lobby_id: i32,
         game_state: &mut GameState,
         player_state: &mut PlayerState,
-    ) -> PlayerPayload {
+    ) -> PlayerActionRequest {
         let player = player_state
             .players
             .iter_mut()
@@ -165,7 +167,7 @@ impl Dealer {
             player_id,
             street_status: None,
         };
-        PlayerPayload {
+        PlayerActionRequest {
             action: Some(action),
             lobby_id,
             player_id,
@@ -178,7 +180,7 @@ impl Dealer {
         lobby_id: i32,
         game_state: &mut GameState,
         player_state: &mut PlayerState,
-    ) -> PlayerPayload {
+    ) -> PlayerActionRequest {
         let player = player_state
             .players
             .iter_mut()
@@ -193,7 +195,7 @@ impl Dealer {
             player_id,
             street_status: None,
         };
-        PlayerPayload {
+        PlayerActionRequest {
             action: Some(action),
             lobby_id,
             player_id,
@@ -202,7 +204,7 @@ impl Dealer {
 
     pub fn update_game_state(
         &self,
-        payload: Result<PlayerPayload, PlayerPayloadError>,
+        payload: Result<PlayerActionRequest, PlayerActionRequestError>,
         game_state: &mut GameState,
         player_state: &mut PlayerState,
         deck_state: &mut DeckState,
@@ -210,10 +212,10 @@ impl Dealer {
         let payload = match payload {
             Ok(p) => p.clone(),
             Err(e) => match e {
-                PlayerPayloadError::Disconnected { id, lobby_id } => {
+                PlayerActionRequestError::Disconnected { id, lobby_id } => {
                     self.handle_disconnect(id, lobby_id, game_state, player_state)
                 }
-                PlayerPayloadError::Iddle { id, lobby_id } => {
+                PlayerActionRequestError::Iddle { id, lobby_id } => {
                     self.handle_idle(id, lobby_id, game_state, player_state)
                 }
             },
@@ -237,12 +239,11 @@ impl Dealer {
                 if result.is_some() && result.unwrap() == true {
                     let showdown_outcome = self.calculate_winner(false, game_state, player_state);
                     game_state.showdown_outcome = Some(showdown_outcome);
-                    // let eliminated_players = self.calculate_eliminated_players(player_state);
+                    self.mark_eliminated_players(player_state);
                     let states = self.create_client_states(game_state, player_state);
                     return UpdatedState {
                         client_states: states,
                         is_ready_for_next_hand: true,
-                        // eliminated_players,
                         should_complete_game_cycle_automatically: false,
                     };
                 }
@@ -263,6 +264,14 @@ impl Dealer {
                     player_state,
                 );
             }
+            ActionType::Check => {
+                self.process_check_action(
+                    payload.player_id,
+                    payload.action.as_ref().unwrap().bet,
+                    game_state,
+                    player_state,
+                );
+            }
             _ => println!("Illegal move!"),
         }
         // TODO: in case player has made invalid action, we have to wait until his timer ends and proceed it as fold
@@ -275,25 +284,23 @@ impl Dealer {
             let curr_street = game_state.street.street_status;
             if curr_street == StreetStatus::River as i32 {
                 let showdown_outcome = self.calculate_winner(false, game_state, player_state);
-                // let eliminated_players = self.calculate_eliminated_players(player_state);
+                self.mark_eliminated_players(player_state);
                 // TODO: set showdown in seperate fn
                 game_state.showdown_outcome = Some(showdown_outcome);
                 let states = self.create_client_states(game_state, player_state);
                 return UpdatedState {
                     client_states: states,
                     is_ready_for_next_hand: true,
-                    // eliminated_players,
                     should_complete_game_cycle_automatically: false,
                 };
             }
             if self.should_complete_game_cycle_automatically(player_state) == true {
-                // let eliminated_players = self.calculate_eliminated_players(player_state);
+                self.mark_eliminated_players(player_state);
                 game_state.showdown_outcome = None;
                 let states = self.create_client_states(game_state, player_state);
                 return UpdatedState {
                     client_states: states,
                     is_ready_for_next_hand: false,
-                    // eliminated_players,
                     should_complete_game_cycle_automatically: true,
                 };
             }
@@ -306,7 +313,6 @@ impl Dealer {
         return UpdatedState {
             client_states: states,
             is_ready_for_next_hand: false,
-            // eliminated_players: None,
             should_complete_game_cycle_automatically: false,
         };
     }
@@ -494,7 +500,7 @@ impl Dealer {
         let states = player_state
             .players
             .iter()
-            .filter(|p| p.status() != PlayerStatus::Disconnected || p.is_bot == true)
+            .filter(|p| p.status() != PlayerStatus::Disconnected && !p.is_bot)
             .map(|p| self.create_client_state(p, game_state, player_state))
             .collect();
 
@@ -516,9 +522,7 @@ impl Dealer {
             .filter(|p| {
                 // is some for debug purposes
                 // remove when not needed
-                p.action.is_some()
-                    && p.action.as_ref().unwrap().action_type() != ActionType::Fold
-                    && p.action.as_ref().unwrap().action_type() != ActionType::Empty
+                p.action.is_some() && p.action.as_ref().unwrap().action_type() != ActionType::Fold
             })
             .collect();
         let mut players_cards = Vec::new();
@@ -614,9 +618,7 @@ impl Dealer {
     fn can_determine_winner(&self, player_state: &PlayerState) -> Option<bool> {
         // TODO: refactor to return Player and skip winner evaluation
         let mut remaining_players = player_state.players.iter().filter(|p| {
-            p.action.is_some()
-                && p.action.as_ref().unwrap().action_type() != ActionType::Fold
-                && p.action.as_ref().unwrap().action_type() != ActionType::Empty
+            p.action.is_some() && p.action.as_ref().unwrap().action_type() != ActionType::Fold
         });
 
         match (remaining_players.next(), remaining_players.next()) {
@@ -625,19 +627,12 @@ impl Dealer {
         }
     }
 
-    fn _calculate_eliminated_players(&self, player_state: &mut PlayerState) -> Option<Vec<Player>> {
-        let players: Vec<&Player> = player_state
-            .players
-            .iter()
-            .filter(|p| p.bank == 0 && p.bet_in_current_seed == 0)
-            .collect();
-
-        if players.len() > 0 {
-            todo!()
-            // Some(players)
-        } else {
-            None
-        }
+    fn mark_eliminated_players(&self, player_state: &mut PlayerState) {
+        player_state.players.iter_mut().for_each(|p| {
+            if p.bank == 0 && p.bet_in_current_seed == 0 {
+                p.status = PlayerStatus::Eliminated.into();
+            };
+        });
     }
 
     fn should_complete_game_cycle_automatically(&self, player_state: &PlayerState) -> bool {
@@ -645,9 +640,7 @@ impl Dealer {
             .players
             .iter()
             .filter(|p| {
-                (p.action.is_none()
-                    || p.action.as_ref().unwrap().action_type() != ActionType::Fold
-                        && p.action.as_ref().unwrap().action_type() != ActionType::Empty)
+                (p.action.is_none() || p.action.as_ref().unwrap().action_type() != ActionType::Fold)
                     && p.bank > 0
             })
             .count();
@@ -667,7 +660,9 @@ impl Dealer {
             .find(|p| p.user_id == player_id)
             .expect("user not found");
 
-        if player.action.as_ref().unwrap().action_type() == ActionType::Fold {
+        if player.action.as_ref().is_some()
+            && player.action.as_ref().unwrap().action_type() == ActionType::Fold
+        {
             println!("Player has folded already and cannot fold again");
             return;
         }
@@ -676,6 +671,48 @@ impl Dealer {
             bet: 0,
             player_id: player.user_id,
             street_status: Some(game_state.street.street_status),
+        };
+
+        player.action = Some(action.clone());
+        game_state.action_history.push(action.clone());
+    }
+
+    fn process_check_action(
+        &self,
+        player_id: i32,
+        bet_amount: i32,
+        game_state: &mut GameState,
+        player_state: &mut PlayerState,
+    ) {
+        let valid_call_amount = {
+            let player = player_state
+                .players
+                .iter()
+                .find(|p| p.user_id == player_id)
+                .expect("user not found");
+
+            self.calculate_valid_call_amount(player, game_state, player_state)
+        };
+
+        if bet_amount != 0 || valid_call_amount != 0 {
+            println!("Bet amount is not valid for check");
+            return;
+        }
+
+        let player = player_state
+            .players
+            .iter_mut()
+            .find(|p| p.user_id == player_id)
+            .expect("user not found");
+
+        // winners contains non-updated field bet_in_current_seed
+        // it may be fixed in winner calculation stage
+
+        let action = Action {
+            action_type: ActionType::Check.into(),
+            bet: 0,
+            player_id: player.user_id,
+            street_status: game_state.street.street_status.into(),
         };
 
         player.action = Some(action.clone());
@@ -746,7 +783,6 @@ impl Dealer {
         return UpdatedState {
             client_states: states,
             is_ready_for_next_hand: false,
-            // eliminated_players: None,
             should_complete_game_cycle_automatically: self
                 .should_complete_game_cycle_automatically(player_state),
         };
@@ -765,9 +801,7 @@ impl Dealer {
     ) -> bool {
         if let Some(index) = game_state.raiser_index {
             let raiser_bank = player_state.players[index as usize].bank;
-            return raiser_bank != 0
-                || raiser_bank == 0
-                    && player.action.as_ref().unwrap().action_type() == ActionType::Empty;
+            return raiser_bank != 0 || raiser_bank == 0 && player.action.as_ref().is_none();
         }
         player.bank > 0
     }

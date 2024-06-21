@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import PokerTable3d from "../poker_table_3d/poker-table-3d";
 import ApiService from "../../services/api.service";
 import BetHistory from "../../types/bet-history";
@@ -9,7 +9,8 @@ import "./game.css";
 import { useWebSocket } from "../../providers/web-socket-provider";
 import { ResponseMessageType } from "../../types/responses";
 import { ClientState } from "../../types/client_state";
-
+import { SpawnBotRequest } from "../../types/requests";
+import { BotModel } from "../../types/ai_bot_player";
 
 function Game() {
     // const canvasRef: RefObject<HTMLCanvasElement> = useRef(null);
@@ -20,16 +21,18 @@ function Game() {
     const [players, setPlayers] = useState<Player[]>();
     const selfPlayer = players?.find((p) => p.userId === gameState?.playerId)!;
     let prevStateCopy = gameState;
+    const queueRef = useRef(Promise.resolve());
 
     let { addEventListener, removeEventListener, connection } = useWebSocket();
 
-    let stateUpdateHandler = async (state: ClientState) => {
-        console.log(state)
-
-        let newState = await GameStateService.processNewState(state, prevStateCopy, betHistory, setBoardCards, setBetHistory, setPlayers);
-        prevStateCopy = newState;
-        setState(newState);
-    }
+    const stateUpdateHandler = async (state: ClientState) => {
+        queueRef.current = queueRef.current.then(async () => {
+          const newState = await GameStateService.processNewState(state, prevStateCopy, betHistory, setBoardCards, setBetHistory, setPlayers);
+          prevStateCopy = newState;
+          setState(newState);
+        });
+        return queueRef.current;
+      };
 
     useEffect(() => {
         addEventListener(ResponseMessageType.ClientState.toString(), stateUpdateHandler);
@@ -39,9 +42,13 @@ function Game() {
         }
     }, []);
 
+    const spawnBotClickHandler = () => {
+        let payload = SpawnBotRequest.create({ lobbyId: gameState?.lobbyId,model: BotModel.Llama3_70b_8192 });
+        ApiService.spawnBot(payload);
+    };
+
     const betClickHandler = (value: number, type: ActionType) => {
         let payload = PlayerPayload.create({ action: { actionType: type, bet: value, playerId: selfPlayer.userId }, lobbyId: gameState?.lobbyId, playerId: selfPlayer.userId });
-        console.log(payload);
         connection?.send(PlayerPayload.toBinary(payload));
     };
 
@@ -55,7 +62,7 @@ function Game() {
         <div>
             <PokerTable3d players={players} gameStatus={gameState.gameStatus} betHistory={betHistory} buttonId={gameState.currButtonId?.value} currPlayerId={gameState.currPlayerId?.value} street={gameState.street} />
             <div className="game-controls">
-                <GameControls gameState={gameState} player={selfPlayer} betClickHandler={betClickHandler} />
+                <GameControls gameState={gameState} player={selfPlayer} betClickHandler={betClickHandler} spawnBotClickHandler={spawnBotClickHandler} />
             </div>
 
         </div>

@@ -130,7 +130,7 @@ function PokerTable3d({ players, buttonId, street, betHistory, currPlayerId, gam
               <div className="player_info trapezium" style={{ alignSelf: 'center', textAlign: "center" }}>
                 <div className="player_info__container">
                   <div className="player_name">
-                    {player.userName ?? "NickName"}
+                    {player.userName + (player.status === PlayerStatus.SitOut  ? " (Sit Out)": "") ?? "NickName"} 
                   </div>
                   <div className="divider"></div>
                   <div className="player_bank">

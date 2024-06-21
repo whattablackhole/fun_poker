@@ -114,7 +114,8 @@ impl SocketPool {
                 payload: response.message.encode_message(),
                 payload_type: response.message_type.into(),
             };
-
+            println!("{}", &response.receiver_id);
+            
             let socket = client_channels.get(&response.receiver_id).unwrap();
 
             let encoded: Vec<u8> = response_message.encode_message();

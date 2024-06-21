@@ -35,6 +35,18 @@ pub struct ShowdownOutcome {
     #[prost(bool, tag = "4")]
     pub process_flop_automatically: bool,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Action {
+    #[prost(enumeration = "ActionType", tag = "1")]
+    pub action_type: i32,
+    #[prost(int32, tag = "2")]
+    pub bet: i32,
+    #[prost(int32, tag = "3")]
+    pub player_id: i32,
+    #[prost(enumeration = "StreetStatus", optional, tag = "4")]
+    pub street_status: ::core::option::Option<i32>,
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum StreetStatus {
@@ -95,6 +107,41 @@ impl GameStatus {
             "None" => Some(Self::None),
             "Active" => Some(Self::Active),
             "WaitingForPlayers" => Some(Self::WaitingForPlayers),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum ActionType {
+    Fold = 0,
+    Call = 1,
+    Raise = 2,
+    Check = 3,
+    Blind = 4,
+}
+impl ActionType {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            ActionType::Fold => "Fold",
+            ActionType::Call => "Call",
+            ActionType::Raise => "Raise",
+            ActionType::Check => "Check",
+            ActionType::Blind => "Blind",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "Fold" => Some(Self::Fold),
+            "Call" => Some(Self::Call),
+            "Raise" => Some(Self::Raise),
+            "Check" => Some(Self::Check),
+            "Blind" => Some(Self::Blind),
             _ => None,
         }
     }

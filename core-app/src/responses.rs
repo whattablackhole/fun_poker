@@ -5,10 +5,7 @@ use prost::Message;
 use crate::{
     game_orchestrator::JoinGameMessage,
     protos::{
-        client_state::ClientState,
-        player::PlayerPayload,
-        responses::{ResponseMessageType, StartGameResponse},
-        user::User,
+        client_state::ClientState, requests::PlayerActionRequest, responses::{ResponseMessageType, StartGameResponse}, user::User
     },
     socket_pool::{ConnectionClosedEvent, ReadMessageError},
 };
@@ -37,14 +34,18 @@ impl<M: Message> EncodableMessage for M {
 
 pub enum SocketSourceMessage {
     ConnectionClosed(ConnectionClosedEvent),
-    PlayerPayload(Result<PlayerPayload, ReadMessageError>),
+    PlayerActionRequest(Result<PlayerActionRequest, ReadMessageError>),
 }
-
+#[derive(Debug)]
+pub enum PlayerActionRequestError {
+    Disconnected { id: i32, lobby_id: i32 },
+    Iddle { id: i32, lobby_id: i32 },
+}
 
 pub enum GameChannelMessage {
     HttpRequestSource(JoinGameMessage),
     SocketSource(SocketSourceMessage),
-    InnerSource(PlayerPayload)
+    InnerSource(PlayerActionRequest)
 }
 
 fn create_message_response<T>(
