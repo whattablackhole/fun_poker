@@ -15,11 +15,20 @@ pub struct ResponseMessage {
     #[prost(bytes = "vec", tag = "2")]
     pub payload: ::prost::alloc::vec::Vec<u8>,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GameOverMessage {
+    #[prost(string, tag = "1")]
+    pub reason: ::prost::alloc::string::String,
+    #[prost(int32, tag = "2")]
+    pub user_id: i32,
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum ResponseMessageType {
     StartGame = 0,
     ClientState = 1,
+    GameOver = 2,
 }
 impl ResponseMessageType {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -30,6 +39,7 @@ impl ResponseMessageType {
         match self {
             ResponseMessageType::StartGame => "StartGame",
             ResponseMessageType::ClientState => "ClientState",
+            ResponseMessageType::GameOver => "GameOver",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -37,6 +47,7 @@ impl ResponseMessageType {
         match value {
             "StartGame" => Some(Self::StartGame),
             "ClientState" => Some(Self::ClientState),
+            "GameOver" => Some(Self::GameOver),
             _ => None,
         }
     }

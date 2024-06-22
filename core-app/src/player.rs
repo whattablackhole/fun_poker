@@ -1,4 +1,7 @@
-use crate::protos::{player::{Player, PlayerStatus}, user::User};
+use crate::protos::{
+    player::{Player, PlayerStatus},
+    user::User,
+};
 
 impl Player {
     // pass Settings with tournament settings
@@ -17,7 +20,7 @@ impl Player {
                     is_bot: false,
                     cards: None,
                     bet_in_current_seed: 0,
-                    status: PlayerStatus::SitOut.into()
+                    status: PlayerStatus::SitOut.into(),
                 }
             })
             .collect()
@@ -33,13 +36,7 @@ impl Player {
             cards: None,
             bet_in_current_seed: 0,
             status: PlayerStatus::SitOut.into(),
-            is_bot: false
+            is_bot: false,
         }
     }
-}
-
-#[derive(Debug)]
-pub enum PlayerPayloadError {
-    Disconnected { id: i32, lobby_id: i32 },
-    Iddle { id: i32, lobby_id: i32 },
 }

@@ -1,7 +1,7 @@
 use pokereval_cactus::card::Card as PCard;
 use pokereval_cactus::evaluator;
 use rand::Rng;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use crate::{
     game::{DeckState, GameState, KeyPositions, PlayerState},
@@ -29,12 +29,39 @@ pub struct UpdatedState {
     pub should_complete_game_cycle_automatically: bool,
 }
 
+#[derive(Debug)]
+struct Pot {
+    unique_bet: i32,
+    side_pot: i32,
+    eligable_players: Vec<i32>,
+    side_pot_factor: i32,
+}
+impl Pot {
+    fn new(unique_bet: i32, side_pot: i32, id: i32) -> Self {
+        Pot {
+            unique_bet,
+            side_pot: side_pot,
+            side_pot_factor: 0,
+            eligable_players: Vec::from(&[id]),
+        }
+    }
+}
+
 impl StreetStatus {
     pub fn len() -> i32 {
         4
     }
 }
+#[derive(Debug, Default)]
+struct PotWinners {
+    rank: i32,
+    winners: Vec<i32>,
+}
 
+struct RankedPlayer<'a> {
+    rank: i32,
+    player: &'a mut Player,
+}
 impl Dealer {
     // STATIC PUBLIC --------------------------------------------------------
 
@@ -114,7 +141,7 @@ impl Dealer {
                 .push(deck_state.deck.cards.pop_front().unwrap());
         }
         let showdown_outcome = self.calculate_winner(true, game_state, player_state);
-
+        self.post_showdown_cleanup(player_state);
         game_state.showdown_outcome = Some(showdown_outcome);
 
         self.mark_eliminated_players(player_state);
@@ -238,6 +265,7 @@ impl Dealer {
                 let result = self.can_determine_winner(player_state);
                 if result.is_some() && result.unwrap() == true {
                     let showdown_outcome = self.calculate_winner(false, game_state, player_state);
+                    self.post_showdown_cleanup(player_state);
                     game_state.showdown_outcome = Some(showdown_outcome);
                     self.mark_eliminated_players(player_state);
                     let states = self.create_client_states(game_state, player_state);
@@ -284,6 +312,7 @@ impl Dealer {
             let curr_street = game_state.street.street_status;
             if curr_street == StreetStatus::River as i32 {
                 let showdown_outcome = self.calculate_winner(false, game_state, player_state);
+                self.post_showdown_cleanup(player_state);
                 self.mark_eliminated_players(player_state);
                 // TODO: set showdown in seperate fn
                 game_state.showdown_outcome = Some(showdown_outcome);
@@ -314,6 +343,24 @@ impl Dealer {
             client_states: states,
             is_ready_for_next_hand: false,
             should_complete_game_cycle_automatically: false,
+        };
+    }
+
+    pub fn setup_next_cycle(
+        &self,
+        game_state: &mut GameState,
+        player_state: &mut PlayerState,
+        deck_state: &mut DeckState,
+    ) -> UpdatedState {
+        self.setup_next_hand(player_state, deck_state, game_state);
+        // TODO: refactor showdown automation cycle handling;
+        game_state.showdown_outcome = None;
+        let states = self.create_client_states(game_state, player_state);
+        return UpdatedState {
+            client_states: states,
+            is_ready_for_next_hand: false,
+            should_complete_game_cycle_automatically: self
+                .should_complete_game_cycle_automatically(player_state),
         };
     }
 
@@ -491,6 +538,10 @@ impl Dealer {
         }
     }
 
+    fn pre_all_in_bets_calculations() {
+        todo!()
+    }
+
     // TODO: Send delta updates in future
     fn create_client_states(
         &self,
@@ -507,103 +558,163 @@ impl Dealer {
         states
     }
 
-    fn calculate_winner(
-        &self,
-        is_manual_street: bool,
-        game_state: &mut GameState,
-        player_state: &mut PlayerState,
-    ) -> ShowdownOutcome {
-        let mut winners: Vec<Winner> = Vec::new();
-        let mut winners_map: BTreeMap<i32, Vec<&mut Player>> = BTreeMap::new();
+    fn calculate_pots(&self, sorted_players: &Vec<&mut Player>) -> BTreeMap<i32, Pot> {
+        let mut pots: BTreeMap<i32, Pot> = BTreeMap::new();
 
-        let players: Vec<&mut Player> = player_state
-            .players
-            .iter_mut()
-            .filter(|p| {
-                // is some for debug purposes
-                // remove when not needed
-                p.action.is_some() && p.action.as_ref().unwrap().action_type() != ActionType::Fold
-            })
-            .collect();
-        let mut players_cards = Vec::new();
+        for player in sorted_players {
+            for pot in pots.iter_mut().rev() {
+                pot.1.eligable_players.push(player.user_id);
+                pot.1.side_pot += pot.1.side_pot_factor;
+            }
+
+            if !pots.contains_key(&player.bet_in_current_seed) {
+                let mut new_pot = Pot::new(
+                    player.bet_in_current_seed,
+                    player.bet_in_current_seed,
+                    player.user_id,
+                );
+                let entry = pots.last_key_value();
+
+                if let Some(entry) = entry {
+                    let factor = player.bet_in_current_seed - entry.1.unique_bet;
+                    new_pot.side_pot_factor = factor;
+                } else {
+                    new_pot.side_pot_factor = new_pot.unique_bet;
+                }
+
+                new_pot.side_pot = new_pot.side_pot_factor;
+                new_pot.eligable_players = Vec::from([player.user_id]);
+                pots.insert(new_pot.unique_bet, new_pot);
+            }
+        }
+
+        pots
+    }
+
+    fn calculate_hands_strength<'a>(
+        &self,
+        game_state: &mut GameState,
+        players: &'a mut Vec<&mut Player>,
+    ) -> HashMap<i32, RankedPlayer<'a>> {
+        let mut ranked_players: Vec<RankedPlayer> = Vec::new();
+
         let street: Vec<i32> = game_state
             .street
             .cards
             .iter()
             .map(|card| PCard::new(card.to_string()))
             .collect();
-        if players.len() == 1 {
-            winners_map.insert(1, players);
-        } else {
-            for player in players {
-                // TODO: will be great to write own 2+2 evaluator;
-                let eval = evaluator::Evaluator::new();
-                players_cards.push(PlayerCards {
-                    player_id: player.user_id,
-                    cards: player.cards.clone(),
-                });
 
-                let result = eval.evaluate(
-                    vec![
-                        PCard::new(
-                            player
-                                .cards
-                                .as_ref()
-                                .unwrap()
-                                .card1
-                                .as_ref()
-                                .unwrap()
-                                .to_string(),
-                        ),
-                        PCard::new(
-                            player
-                                .cards
-                                .as_ref()
-                                .unwrap()
-                                .card2
-                                .as_ref()
-                                .unwrap()
-                                .to_string(),
-                        ),
-                    ],
-                    street.clone(),
-                );
+        for player in players {
+            // TODO: will be great to write own 2+2 evaluator;
+            // CARE: in future we can have sitouted players without cards...
+            let eval = evaluator::Evaluator::new();
 
-                if winners_map.contains_key(&result) {
-                    let w = winners_map.get_mut(&result).unwrap();
-                    w.push(player);
-                } else {
-                    winners_map.insert(result, vec![player]);
-                }
-            }
+            let result = eval.evaluate(
+                vec![
+                    PCard::new(
+                        player
+                            .cards
+                            .as_ref()
+                            .unwrap()
+                            .card1
+                            .as_ref()
+                            .unwrap()
+                            .to_string(),
+                    ),
+                    PCard::new(
+                        player
+                            .cards
+                            .as_ref()
+                            .unwrap()
+                            .card2
+                            .as_ref()
+                            .unwrap()
+                            .to_string(),
+                    ),
+                ],
+                street.clone(),
+            );
+
+            ranked_players.push(RankedPlayer {
+                player: player,
+                rank: result,
+            });
         }
-        for win_players in winners_map.values_mut() {
-            let sum_of_winners_bets: i32 = win_players.iter().map(|w| w.bet_in_current_seed).sum();
-            let winners_amount = win_players.len() as i32;
-            let bank = game_state.game_bank;
-            for w in win_players {
-                let win_points =
-                    w.bet_in_current_seed + ((bank - sum_of_winners_bets) / winners_amount);
-                w.bank += win_points;
+        // maybe not needed
+        ranked_players.sort_by_key(|r| r.rank);
 
-                let remainder = if game_state.game_bank != 0 {
-                    win_points % game_state.game_bank
-                } else {
-                    0
-                };
-                if remainder > 0 {
-                    game_state.game_bank -= remainder;
-                } else {
-                    game_state.game_bank = 0;
+        let mut strength_map: HashMap<i32, RankedPlayer> = HashMap::new();
+
+        for p in ranked_players {
+            strength_map.insert(p.player.user_id, p);
+        }
+
+        strength_map
+    }
+
+    fn calculate_winner(
+        &self,
+        is_manual_street: bool,
+        game_state: &mut GameState,
+        player_state: &mut PlayerState,
+    ) -> ShowdownOutcome {
+        let mut players: Vec<_> = player_state
+            .players
+            .iter_mut()
+            .filter(|p| p.bet_in_current_seed > 0 && p.action.is_some())
+            .collect();
+
+        players.sort_by_key(|player| player.bet_in_current_seed);
+
+        let pots = self.calculate_pots(&players);
+
+        let mut ranked_players = self.calculate_hands_strength(game_state, &mut players);
+
+        //public data
+        let mut winners: Vec<Winner> = Vec::new();
+        let mut players_cards = Vec::new();
+
+        for (index, pot) in pots.iter().enumerate() {
+            let mut pot_winners = PotWinners::default();
+
+            for &user_id in &pot.1.eligable_players {
+                if let Some(ranked_player) = ranked_players.get(&user_id) {
+                    if ranked_player.player.action.is_some()
+                        && ranked_player.player.action.as_ref().unwrap().action_type()
+                            != ActionType::Fold
+                    {
+                        if pot_winners.rank < ranked_player.rank {
+                            pot_winners = PotWinners {
+                                rank: ranked_player.rank,
+                                winners: vec![ranked_player.player.user_id],
+                            };
+                        } else if pot_winners.rank == ranked_player.rank {
+                            pot_winners.winners.push(ranked_player.player.user_id);
+                        }
+                    }
                 }
-
-                winners.push(Winner {
-                    player_id: w.user_id,
-                    win_amout: win_points,
-                });
             }
-            if game_state.game_bank == 0 {
-                break;
+
+            let winners_amount = pot_winners.winners.len() as i32;
+
+            if winners_amount > 0 {
+                let share = pot.1.side_pot / winners_amount;
+                for winner in pot_winners.winners {
+                    let player = ranked_players.get_mut(&winner).unwrap();
+                    player.player.bank += share;
+                    // main pot
+                    if index == 0 {
+                        winners.push(Winner {
+                            player_id: player.player.user_id,
+                            win_amout: share,
+                        });
+                    }
+                    players_cards.push(PlayerCards {
+                        player_id: player.player.user_id,
+                        cards: player.player.cards.clone(),
+                    })
+                }
             }
         }
 
@@ -612,6 +723,12 @@ impl Dealer {
             street_history: Some(game_state.street.clone()),
             winners,
             process_flop_automatically: is_manual_street,
+        }
+    }
+
+    fn post_showdown_cleanup(&self, player_state: &mut PlayerState) {
+        for p in player_state.players.iter_mut() {
+            p.bet_in_current_seed = 0;
         }
     }
 
@@ -768,24 +885,6 @@ impl Dealer {
         game_state.action_history.push(action.clone());
 
         game_state.game_bank += bet_amount;
-    }
-
-    pub fn setup_next_cycle(
-        &self,
-        game_state: &mut GameState,
-        player_state: &mut PlayerState,
-        deck_state: &mut DeckState,
-    ) -> UpdatedState {
-        self.setup_next_hand(player_state, deck_state, game_state);
-        // TODO: refactor showdown automation cycle handling;
-        game_state.showdown_outcome = None;
-        let states = self.create_client_states(game_state, player_state);
-        return UpdatedState {
-            client_states: states,
-            is_ready_for_next_hand: false,
-            should_complete_game_cycle_automatically: self
-                .should_complete_game_cycle_automatically(player_state),
-        };
     }
 
     // If a player decides to go "all in" by betting all of their chips,
@@ -1062,6 +1161,7 @@ impl Dealer {
         deck_state.new_random();
         game_state.action_history = Vec::new();
         self.deal_cards(deck_state, player_state, game_state);
+        // TODO: think about taking actual value of player bet for blind instead of big_blind
         game_state.biggest_bet_on_curr_street = game_state.big_blind;
         game_state.raise_amount = 0;
         game_state.raiser_index = None;

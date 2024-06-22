@@ -48,7 +48,7 @@ pub enum GameChannelMessage {
     InnerSource(PlayerActionRequest)
 }
 
-fn create_message_response<T>(
+pub fn create_message_response<T>(
     message: T,
     t: ResponseMessageType,
     receiver_id: i32,

@@ -10,6 +10,7 @@ message StartGameResponse {
 enum ResponseMessageType {
     StartGame = 0;
     ClientState = 1;
+    GameOver = 2;
 }
 
 message ResponseMessage {
@@ -18,8 +19,7 @@ message ResponseMessage {
 
 }
 
-// {
-//     StartGameResponse start_game_message = 2;
-//     client_state.ClientState client_state_message = 3;
-//      raw_payload = 4;
-// }
+message GameOverMessage {
+    string reason = 1;
+    int32 user_id = 2;
+}
