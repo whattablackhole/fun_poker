@@ -16,7 +16,7 @@ class BetHistory implements IBetHistory {
     private _bank_on_prev_street: number = 0;
     private _betHistoryMap: BetHistoryMap = new Map();
 
-    public calculateBetHistory(newState: ClientState, automatedShowdown: boolean) {
+    public calculateBetHistory(newState: ClientState, showdown: boolean) {
         if (!newState.street) {
             return;
         }
@@ -37,8 +37,7 @@ class BetHistory implements IBetHistory {
             this._bank_on_prev_street = this.calculateTotalBankOfPrevStreets(newState.street.streetStatus - 1);
         }
 
-        // NOTE: maybe not needed, rethink
-        if (automatedShowdown) {
+        if (showdown) {
             this._betHistoryMap.clear();
         }
     }

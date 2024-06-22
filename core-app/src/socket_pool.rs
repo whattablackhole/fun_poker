@@ -189,6 +189,7 @@ impl SocketPool {
         frame: Option<CloseFrame<'static>>,
     ) {
         let mut guard = connection.lock().unwrap();
+        // TODO: catch errors
         guard.close(frame).unwrap();
         guard.flush().unwrap();
     }

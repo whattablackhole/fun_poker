@@ -1,5 +1,5 @@
 import GameStateProcessHelper from "../helpers/game-state-helper";
-import { ActionType, Card, ClientState, Player } from "../types";
+import { Card, ClientState, Player } from "../types";
 import BetHistory from "../types/bet-history";
 
 class GameStateService {
@@ -15,13 +15,13 @@ class GameStateService {
 
         // TODO: figure out how to set actual player banks on processFlopAutomatically
         // maybe worth to do it on backend side in future
+
+        betHistory.calculateBetHistory(newState, !!newState.showdownOutcome);
+        setBetHistory(betHistory);
+
         if (newState.showdownOutcome && newState.showdownOutcome.processFlopAutomatically) {
-            this.handleAutomaticShowdown(newState, prevState, setPlayers, setBetHistory, betHistory)
             await this.animateShowdown(newState, prevState, setBoardCards);
         } else {
-            betHistory.calculateBetHistory(newState, false);
-
-            setBetHistory(betHistory);
             setBoardCards(newState.street?.cards);
         }
         this.setupPlayers(newState, setPlayers);
@@ -39,40 +39,6 @@ class GameStateService {
         }
 
         setPlayers(GameStateProcessHelper.center_players_by_self(state.players, state.playerId));
-    }
-
-
-    private static handleAutomaticShowdown(
-        newState: ClientState,
-        prevState: ClientState,
-        setPlayers: React.Dispatch<React.SetStateAction<Player[] | undefined>>,
-        setBetHistory: React.Dispatch<React.SetStateAction<BetHistory>>,
-        betHistory: BetHistory
-    ) {
-        const lastAction = newState.actionHistory[newState.actionHistory.length - 1];
-        const player = this.findPlayerById(prevState.players, lastAction.playerId);
-
-        if (player) {
-            this.updatePlayerAction(player, lastAction);
-        }
-
-        this.setupPlayers(prevState, setPlayers);
-
-        betHistory.calculateBetHistory(newState, true);
-        setBetHistory(betHistory);
-    }
-
-    private static findPlayerById(players: Player[], playerId: number): Player | undefined {
-        return players.find((p) => p.userId === playerId);
-    }
-
-    // TODO: refactor to be able to remove this
-    private static updatePlayerAction(player: Player, action: any) {
-        player.action = action;
-
-        if (action.actionType === ActionType.Call || action.actionType === ActionType.Raise) {
-            player.bank -= action.bet;
-        }
     }
 
     static async animateShowdown(newState: ClientState, prevState: ClientState, setBoardCards: React.Dispatch<React.SetStateAction<Card[] | undefined>>) {
