@@ -38,7 +38,7 @@ function App() {
 
     const id = reff.current!.value;
     setId(parseInt(id));
-    ws.current = new WebSocket(`ws://127.0.0.1:7878/socket?user_id=${id}`);
+    ws.current = new WebSocket(`ws://127.0.0.1:8080/ws?user_id=${id}`);
 
     ws.current.onopen = () => { console.log("WebSocket connection established") };
     ws.current.onclose = () => console.log('WebSocket connection closed');

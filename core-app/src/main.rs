@@ -14,8 +14,8 @@ use fun_poker::{
     socket_pool::{ConnectionClosedEvent, PlayerChannelClient, SocketPool},
     thread_pool::ThreadPool,
 };
-
 use prost::{DecodeError, Message};
+use std::env;
 
 use std::{
     collections::HashMap,
@@ -36,17 +36,23 @@ enum RequestType {
 pub struct EmptyMessage {}
 
 fn main() {
+    let args: Vec<String> = env::args().collect();
+
+    if args.len() != 2 {
+        eprintln!("Usage: {} <IP:PORT>", args[0]);
+        std::process::exit(1);
+    }
+
+    let address = &args[1];
+
     // TODO: add multiple db connections for concurrency
     // r2d2 or deadpool-postgres or self implementation
     let repository: PostgresDatabase = PostgresDatabase::new().unwrap();
-    let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
+    let listener = TcpListener::bind(address).unwrap();
     let socket_pool = SocketPool::new();
     let dealer_pool = DealerPool::new();
 
     let game_orchestrator = GameOrchestrator::new();
-
-    init_games(&repository, &game_orchestrator);
-
     let arc_dealer_pool = Arc::new(dealer_pool);
     let arc_socket_pool: Arc<SocketPool> = Arc::new(socket_pool);
     let arc_game_orchestrator: Arc<GameOrchestrator> = Arc::new(game_orchestrator);
@@ -97,15 +103,6 @@ fn setup_sockets_health_checker(
         .push(on_connection_closed);
 }
 
-fn init_games(repo: &PostgresDatabase, game_orchestrator: &GameOrchestrator) {
-    let lobbies = repo.get_lobbies();
-    lobbies.list.iter().for_each(|lobby| {
-        let created =
-            game_orchestrator.create_game(lobby.id.unwrap(), GameSettings { blind_size: 100 });
-        println!("games inited: {}", created);
-    })
-}
-
 fn determine_request_type(stream: &TcpStream) -> RequestType {
     let mut buffer = [0; 1024];
     let result = stream.peek(&mut buffer);
@@ -113,8 +110,9 @@ fn determine_request_type(stream: &TcpStream) -> RequestType {
     match result {
         Ok(_) => {
             let request_str = String::from_utf8_lossy(&buffer);
+            println!("{}", request_str);
             // improve checking for websocket handshake
-            if request_str.contains("websocket") {
+            if request_str.contains("Upgrade: websocket") {
                 RequestType::WebSocket
             } else {
                 RequestType::Http
@@ -143,7 +141,6 @@ fn handle_web_socket_connection_handshake(stream: TcpStream, socket_pool: Arc<So
     };
 
     stream.set_nonblocking(true).unwrap();
-
     let websocket = accept(stream).unwrap();
 
     socket_pool.add(PlayerChannelClient {
@@ -373,12 +370,25 @@ fn join_lobby_request_handler(
 
     repo.add_user_to_lobby(request.lobby_id, user.id);
 
+    let game_created = if !game_orchestrator.is_game_exists(request.lobby_id) {
+        let created =
+            game_orchestrator.create_game(request.lobby_id, GameSettings { blind_size: 100 });
+
+        created
+    } else {
+        true
+    };
     // TODO: think about sending messages to game_orchestrator...
-    game_orchestrator.join_game(request.lobby_id, user, &socket_pool);
+    if game_created {
+        game_orchestrator.join_game(request.lobby_id, user, &socket_pool);
+    } else {
+        return (Box::new(EmptyMessage {}), "HTTP/1.1 500 Internal Server Error");
+    }
 
-    let can_start = game_orchestrator.can_start_game(request.lobby_id);
 
-    if can_start {
+    let should_start = game_orchestrator.should_start_game(request.lobby_id);
+
+    if should_start {
         game_orchestrator.start_game(request.lobby_id, thread_pool, socket_pool)
     }
 

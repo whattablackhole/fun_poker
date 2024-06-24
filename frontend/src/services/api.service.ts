@@ -1,7 +1,7 @@
 import { LobbyList } from "../types/lobby";
 import { CreateLobbyRequest, JoinLobbyRequest, SpawnBotRequest, StartGameRequest } from "../types/requests";
 
-const localhost = "http://127.0.0.1:7878";
+const localhost = "http://127.0.0.1:8080";
 
 class ApiService {
     public static getLobbies(): Promise<LobbyList> {

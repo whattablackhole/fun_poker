@@ -72,6 +72,12 @@ impl GameOrchestrator {
         }
     }
 
+    pub fn is_game_exists(&self, lobby_id: i32) -> bool {
+        let pool = self.game_pool.lock().unwrap();
+
+        pool.contains_key(&lobby_id)
+    }
+
     pub fn create_game(&self, lobby_id: i32, settings: GameSettings) -> bool {
         let mut pool = self.game_pool.lock().unwrap();
 
@@ -155,7 +161,7 @@ impl GameOrchestrator {
         }
     }
 
-    pub fn can_start_game(&self, lobby_id: i32) -> bool {
+    pub fn should_start_game(&self, lobby_id: i32) -> bool {
         let pool = self.game_pool.lock().unwrap();
 
         let game_m = pool.get(&lobby_id).unwrap();
