@@ -49,7 +49,7 @@ function Game() {
 
     const betClickHandler = (value: number, type: ActionType) => {
         let payload = PlayerPayload.create({ action: { actionType: type, bet: value, playerId: selfPlayer.userId }, lobbyId: gameState?.lobbyId, playerId: selfPlayer.userId });
-        connection?.send(PlayerPayload.toBinary(payload));
+        connection?.current?.send(PlayerPayload.toBinary(payload));
     };
 
     if (!gameState || !players) {

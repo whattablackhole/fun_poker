@@ -44,9 +44,6 @@ impl SocketPool {
         let mut pool = self
             .pool
             .try_write()
-            .inspect_err(|e| {
-                println!("{:?}", e);
-            })
             .unwrap();
 
         pool.insert(v.client_id, Arc::new(Mutex::new(v.socket)));
@@ -105,9 +102,6 @@ impl SocketPool {
         let client_channels = self
             .pool
             .try_read()
-            .inspect_err(|e| {
-                println!("{:?}", e);
-            })
             .unwrap();
         for response in responses {
             let response_message = ResponseMessage {
@@ -226,39 +220,4 @@ impl SocketPool {
             };
         }
     }
-
-    // pub fn get_active_client_ids_by_lobby_id(&self, lobby_id: i32) -> Vec<i32> {
-    //     let mut pool = self.pool.lock().unwrap();
-    //     let result = pool.get_mut(&lobby_id).unwrap();
-
-    //     let mut ids = Vec::new();
-
-    //     for channel in result {
-    //         ids.push(channel.client_id);
-    //     }
-    //     ids
-    // }
-    // pub fn send_message_to_all(&self, message: String) {
-    //     let mes = TMessage::text(message);
-    //     let mut pool = self.pool.lock().unwrap();
-    //     for (_, clients) in pool.iter_mut() {
-    //         for client in clients.into_iter() {
-    //             if let Err(e) = client.socket.send(mes.clone()) {
-    //                 eprintln!("Failed to send message: {}", e);
-    //             }
-    //         }
-    //     }
-    // }
-    // fn get_channel(&self, client_id: i32) -> Option<MutexGuard<WebSocket<TcpStream>>> {
-    //     // Acquire read lock
-    //     let client_channels = self.pool.read().unwrap();
-
-    //     // Retrieve the socket using client_id
-    //     if let Some(socket_mutex) = client_channels.get(&client_id) {
-    //         // Acquire the lock and return the guard
-    //         Some(socket_mutex.lock().unwrap())
-    //     } else {
-    //         None
-    //     }
-    //     }
 }

@@ -7,17 +7,20 @@ import { useUser } from "../App.tsx";
 import CreateLobbyDialog from "../components/popups/create-lobby-dialog.tsx";
 import { Button, Container } from "@mui/material";
 import GoogleSignIn from "../providers/google-signin-provider.tsx";
+import { useWebSocket } from "../providers/web-socket-provider.tsx";
 
 function IndexView() {
     let { id } = useUser();
-
+    let  { reconnect } = useWebSocket();
     let navigate = useNavigate();
 
     const onJoinLobbyHandler = (lobbyId: number) => {
         if (id) {
+            reconnect(`ws://127.0.0.1:8080/join_lobby?lobby_id=${lobbyId}&user_id=${id}`)
+
             navigate("/table");
-            let request = JoinLobbyRequest.create({ lobbyId, playerId: id });
-            ApiService.joinLobby(request);
+            // let request = JoinLobbyRequest.create({ lobbyId, playerId: id });
+            // ApiService.joinLobby(request);
         }
     }
 

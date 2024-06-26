@@ -110,7 +110,6 @@ fn determine_request_type(stream: &TcpStream) -> RequestType {
     match result {
         Ok(_) => {
             let request_str = String::from_utf8_lossy(&buffer);
-            println!("{}", request_str);
             // improve checking for websocket handshake
             if request_str.contains("Upgrade: websocket") {
                 RequestType::WebSocket
@@ -122,17 +121,22 @@ fn determine_request_type(stream: &TcpStream) -> RequestType {
     }
 }
 
-fn handle_web_socket_connection_handshake(stream: TcpStream, socket_pool: Arc<SocketPool>) {
+fn get_path_from_uri(uri: &str) -> &str {
+    uri.split("?").next().unwrap()
+}
+
+fn handle_web_socket_connection_handshake(stream: TcpStream, socket_pool: Arc<SocketPool>, thread_pool: Arc<ThreadPool>, game_orchestrator: Arc<GameOrchestrator>,repo: Arc<PostgresDatabase>) {
     let mut buffer = [0; 1024];
     let result: Result<usize, std::io::Error> = stream.peek(&mut buffer);
     let request_str = String::from_utf8_lossy(&buffer);
 
     let request_uri = request_str.lines().next().unwrap();
-    let query_uri = request_uri.split(" ").skip(1).next().unwrap();
-
+    let uri = request_uri.split(" ").skip(1).next().unwrap();
+    let path = get_path_from_uri(uri);
+    let map = parse_queries_from_uri(uri);
+   
     let user_id: i32 = match result {
         Ok(_) => {
-            let map = parse_queries_from_url(query_uri);
             // TODO: implement JWT verifier
             let user_id = map.get("user_id").unwrap();
             i32::from_str_radix(user_id, 10).unwrap()
@@ -147,6 +151,12 @@ fn handle_web_socket_connection_handshake(stream: TcpStream, socket_pool: Arc<So
         client_id: user_id,
         socket: websocket,
     });
+
+    if path == "/join_lobby" {
+        let lobby_id = map.get("lobby_id").unwrap();
+        let lobby_id = i32::from_str_radix(lobby_id, 10).unwrap();
+        join_lobby_request_socket_handler(lobby_id,user_id, repo, game_orchestrator, socket_pool, thread_pool);
+    }
 }
 
 fn handle_http_request(
@@ -175,13 +185,13 @@ fn handle_http_request(
             thread_pool,
             game_orchestrator,
         ),
-        "/joinLobby" => join_lobby_request_handler(
-            buf_reader,
-            repo,
-            game_orchestrator,
-            socket_pool,
-            thread_pool,
-        ),
+        // "/join_lobby" => join_lobby_request_handler(
+        //     buf_reader,
+        //     repo,
+        //     game_orchestrator,
+        //     socket_pool,
+        //     thread_pool,
+        // ),
         "/spawnAIBot" => spawn_ai_bot_handler(buf_reader, game_orchestrator, socket_pool),
         // "/observeLobby" => observe_lobby_request_handler(buff_reader),
         _ => (Box::new(EmptyMessage {}), "HTTP/1.1 400 Bad Request"),
@@ -264,10 +274,10 @@ fn create_lobby_handler(
     }
 }
 
-fn parse_queries_from_url(url: &str) -> HashMap<&str, &str> {
-    let query_start = url.find("?").unwrap();
+fn parse_queries_from_uri(uri: &str) -> HashMap<&str, &str> {
+    let query_start: usize = uri.find("?").unwrap();
 
-    let queries = &url[query_start + 1..];
+    let queries = &uri[query_start + 1..];
 
     let pairs = queries.split("&");
 
@@ -349,6 +359,40 @@ fn start_game_request_handler(
     (Box::new(EmptyMessage {}), "HTTP/1.1 200 OK")
 }
 
+fn join_lobby_request_socket_handler(lobby_id: i32, user_id: i32,  repo: Arc<PostgresDatabase>,
+    game_orchestrator: Arc<GameOrchestrator>,
+    socket_pool: Arc<SocketPool>,
+    thread_pool: Arc<ThreadPool>) -> (Box<dyn EncodableMessage>, &'static str) {
+        let user = repo.get_user_by_id(user_id);
+
+        repo.add_user_to_lobby(lobby_id, user.id);
+    
+        let game_created = if !game_orchestrator.is_game_exists(lobby_id) {
+            let created =
+                game_orchestrator.create_game(lobby_id, GameSettings { blind_size: 100 });
+    
+            created
+        } else {
+            true
+        };
+        // TODO: think about sending messages to game_orchestrator...
+        if game_created {
+            game_orchestrator.join_game(lobby_id, user, &socket_pool);
+        } else {
+            return (Box::new(EmptyMessage {}), "HTTP/1.1 500 Internal Server Error");
+        }
+    
+    
+        let should_start = game_orchestrator.should_start_game(lobby_id);
+    
+        if should_start {
+            game_orchestrator.start_game(lobby_id, thread_pool, socket_pool)
+        }
+    
+        (Box::new(EmptyMessage {}), "HTTP/1.1 200 OK")
+}
+
+// TODO: remove
 fn join_lobby_request_handler(
     buf_reader: BufReader<&TcpStream>,
     repo: Arc<PostgresDatabase>,
@@ -406,7 +450,8 @@ fn handle_connection(
     let reqest_type = determine_request_type(&stream);
 
     match reqest_type {
-        RequestType::WebSocket => handle_web_socket_connection_handshake(stream, socket_pool),
+        // TODO: refactor naming 
+        RequestType::WebSocket => handle_web_socket_connection_handshake(stream, socket_pool, pool, game_orchestrator, repo),
         RequestType::Http => handle_http_request(
             stream,
             repo,

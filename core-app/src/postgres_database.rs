@@ -90,7 +90,7 @@ impl FromSql<'_> for GameType {
 
 impl PostgresDatabase {
     pub fn new() -> Result<PostgresDatabase, postgres::Error> {
-        let client = Client::connect("postgres://postgres:1337@localhost/FunPokerDB", NoTls)?;
+        let client = Client::connect("postgres://rudolf:1337@localhost/FunPokerDB", NoTls)?;
 
         Ok(PostgresDatabase {
             client: Mutex::new(client),
