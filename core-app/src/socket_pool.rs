@@ -41,10 +41,7 @@ impl SocketPool {
     }
 
     pub fn add(&self, v: PlayerChannelClient) {
-        let mut pool = self
-            .pool
-            .try_write()
-            .unwrap();
+        let mut pool = self.pool.try_write().unwrap();
 
         pool.insert(v.client_id, Arc::new(Mutex::new(v.socket)));
 
@@ -55,17 +52,27 @@ impl SocketPool {
         &self,
         client_id: i32,
     ) -> Result<T, ReadMessageError> {
-        let socket = self.get_channel(&client_id).unwrap();
-        let result = self.read_sync(socket);
+        let socket = match self.get_channel(&client_id) {
+            Some(s) => s,
+            None => {
+                println!(
+                    "User disconnected and removed from pool before health check event: {}",
+                    &client_id
+                );
+                return Err(ReadMessageError::Disconnected);
+            }
+        };
+
+        let result = self.read_non_blocking(socket);
 
         let message = match result {
             Err(e) => match e {
                 TError::ConnectionClosed => {
-                    self.remove_connection(client_id);
+                    self.remove_connection(&client_id);
                     return Err(ReadMessageError::Disconnected);
                 }
                 TError::AlreadyClosed => {
-                    self.remove_connection(client_id);
+                    self.remove_connection(&client_id);
                     return Err(ReadMessageError::Disconnected);
                 }
                 TError::Io(_) => return Err(ReadMessageError::Iddle),
@@ -85,7 +92,7 @@ impl SocketPool {
         let bytes = match message {
             TMessage::Binary(bytes) => bytes,
             TMessage::Close(frame) => {
-                let connection = self.remove_connection(client_id);
+                let connection = self.remove_connection(&client_id);
                 self.close_connection(connection, frame);
                 return Err(ReadMessageError::Disconnected);
             }
@@ -98,30 +105,111 @@ impl SocketPool {
         Ok(request)
     }
 
-    pub fn update_clients(&self, responses: Vec<TMessageResponse>) {
-        let client_channels = self
-            .pool
-            .try_read()
-            .unwrap();
+    // TODO: return Array of results
+    pub fn update_clients(&self, responses: Vec<TMessageResponse>) -> Vec<i32> {
+        let mut unsuccessful_clients = Vec::new();
+
+        let client_channels = self.pool.try_read().unwrap();
+
         for response in responses {
             let response_message = ResponseMessage {
                 payload: response.message.encode_message(),
                 payload_type: response.message_type.into(),
             };
-            println!("{}", &response.receiver_id);
-            
-            let socket = client_channels.get(&response.receiver_id).unwrap();
 
-            let encoded: Vec<u8> = response_message.encode_message();
-            socket
-                .lock()
-                .unwrap()
-                .send(TMessage::Binary(encoded))
-                .unwrap();
+            match client_channels.get(&response.receiver_id) {
+                Some(s) => {
+                    match s.lock() {
+                        Ok(mut guard) => {
+                            match guard.send(TMessage::Binary(response_message.encode_message())) {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    println!("Error occurred during sending message to client {}: {}", response.receiver_id, e);
+                                    unsuccessful_clients.push(response.receiver_id);
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            println!("Failed to lock mutex for client {}: {}", response.receiver_id, e);
+                            unsuccessful_clients.push(response.receiver_id);
+                        }
+                    }
+                },
+                None => {
+                    println!(
+                        "no such user connection with provided id: {}",
+                        &response.receiver_id
+                    );
+                    unsuccessful_clients.push(response.receiver_id);
+
+                }
+            };
         }
+
+        drop(client_channels);
+
+        for c in unsuccessful_clients.iter() {
+            self.remove_connection(c);
+        }
+
+        unsuccessful_clients
     }
 
-    pub fn check_connections(
+    // TODO: return Result instead
+
+    pub fn check_connection_health(&self, connection_id: i32) -> bool {
+        let pool = self.pool.read().unwrap();
+        let connected = match pool.get(&connection_id) {
+            Some(socket) => {
+                let mut socket_guard = socket.lock().unwrap();
+                let mut connected = false;
+
+                SocketPool::ping(&mut socket_guard);
+                let time = SystemTime::now();
+
+                loop {
+                    match socket_guard.read() {
+                        Ok(r) => match r {
+                            TMessage::Pong(_) => {
+                                connected = true;
+                                break;
+                            }
+                            TMessage::Close(_) => {
+                                connected = false;
+                                break;
+                            }
+                            _ => {
+                                if time.elapsed().unwrap() > Duration::from_millis(3000) {
+                                    break;
+                                }
+                                thread::sleep(Duration::from_millis(200));
+                            }
+                        },
+                        Err(_) => {
+                            if time.elapsed().unwrap() > Duration::from_millis(3000) {
+                                break;
+                            }
+                            thread::sleep(Duration::from_millis(200));
+                        }
+                    }
+                }
+                connected
+            }
+            None => {
+                println!("connection with id {} is already removed", &connection_id);
+                false
+            }
+        };
+
+        if !connected {
+            drop(pool);
+            self.pool.write().unwrap().remove(&connection_id);
+        }
+
+        connected
+    }
+
+    pub fn spawn_health_checker(
         &self,
     ) -> Arc<Mutex<Vec<Box<dyn Fn(ConnectionClosedEvent) + Send + Sync>>>> {
         let pool_clone = Arc::clone(&self.pool);
@@ -131,6 +219,7 @@ impl SocketPool {
 
         let jobs_clone = Arc::clone(&jobs);
 
+
         thread::spawn(move || loop {
             thread::sleep(Duration::from_millis(5000));
 
@@ -139,6 +228,7 @@ impl SocketPool {
                 pool.iter()
                     .filter_map(|(user_id, socket)| {
                         let mut socket_guard = socket.lock().unwrap();
+                        // TODO: rethink
                         if !SocketPool::ping(&mut socket_guard) {
                             Some(*user_id)
                         } else {
@@ -172,9 +262,9 @@ impl SocketPool {
         }
         true
     }
-    fn remove_connection(&self, client_id: i32) -> Arc<Mutex<WebSocket<TcpStream>>> {
+    fn remove_connection(&self, client_id: &i32) -> Arc<Mutex<WebSocket<TcpStream>>> {
         let mut client_channels = self.pool.write().unwrap();
-        client_channels.remove(&client_id).unwrap()
+        client_channels.remove(client_id).unwrap()
     }
 
     fn close_connection(
@@ -183,9 +273,28 @@ impl SocketPool {
         frame: Option<CloseFrame<'static>>,
     ) {
         let mut guard = connection.lock().unwrap();
-        // TODO: catch errors
-        guard.close(frame).unwrap();
-        guard.flush().unwrap();
+
+        match guard.close(frame) {
+            Ok(_) => match guard.flush() {
+                Ok(_) => {},
+                Err(e) => match e {
+                    tungstenite::Error::ConnectionClosed => {
+                        println!("Connection closed abruptly by client!")
+                    },
+                    _ => {
+                        println!("Unprocessed error while flushing connection close: {}", e);
+                    } ,
+                },
+            },
+            Err(e) => match e {
+                tungstenite::Error::ConnectionClosed => {
+                    println!("Connection closed abruptly by client!")
+                },
+                _ => {
+                    println!("Unprocessed error while closing connection: {}", e);
+                }
+            },
+        }
     }
 
     fn get_channel(&self, client_id: &i32) -> Option<Arc<Mutex<WebSocket<TcpStream>>>> {
@@ -194,7 +303,7 @@ impl SocketPool {
         client_channels.get(client_id).cloned()
     }
 
-    fn read_sync(&self, socket: Arc<Mutex<WebSocket<TcpStream>>>) -> Result<TMessage, TError> {
+    fn read_non_blocking(&self, socket: Arc<Mutex<WebSocket<TcpStream>>>) -> Result<TMessage, TError> {
         let start_time = SystemTime::now();
         loop {
             let message: Result<TMessage, TError> = socket.lock().unwrap().read();

@@ -166,9 +166,12 @@ impl GameOrchestrator {
 
         let game_m = pool.get(&lobby_id).unwrap();
 
-        let game = game_m.game.read().unwrap();
-        // TODO: add game setting: auto_start?
-        game.is_ready_to_start()
+        match  game_m.game.try_read() {
+            Ok(g) => return g.is_ready_to_start(),
+            Err(_) => {
+                return false
+            }
+        } ;        
     }
 
     pub fn start_game(
@@ -191,7 +194,11 @@ impl GameOrchestrator {
 
         thread_pool.execute(move || {
             let ref mut game = game_clone.write().unwrap();
-            game.run(socket_pool, pool, receiver_clone, sender_clone);
+            
+            match game.run(socket_pool, pool, receiver_clone, sender_clone) {
+                Ok(_) => {},
+                Err(er) => println!("game shutdown abruptly: {}", er)
+            };
         });
     }
 }

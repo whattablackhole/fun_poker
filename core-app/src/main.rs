@@ -88,7 +88,7 @@ fn setup_sockets_health_checker(
     game_orchestrator: &Arc<GameOrchestrator>,
     socket_pool: &Arc<SocketPool>,
 ) {
-    let socket_event_listener = socket_pool.check_connections();
+    let socket_event_listener = socket_pool.spawn_health_checker();
 
     let game_o = Arc::clone(game_orchestrator);
     let socket_o = Arc::clone(socket_pool);

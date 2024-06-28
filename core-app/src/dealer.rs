@@ -371,6 +371,14 @@ impl Dealer {
         init_button_index: usize,
         players_amount: i32,
     ) -> KeyPositions {
+        if players_amount < 2 || init_button_index as i32 > players_amount  {
+            return KeyPositions {
+                small_blind_index: None,
+                big_blind_index: None,
+                curr_player_index: None,
+                button_index: None,
+            }
+        }
         let is_heads_up = self.is_heads_up(players_amount);
 
         let small_blind_index = if is_heads_up {
@@ -543,6 +551,7 @@ impl Dealer {
     }
 
     // TODO: Send delta updates in future
+    // TODO: move to game struct level
     fn create_client_states(
         &self,
         game_state: &GameState,
@@ -659,21 +668,40 @@ impl Dealer {
         game_state: &mut GameState,
         player_state: &mut PlayerState,
     ) -> ShowdownOutcome {
-        let mut players: Vec<_> = player_state
+        let mut winners: Vec<Winner> = Vec::new();
+        let mut players_cards = Vec::new();
+
+        let mut players_with_bets: Vec<_> = player_state
             .players
             .iter_mut()
             .filter(|p| p.bet_in_current_seed > 0 && p.action.is_some())
             .collect();
 
-        players.sort_by_key(|player| player.bet_in_current_seed);
+        let mut eligable_players: Vec<_> = players_with_bets
+            .iter_mut()
+            .filter(|p| p.action.as_ref().unwrap().action_type() != ActionType::Fold)
+            .collect();
 
-        let pots = self.calculate_pots(&players);
+        if eligable_players.len() == 1 {
+            let winner = eligable_players.first_mut().unwrap();
+            winner.bank += game_state.game_bank;
+            winners.push(Winner {
+                player_id: winner.user_id,
+                win_amout: game_state.game_bank,
+            });
+            return ShowdownOutcome {
+                players_cards,
+                street_history: Some(game_state.street.clone()),
+                winners,
+                process_flop_automatically: is_manual_street,
+            };
+        }
 
-        let mut ranked_players = self.calculate_hands_strength(game_state, &mut players);
+        players_with_bets.sort_by_key(|player| player.bet_in_current_seed);
 
-        //public data
-        let mut winners: Vec<Winner> = Vec::new();
-        let mut players_cards = Vec::new();
+        let pots: BTreeMap<i32, Pot> = self.calculate_pots(&players_with_bets);
+
+        let mut ranked_players = self.calculate_hands_strength(game_state, &mut players_with_bets);
 
         for (index, pot) in pots.iter().enumerate() {
             let mut pot_winners = PotWinners::default();
@@ -730,6 +758,8 @@ impl Dealer {
         for p in player_state.players.iter_mut() {
             p.bet_in_current_seed = 0;
         }
+
+        // TODO: complete it: clear bank? etc..
     }
 
     fn can_determine_winner(&self, player_state: &PlayerState) -> Option<bool> {
@@ -972,6 +1002,7 @@ impl Dealer {
     fn get_loop_incremented_index(&self, index: usize, range: i32) -> usize {
         return (index + 1) % range as usize;
     }
+
 
     fn setup_blinds(
         &self,
