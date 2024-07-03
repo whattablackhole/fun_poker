@@ -11,8 +11,6 @@ interface WebSocketContextProps {
   
 export const WebSocketContext = createContext<WebSocketContextProps | undefined>(undefined);
 
-
-
 export const useWebSocket = () => {
     const context = useContext(WebSocketContext)
     if (!context) {

@@ -9,7 +9,10 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-var servers = []string{"127.0.0.1:7878", "127.0.0.1:7879"}
+var servers = []string{"127.0.0.1:7878"}
+
+// var servers = []string{"127.0.0.1:7878", "127.0.0.1:7879"}
+
 var ctx = context.Background()
 var channel = "game_servers"
 
@@ -70,7 +73,7 @@ func assignServerHandler(w http.ResponseWriter, r *http.Request, db *redis.Clien
 }
 
 func removeServer() {
-	// TODO
+	// return context.TODO()
 }
 
 func findServerWithLowestEntries(rdb *redis.Client) (string, error) {

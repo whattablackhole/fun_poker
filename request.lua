@@ -20,4 +20,12 @@ function _M.fetch_game_server(lobby_id)
     end
 end
 
+function _M.read_file(path)
+    local file = io.open(path, "r")
+    if not file then return nil end
+    local content = file:read("*a")
+    file:close()
+    return content
+end
+
 return _M

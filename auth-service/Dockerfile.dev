@@ -13,8 +13,11 @@ RUN dotnet tool install --global dotnet-ef
 
 ENV PATH="$PATH:/root/.dotnet/tools"
 
+ENV ASPNETCORE_Kestrel__Certificates__Default__Path=./localhost.crt
+ENV ASPNETCORE_Kestrel__Certificates__Default__KeyPath=./localhost.key
+# ENV ASPNETCORE_Kestrel__Certificates__Default__Password=
 
 EXPOSE 5004
 
 
-ENTRYPOINT ["sh", "-c", "dotnet ef database update && dotnet watch run --urls http://0.0.0.0:5004 --project auth-service.csproj"]
+ENTRYPOINT ["sh", "-c", "dotnet ef database update && dotnet watch run --urls https://0.0.0.0:5004 --project auth-service.csproj"]

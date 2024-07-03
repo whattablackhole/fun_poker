@@ -71,7 +71,6 @@ impl ToSql for GameName {
     to_sql_checked!();
 }
 
-
 impl FromSql<'_> for GameType {
     fn from_sql<'a>(
         _: &'a Type,
@@ -126,7 +125,7 @@ impl PostgresDatabase {
         let mut guard = self.client.lock().unwrap();
 
         let query = "INSERT INTO lobbies(name, author_id, players_registered, game_name, game_type) VALUES($1, $2, $3, $4, $5) RETURNING id";
-        
+
         let row = guard
             .query_one(
                 query,
@@ -176,26 +175,30 @@ impl PostgresDatabase {
         LobbyList { list: lobbies }
     }
 
-    pub fn get_user_by_id(&self, user_id: i32) -> User {
+    pub fn get_user_by_id(&self, user_id: i32) -> Result<User, postgres::Error> {
         let mut client_lock = self.client.lock().unwrap();
 
         let query = "SELECT * FROM users WHERE id = $1";
 
-        let row = client_lock.query_one(query, &[&user_id]).unwrap();
+        let row = match client_lock.query_one(query, &[&user_id]) {
+            Ok(row) => row,
+            Err(e) => return Err(e),
+        };
 
         let id: i32 = row.get("id");
         let name: String = row.get("name");
         let country: String = row.get("country");
         let email: String = row.get("email");
 
-        User {
+        Ok(User {
             id,
             name,
             country,
             email,
-        }
+        })
     }
 
+    // TODO: catch errors
     pub fn add_user_to_lobby(&self, lobby_id: i32, user_id: i32) {
         let mut client_lock = self.client.lock().unwrap();
         let query = "INSERT INTO players_lobbies (player_id, lobby_id) VALUES ($1, $2)";

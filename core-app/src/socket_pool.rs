@@ -2,11 +2,12 @@ use std::{
     collections::HashMap,
     io::ErrorKind,
     net::TcpStream,
-    sync::{Arc, Mutex, MutexGuard, RwLock},
+    sync::{Arc, Mutex, RwLock},
     thread::{self},
     time::{Duration, SystemTime},
 };
 
+use rustls::{ServerConnection, StreamOwned};
 use tungstenite::{protocol::CloseFrame, Error as TError, Message as TMessage, WebSocket};
 
 use crate::{
@@ -19,12 +20,13 @@ pub struct ConnectionClosedEvent {
     pub user_id: i32,
 }
 
-pub struct PlayerChannelClient {
+pub struct SocketClient {
     pub client_id: i32,
-    pub socket: WebSocket<TcpStream>,
+    pub path: String,
+    pub socket: WebSocket<StreamOwned<ServerConnection, TcpStream>>,
 }
 pub struct SocketPool {
-    pool: Arc<RwLock<HashMap<i32, Arc<Mutex<WebSocket<TcpStream>>>>>>,
+    pool: Arc<RwLock<HashMap<i32, Arc<Mutex<SocketClient>>>>>,
 }
 
 #[derive(Debug)]
@@ -40,10 +42,10 @@ impl SocketPool {
         }
     }
 
-    pub fn add(&self, v: PlayerChannelClient) {
+    pub fn add(&self, v: SocketClient) {
         let mut pool = self.pool.try_write().unwrap();
 
-        pool.insert(v.client_id, Arc::new(Mutex::new(v.socket)));
+        pool.insert(v.client_id, Arc::new(Mutex::new(v)));
 
         println!("LENGTH: {}", pool.len())
     }
@@ -52,7 +54,7 @@ impl SocketPool {
         &self,
         client_id: i32,
     ) -> Result<T, ReadMessageError> {
-        let socket = match self.get_channel(&client_id) {
+        let client = match self.get_channel(&client_id) {
             Some(s) => s,
             None => {
                 println!(
@@ -63,7 +65,7 @@ impl SocketPool {
             }
         };
 
-        let result = self.read_non_blocking(socket);
+        let result = self.read_non_blocking(client);
 
         let message = match result {
             Err(e) => match e {
@@ -78,7 +80,9 @@ impl SocketPool {
                 TError::Io(_) => return Err(ReadMessageError::Iddle),
                 TError::Tls(_) => todo!(),
                 TError::Capacity(_) => todo!(),
-                TError::Protocol(_) => todo!(),
+                TError::Protocol(e) => {
+                    todo!()
+                },
                 TError::WriteBufferFull(_) => todo!(),
                 TError::Utf8 => todo!(),
                 TError::AttackAttempt => todo!(),
@@ -93,7 +97,9 @@ impl SocketPool {
             TMessage::Binary(bytes) => bytes,
             TMessage::Close(frame) => {
                 let connection = self.remove_connection(&client_id);
-                self.close_connection(connection, frame);
+                if let Some(connection) = connection {
+                    self.close_connection(connection, frame);
+                }
                 return Err(ReadMessageError::Disconnected);
             }
             _ => panic!("Expected binary message"),
@@ -118,21 +124,28 @@ impl SocketPool {
             };
 
             match client_channels.get(&response.receiver_id) {
-                Some(s) => {
-                    match s.lock() {
-                        Ok(mut guard) => {
-                            match guard.send(TMessage::Binary(response_message.encode_message())) {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    println!("Error occurred during sending message to client {}: {}", response.receiver_id, e);
-                                    unsuccessful_clients.push(response.receiver_id);
-                                }
+                Some(s) => match s.lock() {
+                    Ok(mut guard) => {
+                        match guard
+                            .socket
+                            .send(TMessage::Binary(response_message.encode_message()))
+                        {
+                            Ok(_) => {}
+                            Err(e) => {
+                                println!(
+                                    "Error occurred during sending message to client {}: {}",
+                                    response.receiver_id, e
+                                );
+                                unsuccessful_clients.push(response.receiver_id);
                             }
                         }
-                        Err(e) => {
-                            println!("Failed to lock mutex for client {}: {}", response.receiver_id, e);
-                            unsuccessful_clients.push(response.receiver_id);
-                        }
+                    }
+                    Err(e) => {
+                        println!(
+                            "Failed to lock mutex for client {}: {}",
+                            response.receiver_id, e
+                        );
+                        unsuccessful_clients.push(response.receiver_id);
                     }
                 },
                 None => {
@@ -141,7 +154,6 @@ impl SocketPool {
                         &response.receiver_id
                     );
                     unsuccessful_clients.push(response.receiver_id);
-
                 }
             };
         }
@@ -155,44 +167,14 @@ impl SocketPool {
         unsuccessful_clients
     }
 
-    // TODO: return Result instead
-
     pub fn check_connection_health(&self, connection_id: i32) -> bool {
         let pool = self.pool.read().unwrap();
+
         let connected = match pool.get(&connection_id) {
             Some(socket) => {
                 let mut socket_guard = socket.lock().unwrap();
-                let mut connected = false;
+                let connected = SocketPool::ping(&mut socket_guard.socket);
 
-                SocketPool::ping(&mut socket_guard);
-                let time = SystemTime::now();
-
-                loop {
-                    match socket_guard.read() {
-                        Ok(r) => match r {
-                            TMessage::Pong(_) => {
-                                connected = true;
-                                break;
-                            }
-                            TMessage::Close(_) => {
-                                connected = false;
-                                break;
-                            }
-                            _ => {
-                                if time.elapsed().unwrap() > Duration::from_millis(3000) {
-                                    break;
-                                }
-                                thread::sleep(Duration::from_millis(200));
-                            }
-                        },
-                        Err(_) => {
-                            if time.elapsed().unwrap() > Duration::from_millis(3000) {
-                                break;
-                            }
-                            thread::sleep(Duration::from_millis(200));
-                        }
-                    }
-                }
                 connected
             }
             None => {
@@ -209,6 +191,62 @@ impl SocketPool {
         connected
     }
 
+
+    // DEPRECATED:
+    // pub fn check_connection_health(&self, connection_id: i32) -> bool {
+        // let connected = match pool.get(&connection_id) {
+        //     Some(socket) => {
+        //         let mut socket_guard = socket.lock().unwrap();
+        //         let mut connected = false;
+        //         thread::sleep(Duration::from_millis(1000));
+        //         SocketPool::ping(&mut socket_guard.socket);
+        //         let time = SystemTime::now();
+
+        //         loop {
+        //             // println!("______________________________________");
+        //             match socket_guard.socket.read() {
+        //                 Ok(r) => match r {
+        //                     TMessage::Pong(_) => {
+        //                         println!("hellow");
+        //                         connected = true;
+        //                         break;
+        //                     }
+        //                     TMessage::Close(_) => {
+        //                         println!("hellowg");
+        //                         connected = false;
+        //                         break;
+        //                     }
+        //                     _ => {
+        //                         if time.elapsed().unwrap() > Duration::from_millis(10000) {
+        //                             break;
+        //                         }
+        //                         thread::sleep(Duration::from_millis(10));
+        //                     }
+        //                 },
+        //                 Err(_) => {
+        //                     if time.elapsed().unwrap() > Duration::from_millis(10000) {
+        //                         break;
+        //                     }
+        //                     thread::sleep(Duration::from_millis(10));
+        //                 }
+        //             }
+        //         }
+        //         connected
+        //     }
+        //     None => {
+        //         println!("connection with id {} is already removed", &connection_id);
+        //         false
+        //     }
+        // };
+
+        // if !connected {
+        //     drop(pool);
+        //     self.pool.write().unwrap().remove(&connection_id);
+        // }
+
+        // connected
+    // }
+
     pub fn spawn_health_checker(
         &self,
     ) -> Arc<Mutex<Vec<Box<dyn Fn(ConnectionClosedEvent) + Send + Sync>>>> {
@@ -219,17 +257,15 @@ impl SocketPool {
 
         let jobs_clone = Arc::clone(&jobs);
 
-
         thread::spawn(move || loop {
-            thread::sleep(Duration::from_millis(5000));
+            thread::sleep(Duration::from_millis(10000));
 
             let closed_connections: Vec<i32> = {
                 let pool = pool_clone.read().unwrap();
                 pool.iter()
                     .filter_map(|(user_id, socket)| {
                         let mut socket_guard = socket.lock().unwrap();
-                        // TODO: rethink
-                        if !SocketPool::ping(&mut socket_guard) {
+                        if !SocketPool::ping(&mut socket_guard.socket) {
                             Some(*user_id)
                         } else {
                             None
@@ -253,43 +289,41 @@ impl SocketPool {
         Arc::clone(&jobs)
     }
 
-    fn ping(socket_guard: &mut MutexGuard<WebSocket<TcpStream>>) -> bool {
-        if let Err(_) = socket_guard.write(TMessage::Ping(Vec::new())) {
-            return false;
-        }
-        if let Err(_) = socket_guard.flush() {
+    fn ping(socket_guard: &mut WebSocket<StreamOwned<ServerConnection, TcpStream>>) -> bool {
+        if let Err(_) = socket_guard.send(TMessage::Ping(Vec::new())) {
             return false;
         }
         true
     }
-    fn remove_connection(&self, client_id: &i32) -> Arc<Mutex<WebSocket<TcpStream>>> {
+
+    fn remove_connection(&self, client_id: &i32) -> Option<Arc<Mutex<SocketClient>>> {
         let mut client_channels = self.pool.write().unwrap();
-        client_channels.remove(client_id).unwrap()
+        client_channels.remove(client_id)
     }
 
     fn close_connection(
         &self,
-        connection: Arc<Mutex<WebSocket<TcpStream>>>,
+        client: Arc<Mutex<SocketClient>>,
         frame: Option<CloseFrame<'static>>,
     ) {
-        let mut guard = connection.lock().unwrap();
+        let mut guard = client.lock().unwrap();
 
-        match guard.close(frame) {
-            Ok(_) => match guard.flush() {
-                Ok(_) => {},
+        match guard.socket.close(frame) {
+            Ok(_) => match guard.socket.flush() {
+                Ok(_) => {}
                 Err(e) => match e {
                     tungstenite::Error::ConnectionClosed => {
                         println!("Connection closed abruptly by client!")
-                    },
+                    }
                     _ => {
                         println!("Unprocessed error while flushing connection close: {}", e);
-                    } ,
+                    }
                 },
             },
             Err(e) => match e {
                 tungstenite::Error::ConnectionClosed => {
                     println!("Connection closed abruptly by client!")
-                },
+                }
                 _ => {
                     println!("Unprocessed error while closing connection: {}", e);
                 }
@@ -297,16 +331,16 @@ impl SocketPool {
         }
     }
 
-    fn get_channel(&self, client_id: &i32) -> Option<Arc<Mutex<WebSocket<TcpStream>>>> {
+    fn get_channel(&self, client_id: &i32) -> Option<Arc<Mutex<SocketClient>>> {
         let client_channels = self.pool.read().unwrap();
 
         client_channels.get(client_id).cloned()
     }
 
-    fn read_non_blocking(&self, socket: Arc<Mutex<WebSocket<TcpStream>>>) -> Result<TMessage, TError> {
+    fn read_non_blocking(&self, client: Arc<Mutex<SocketClient>>) -> Result<TMessage, TError> {
         let start_time = SystemTime::now();
         loop {
-            let message: Result<TMessage, TError> = socket.lock().unwrap().read();
+            let message: Result<TMessage, TError> = client.lock().unwrap().socket.read();
             match message {
                 Ok(msg) => {
                     if !msg.is_pong() {

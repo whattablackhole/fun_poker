@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: $POSTGRES_USER
       POSTGRES_PASSWORD: $POSTGRES_PASSWORD
     ports:
-      - "5432:5432" 
+      - "5433:5433" 
     volumes:
       - pgdata:/var/lib/postgresql/data
   auth-service:
@@ -16,13 +16,14 @@ services:
       dockerfile: Dockerfile.dev
     ports:
       - "5004:5004"
-    volumes:
-      - ./auth-service/Controllers:/src/auth-service/Controllers
+    # volumes:
+    #   - ./auth-service:/src/auth-service
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - DOTNET_USE_POLLING_FILE_WATCHER=1
       - DOTNET_USE_RUNNING_IN_CONTAINER=true
       - JWT_SECRET=$JWT_SECRET
+      - ENCRYPTION_PASS=$ENCRYPTION_PASS
       - PostgresConnection=Host=db;Database=$DATABASE_AUTH_NAME;Username=$POSTGRES_USER;Password=$POSTGRES_PASSWORD
     depends_on:
       - db

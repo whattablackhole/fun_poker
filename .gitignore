@@ -1,1 +1,6 @@
-env*
+*.env
+**domains.ext
+*.crt
+*.key 
+*.pem 
+*.csr

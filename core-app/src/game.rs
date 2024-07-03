@@ -154,9 +154,17 @@ impl Game {
         event: &ConnectionClosedEvent,
         socket_pool: &Arc<SocketPool>,
     ) -> bool {
-        let player = self.get_player(&event.user_id).unwrap();
-
-        player.set_status(PlayerStatus::Disconnected);
+        if self.game_state.status == GameStatus::WaitingForPlayers
+            || self.game_state.status == GameStatus::None
+        {
+            self.player_state
+                .players
+                .retain(|p| p.user_id != event.user_id);
+        } else {
+            if let Some(p) = self.get_player(&event.user_id) {
+                p.set_status(PlayerStatus::Disconnected);
+            }
+        }
 
         let states = self
             .dealer
@@ -247,14 +255,13 @@ impl Game {
         self.player_state.players = retained;
     }
 
-
     fn prepare_to_game_stop(&mut self) {
         // TODO: handle settings struct;
         let blind_size = self.game_state.big_blind;
 
         self.deck_state = DeckState::new(CardDeck::new_random());
         self.game_state = GameState::new(blind_size);
-        self.player_state.players.iter_mut().for_each(|p|{
+        self.player_state.players.iter_mut().for_each(|p| {
             p.action = None;
             p.bet_in_current_seed = 0;
             p.cards = None;
@@ -280,12 +287,12 @@ impl Game {
 
         'a: loop {
             if updated_state.is_ready_for_next_hand {
-                // WARN: locally tested: sometimes client is responding with pong right before disconnecting 
+                // WARN: locally tested: sometimes client is responding with pong right before disconnecting
                 // that leads to additional game cycle for disconnected player
                 self.verify_connections(socket_pool);
                 self.process_elimated_players(&socket_pool);
                 self.process_disconnected_players();
-                
+
                 let players_count = self.player_state.players.len();
 
                 if players_count == 0 {
@@ -293,10 +300,15 @@ impl Game {
                     self.game_state.status = GameStatus::None;
                     return GameStatus::None;
                 }
-                let active_players: Vec<&Player> = self.player_state.players.iter().filter(|p| {
-                    // can be sitouted players and we wanna pause game in such case
-                    p.status() == PlayerStatus::Ready
-                }).collect();
+                let active_players: Vec<&Player> = self
+                    .player_state
+                    .players
+                    .iter()
+                    .filter(|p| {
+                        // can be sitouted players and we wanna pause game in such case
+                        p.status() == PlayerStatus::Ready
+                    })
+                    .collect();
 
                 // TODO: handle all possible cases
                 if active_players.len() < 2 {
@@ -335,7 +347,7 @@ impl Game {
     }
 
     fn verify_connections(&mut self, socket_pool: &Arc<SocketPool>) {
-        for p in  self.player_state.players.iter_mut() {
+        for p in self.player_state.players.iter_mut() {
             // TODO: optimize by batching
             let connected = socket_pool.check_connection_health(p.user_id);
 
@@ -358,6 +370,13 @@ impl Game {
         let players_count = self.player_state.players.len();
 
         if players_count < 2 {
+            let states = self
+                .dealer
+                .get_client_states(&self.game_state, &self.player_state);
+
+            // TODO: add hash sum for clientstate to check if client received current state or not
+            socket_pool.update_clients(generate_client_state_responses(states));
+
             return Err("Not enough players to start a new game");
         }
         // TODO: think about merging it with start_next_cylce function
@@ -452,7 +471,9 @@ impl Game {
                         SocketSourceMessage::PlayerActionRequest(p) => match p {
                             Ok(m) => {
                                 let game_status = self.update_game_state(&socket_pool, Ok(m));
-                                if game_status == GameStatus::WaitingForPlayers || game_status == GameStatus::None  {
+                                if game_status == GameStatus::WaitingForPlayers
+                                    || game_status == GameStatus::None
+                                {
                                     break 'outer_loop;
                                 } else {
                                     continue 'outer_loop;
@@ -478,7 +499,9 @@ impl Game {
                                     },
                                 };
                                 let game_status = self.update_game_state(&socket_pool, Err(error));
-                                if game_status == GameStatus::WaitingForPlayers || game_status == GameStatus::None  {
+                                if game_status == GameStatus::WaitingForPlayers
+                                    || game_status == GameStatus::None
+                                {
                                     break 'outer_loop;
                                 } else {
                                     continue 'outer_loop;
@@ -494,7 +517,9 @@ impl Game {
                     }
                     GameChannelMessage::InnerSource(m) => {
                         let game_status = self.update_game_state(&socket_pool, Ok(m));
-                        if game_status == GameStatus::WaitingForPlayers || game_status == GameStatus::None  {
+                        if game_status == GameStatus::WaitingForPlayers
+                            || game_status == GameStatus::None
+                        {
                             break 'outer_loop;
                         } else {
                             continue 'outer_loop;
