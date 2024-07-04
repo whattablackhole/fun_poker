@@ -1,14 +1,15 @@
 services:
-  db:
+  auth-db:
     image: postgres:16-alpine
+    container_name: auth-db
     environment:
-      POSTGRES_DB: $DATABASE_AUTH_NAME
-      POSTGRES_USER: $POSTGRES_USER
-      POSTGRES_PASSWORD: $POSTGRES_PASSWORD
+      POSTGRES_DB: $POSTGRES_AUTH_DB_NAME
+      POSTGRES_USER: $POSTGRES_AUTH_USER_NAME
+      POSTGRES_PASSWORD: $POSTGRES_AUTH_USER_PASSWORD
     ports:
-      - "5433:5433" 
+      - "5433:5432" 
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata1:/var/lib/postgresql/data
   auth-service:
     container_name: auth-service
     build:
@@ -24,9 +25,39 @@ services:
       - DOTNET_USE_RUNNING_IN_CONTAINER=true
       - JWT_SECRET=$JWT_SECRET
       - ENCRYPTION_PASS=$ENCRYPTION_PASS
-      - PostgresConnection=Host=db;Database=$DATABASE_AUTH_NAME;Username=$POSTGRES_USER;Password=$POSTGRES_PASSWORD
+      - PostgresConnection=Host=auth-db;Database=$POSTGRES_AUTH_DB_NAME;Username=$POSTGRES_AUTH_USER_NAME;Password=$POSTGRES_AUTH_USER_PASSWORD
     depends_on:
-      - db
+      - auth-db
+  game-service-db:
+    image: postgres:16-alpine
+    container_name: game-service-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      PGPORT: 5434
+    ports:
+      - "5434:5434"
+    volumes: 
+      - ./docker/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+      - pgdata2:/var/lib/postgresql/data
+  core-app:
+    container_name: game-service
+    build:
+      context: ./core-app
+      dockerfile: Dockerfile.dev
+    ports:
+      - "7878:7878"
+    environment:
+      RUN_IN_DOCKER: true
+      IP_PORT: 0.0.0.0:7878
+      DATABASE_URL: postgres://$POSTGRES_GAME_SERVICE_USER_NAME:$POSTGRES_GAME_SERVICE_USER_PASSWORD@game-service-db:5434/$POSTGRES_GAME_SERVICE_DB_NAME
+    volumes:
+      - target-cache:/src/core-app/target
+      - cargo-cache:/usr/local/cargo/registry  
+    depends_on:
+      - game-service-db
 volumes:
-  pgdata:
-
+  cargo-cache:
+  pgdata1:
+  pgdata2:
+  target-cache:

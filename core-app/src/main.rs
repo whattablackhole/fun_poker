@@ -35,6 +35,8 @@ enum RequestType {
     WebSocket,
 }
 
+use dotenv::dotenv;
+
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct EmptyMessage {}
@@ -47,6 +49,11 @@ pub struct Request {
     uri: String,
     headers: Vec<String>,
     body: Vec<u8>,
+}
+
+pub struct Configuration {
+    address: String,
+    db_connection: String,
 }
 
 enum ClaimTypesEnum {
@@ -91,26 +98,17 @@ fn load_tls_config(cert_path: &str, key_path: &str) -> Arc<ServerConfig> {
 }
 
 fn main() {
-    // env_logger::Builder::from_env(Env::default().default_filter_or("trace"))
-    //     .filter_module("tungstenite", LevelFilter::Trace)
-    //     .init();
+    dotenv().ok();
 
-    let args: Vec<String> = env::args().collect();
-
-    if args.len() != 2 {
-        eprintln!("Usage: {} <IP:PORT>", args[0]);
-        std::process::exit(1);
-    }
-
-    let address = &args[1];
+    let configuration = load_configuration();
 
     let tls_config: Arc<ServerConfig> =
         load_tls_config("./src/localhost.crt", "./src/localhost.key");
 
     // TODO: add multiple db connections for concurrency
     // r2d2 or deadpool-postgres or self implementation
-    let repository: PostgresDatabase = PostgresDatabase::new().unwrap();
-    let listener = TcpListener::bind(address).unwrap();
+    let repository: PostgresDatabase = PostgresDatabase::new(&configuration.db_connection).unwrap();
+    let listener = TcpListener::bind(&configuration.address).unwrap();
     let socket_pool = SocketPool::new();
     let dealer_pool = DealerPool::new();
 
@@ -149,6 +147,50 @@ fn main() {
                 clone_game_orchestrator,
             );
         });
+    }
+}
+
+fn load_configuration() -> Configuration {
+    let is_docker_env = env::var("RUN_IN_DOCKER").is_ok();
+
+    if is_docker_env {
+        let address = env::var("IP_PORT").expect("IP_PORT must be set in Docker environment");
+        let db_connection =
+            env::var("DATABASE_URL").expect("DATABASE_URL must be set in Docker environment");
+
+        Configuration {
+            address,
+            db_connection,
+        }
+    } else {
+        let args: Vec<String> = env::args().collect();
+
+        let address = match env::var("ADDRESS") {
+            Ok(addr) => addr,
+            Err(_) => {
+                if args.len() < 2 {
+                    eprintln!("Usage: {} <IP:PORT> <DATABASE_URL>", args[0]);
+                    std::process::exit(1);
+                }
+                args[1].clone()
+            }
+        };
+
+        let db_connection = match env::var("DATABASE_URL") {
+            Ok(db_con) => db_con,
+            Err(_) => {
+                if args.len() < 3 {
+                    eprintln!("Usage: {} <IP:PORT> <DATABASE_URL>", args[0]);
+                    std::process::exit(1);
+                }
+                args[2].clone()
+            }
+        };
+
+        Configuration {
+            address,
+            db_connection,
+        }
     }
 }
 

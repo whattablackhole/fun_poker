@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package player;
+
+import "card.proto";
+import "game_state.proto";
+
+message Player {
+    string user_name = 1;
+    int32 user_id = 2;
+    string country = 3;
+    optional game_state.Action action = 4;
+    int32 bank = 5;
+    card.CardPair cards = 6;
+    int32 bet_in_current_seed = 7;
+    PlayerStatus status = 8;
+    bool is_bot = 9;
+}
+
+enum PlayerStatus {
+  WaitingForPlayers = 0;
+  SitOut = 1;
+  Ready = 2;
+  Disconnected = 3;
+  Eliminated = 4;
+}
+
+
+// ? INTRODUCE ACTION HISTORY ?
+
+
