@@ -216,7 +216,7 @@ impl PostgresDatabase {
             country         VARCHAR NOT NULL,
             email           VARCHAR(100) CHECK (email ~* '^.+@.+$')           
             )
-    ",
+        ",
         )?;
 
         client_lock.batch_execute(

@@ -1,5 +1,8 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0.203-alpine3.18-amd64 AS build
 
+RUN dotnet tool install --global dotnet-ef
+
+ENV PATH="$PATH:/root/.dotnet/tools"
 
 WORKDIR /src/auth-service
 
@@ -8,10 +11,6 @@ COPY ./auth-service.csproj ./
 RUN dotnet restore
 
 COPY . .
-
-RUN dotnet tool install --global dotnet-ef
-
-ENV PATH="$PATH:/root/.dotnet/tools"
 
 ENV ASPNETCORE_Kestrel__Certificates__Default__Path=./localhost.crt
 ENV ASPNETCORE_Kestrel__Certificates__Default__KeyPath=./localhost.key

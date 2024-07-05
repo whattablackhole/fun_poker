@@ -23,7 +23,7 @@ type GameServer struct {
 
 func main() {
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     "127.0.0.1:6379",
+		Addr:     "127.0.0.1:6380",
 		Password: "",
 		DB:       0,
 	})
@@ -32,7 +32,7 @@ func main() {
 		assignServerHandler(w, r, rdb)
 	})
 
-	fmt.Print("Starting server on :8081")
+	fmt.Println("Starting server on :8081")
 
 	if err := http.ListenAndServe(":8081", nil); err != nil {
 		fmt.Printf("Error starting server: %s\n", err)

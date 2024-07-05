@@ -40,10 +40,10 @@ services:
     volumes: 
       - ./docker/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
       - pgdata2:/var/lib/postgresql/data
-  core-app:
+  game-service:
     container_name: game-service
     build:
-      context: ./core-app
+      context: ./game-service
       dockerfile: Dockerfile.dev
     ports:
       - "7878:7878"
@@ -52,12 +52,59 @@ services:
       IP_PORT: 0.0.0.0:7878
       DATABASE_URL: postgres://$POSTGRES_GAME_SERVICE_USER_NAME:$POSTGRES_GAME_SERVICE_USER_PASSWORD@game-service-db:5434/$POSTGRES_GAME_SERVICE_DB_NAME
     volumes:
-      - target-cache:/src/core-app/target
+      - target-cache:/app/target
       - cargo-cache:/usr/local/cargo/registry  
     depends_on:
       - game-service-db
+  game-cordinator-service:
+    build:
+      context: ./game-cordinator-service
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8081:8081"
+      - "6380:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - mynetwork
+  bot-player-service:
+    build:
+      context: ./bot-player-service
+      dockerfile: Dockerfile.dev
+    environment:
+      - GROQ_API=$GROQ_API
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./protos:/app/protos
+  load-balancer:
+    build:
+      context: ./load-balancer
+      dockerfile: openresty.Dockerfile
+    ports:
+      - "8082:8082"
+    volumes:
+      - ./load-balancer/conf.d:/etc/nginx/conf.d/
+      - ./localhost.crt:/etc/nginx/ssl/localhost.crt
+      - ./localhost.key:/etc/nginx/ssl/localhost.key
+      - ./public_key.pem:/etc/nginx/ssl/public_key.pem
+      - ./load-balancer/request.lua:/request.lua
+    environment:
+      - jwt_public_key_file_path=/etc/nginx/ssl/public_key.pem
+      - ssl_certificate_path=/etc/nginx/ssl/localhost.crt
+      - ssl_private_key_path=/etc/nginx/ssl/localhost.key
+      - REDIS_HOST=game-cordinator-service
+      - REDIS_PORT=6379
+    depends_on:
+      - game-cordinator-service
+    networks:
+      - mynetwork
 volumes:
   cargo-cache:
   pgdata1:
   pgdata2:
   target-cache:
+  redis-data:
+networks:
+  mynetwork:
+    driver: bridge

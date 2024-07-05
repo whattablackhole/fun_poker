@@ -1,0 +1,25 @@
+FROM golang:1.22.5-alpine3.19 AS builder
+
+WORKDIR /app
+
+COPY . .
+
+RUN go mod download
+
+RUN go build -o main .
+
+FROM redis:7.0.15-alpine
+
+RUN apk add --no-cache bash
+
+WORKDIR /app
+
+COPY --from=builder /app/main ./main
+
+RUN echo -e '#!/bin/bash\nredis-server --bind 0.0.0.0 &\n/app/main' > ./start.sh
+
+RUN chmod +x ./start.sh
+
+ENTRYPOINT ["/app/start.sh"]
+
+EXPOSE 6380 8081

@@ -1,6 +1,6 @@
 module game-cordinator-service
 
-go 1.22.4
+go 1.22.5
 
 require (
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
