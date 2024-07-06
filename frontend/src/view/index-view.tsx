@@ -9,6 +9,9 @@ import CreateTempUserDialog from "../components/popups/temporal-user-creation-di
 import { useState } from "react";
 import { useUser } from "../providers/user-provider.tsx";
 
+const wsUrl = import.meta.env.VITE_WS_URL
+const authUrl = import.meta.env.VITE_AUTH_URL
+
 function IndexView() {
   let { user } = useUser();
   let { reconnect } = useWebSocket();
@@ -18,7 +21,7 @@ function IndexView() {
 
   const onJoinLobbyHandler = (lobbyId: number) => {
     if (user?.id) {
-      reconnect(`ws://127.0.0.1:8080/join_lobby?lobby_id=${lobbyId}`);
+      reconnect(`${wsUrl}/join_lobby?lobby_id=${lobbyId}`);
       navigate("/table");
     } else {
       setPendingLobbyId(lobbyId);
@@ -34,13 +37,13 @@ function IndexView() {
     setOpenCreateUser(false);
  
     if (pendingLobbyId) {
-      fetch("https://localhost:5004/session/unauthorized_session_token", {
+      fetch(`${authUrl}/session/unauthorized_session_token`, {
         credentials: "include",
         headers: [["Content-Type", "application/json"]],
         body: JSON.stringify({ UserName: userName, CountryCode: countryCode }),
         method: "POST",
       }).then(() => {
-        reconnect(`wss://localhost:8080/join_lobby?lobby_id=${pendingLobbyId}`);
+        reconnect(`${wsUrl}/join_lobby?lobby_id=${pendingLobbyId}`);
         navigate("/table");
       });
     }

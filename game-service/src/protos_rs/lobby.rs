@@ -8,8 +8,6 @@ pub struct Lobby {
     pub name: ::prost::alloc::string::String,
     #[prost(int32, tag = "3")]
     pub author_id: i32,
-    #[prost(int32, tag = "4")]
-    pub players_registered: i32,
     #[prost(enumeration = "GameType", tag = "5")]
     pub game_type: i32,
     #[prost(enumeration = "GameName", tag = "6")]

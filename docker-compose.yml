@@ -53,7 +53,8 @@ services:
       DATABASE_URL: postgres://$POSTGRES_GAME_SERVICE_USER_NAME:$POSTGRES_GAME_SERVICE_USER_PASSWORD@game-service-db:5434/$POSTGRES_GAME_SERVICE_DB_NAME
     volumes:
       - target-cache:/app/target
-      - cargo-cache:/usr/local/cargo/registry  
+      - cargo-cache:/usr/local/cargo/registry 
+      - ./protos:/protos/
     depends_on:
       - game-service-db
   game-cordinator-service:
@@ -65,8 +66,6 @@ services:
       - "6380:6379"
     volumes:
       - redis-data:/data
-    networks:
-      - mynetwork
   bot-player-service:
     build:
       context: ./bot-player-service
@@ -85,26 +84,39 @@ services:
       - "8082:8082"
     volumes:
       - ./load-balancer/conf.d:/etc/nginx/conf.d/
-      - ./localhost.crt:/etc/nginx/ssl/localhost.crt
-      - ./localhost.key:/etc/nginx/ssl/localhost.key
+      - ./localhost.crt:/usr/local/openresty/certs/localhost.crt
+      - ./localhost.key:/usr/local/openresty/certs/localhost.key
       - ./public_key.pem:/etc/nginx/ssl/public_key.pem
       - ./load-balancer/request.lua:/request.lua
     environment:
       - jwt_public_key_file_path=/etc/nginx/ssl/public_key.pem
-      - ssl_certificate_path=/etc/nginx/ssl/localhost.crt
-      - ssl_private_key_path=/etc/nginx/ssl/localhost.key
       - REDIS_HOST=game-cordinator-service
       - REDIS_PORT=6379
     depends_on:
       - game-cordinator-service
-    networks:
-      - mynetwork
+  frontend:
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5174:5173"
+    environment:
+      - VITE_CERT_PATH=/app/localhost.crt
+      - VITE_PRIVATE_KEY_PATH=/app/localhost.key
+      - VITE_API_URL=load-balancer
+      - VITE_AUTH_URL=auth-service
+      # - VITE_WS_URL
+    volumes:
+      - ./localhost.crt:/app/localhost.crt
+      - ./localhost.key:/app/localhost.key
 volumes:
   cargo-cache:
   pgdata1:
   pgdata2:
   target-cache:
   redis-data:
+
+# todo: configure restrictions using networks
 networks:
   mynetwork:
     driver: bridge

@@ -1,11 +1,12 @@
 import { LobbyList } from "../types/lobby";
 import { CreateLobbyRequest, JoinLobbyRequest, SpawnBotRequest, StartGameRequest } from "../types/requests";
 
-const localhost = "https://localhost:8080";
+
+const apiUrl = import.meta.env.VITE_API_URL;
 
 class ApiService {
     public static getLobbies(): Promise<LobbyList> {
-        return fetch(`${localhost}/getLobbies`, { method: "GET" }).then((response) => {
+        return fetch(`${apiUrl}/getLobbies`, { method: "GET" }).then((response) => {
             return response.body?.getReader().read().then((s) => {
                 if (s.value) {
                     let result = LobbyList.fromBinary(new Uint8Array(s.value.buffer));
@@ -17,21 +18,21 @@ class ApiService {
     }
 
     public static joinLobby(request: JoinLobbyRequest) {
-        return fetch(`${localhost}/joinLobby`, { method: "POST", body: JoinLobbyRequest.toBinary(request) }).then((response) => {
+        return fetch(`${apiUrl}/joinLobby`, { method: "POST", body: JoinLobbyRequest.toBinary(request) }).then((response) => {
             return response.body?.getReader().read().then();
         })
     }
 
     public static startGame(request: StartGameRequest) {
-        fetch(`${localhost}/startGame`, { method: "POST", body: StartGameRequest.toBinary(request) }).then();
+        fetch(`${apiUrl}/startGame`, { method: "POST", body: StartGameRequest.toBinary(request) }).then();
     }
 
     public static createLobby(request: CreateLobbyRequest) {
-        fetch(`${localhost}/createLobby`, { method: "POST", body: CreateLobbyRequest.toBinary(request) }).then();
+        fetch(`${apiUrl}/createLobby`, { method: "POST", body: CreateLobbyRequest.toBinary(request) }).then();
     }
 
     public static spawnBot(request: SpawnBotRequest) {
-        fetch(`${localhost}/spawnAIBot`, { method: "POST", body: SpawnBotRequest.toBinary(request) }).then();
+        fetch(`${apiUrl}/spawnAIBot`, { method: "POST", body: SpawnBotRequest.toBinary(request) }).then();
     }
 }
 

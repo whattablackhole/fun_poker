@@ -124,7 +124,7 @@ impl PostgresDatabase {
     pub fn create_lobby(&self, lobby: Lobby) -> i32 {
         let mut guard = self.client.lock().unwrap();
 
-        let query = "INSERT INTO lobbies(name, author_id, players_registered, game_name, game_type) VALUES($1, $2, $3, $4, $5) RETURNING id";
+        let query = "INSERT INTO lobbies(name, author_id, game_name, game_type) VALUES($1, $2, $3, $4) RETURNING id";
 
         let row = guard
             .query_one(
@@ -132,7 +132,6 @@ impl PostgresDatabase {
                 &[
                     &lobby.name,
                     &lobby.author_id,
-                    &lobby.players_registered,
                     &lobby.game_name(),
                     &lobby.game_type(),
                 ],
@@ -160,7 +159,6 @@ impl PostgresDatabase {
             let author_id: i32 = row.get("author_id");
             let game_type: GameType = row.get("game_type");
             let game_name: GameName = row.get("game_name");
-            let players_registered: i32 = row.get("players_registered");
 
             lobbies.push(Lobby {
                 id: Some(lobby_id),
@@ -168,7 +166,6 @@ impl PostgresDatabase {
                 author_id,
                 game_type: game_type.into(),
                 game_name: game_name.into(),
-                players_registered,
             });
         }
 
@@ -210,24 +207,12 @@ impl PostgresDatabase {
 
         client_lock.batch_execute(
             "
-        CREATE TABLE IF NOT EXISTS users (
-            id              SERIAL PRIMARY KEY,
-            name            VARCHAR NOT NULL,
-            country         VARCHAR NOT NULL,
-            email           VARCHAR(100) CHECK (email ~* '^.+@.+$')           
-            )
-        ",
-        )?;
-
-        client_lock.batch_execute(
-            "
       CREATE TYPE game_name_enum AS ENUM ('Holdem');  
       CREATE TYPE game_type_enum AS ENUM ('Tournament', 'Cash');      
       CREATE TABLE IF NOT EXISTS lobbies  (
         id              SERIAL PRIMARY KEY,
         name           VARCHAR NOT NULL,
-        author_id       INTEGER NOT NULL REFERENCES users,
-        players_registered INTEGER NOT NULL,
+        author_id       INTEGER NOT NULL,
         game_name game_name_enum NOT NULL,
         game_type game_type_enum NOT NULL
         )  
@@ -237,10 +222,10 @@ impl PostgresDatabase {
         client_lock.batch_execute(
             "
     CREATE TABLE IF NOT EXISTS players_lobbies (
-        player_lobby_id SERIAL PRIMARY KEY,
-        player_id INTEGER NOT NULL REFERENCES users(id),
-        lobby_id INTEGER NOT NULL REFERENCES lobbies(id)
-        )
+    player_id INTEGER NOT NULL,
+    lobby_id INTEGER NOT NULL REFERENCES lobbies(id),
+    PRIMARY KEY (player_id, lobby_id)
+);
 ",
         )?;
 

@@ -6,7 +6,6 @@ message Lobby {
   optional int32 id = 1;
   string name = 2;
   int32 author_id = 3;
-  int32 players_registered = 4;
   GameType game_type = 5;
   GameName game_name = 6;
 }

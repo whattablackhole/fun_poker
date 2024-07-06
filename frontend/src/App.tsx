@@ -13,6 +13,8 @@ import {
 import { ClientState } from "./types/client_state";
 import { UserContext } from "./providers/user-provider";
 
+const wsUrl = import.meta.env.VITE_WS_URL
+
 const initSocket = (url: string, skipConnecitonEstablishment = false) => {
   const ws = useRef<WebSocket | null>(null);
   const emitter = useRef<EventEmitter | null>(null);
@@ -119,10 +121,11 @@ const useAuth = () => {
 
 function App() {
   const user = useAuth();
-  const wsUrl = `wss://localhost:8080/ws`;
+
+  const wsRootUrl = wsUrl+"/ws";
 
   const { addEventListener, removeEventListener, ws, reconnect } = initSocket(
-    wsUrl,
+    wsRootUrl,
     !user
   );
 

@@ -4,3 +4,5 @@ RUN /usr/local/openresty/luajit/bin/luarocks install lua-resty-redis
 RUN /usr/local/openresty/luajit/bin/luarocks install lua-resty-jwt
 RUN /usr/local/openresty/luajit/bin/luarocks install lua-cjson
 RUN /usr/local/openresty/luajit/bin/luarocks install lua-resty-http
+
+COPY ./nginx.conf /usr/local/openresty/nginx/conf/nginx.conf

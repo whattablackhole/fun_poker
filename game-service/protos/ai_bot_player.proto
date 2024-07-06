@@ -1,7 +1,0 @@
-syntax = "proto3";
-
-package ai_bot_player;
-
-enum BotModel {
-    Llama3_70b_8192 = 0;
-}
