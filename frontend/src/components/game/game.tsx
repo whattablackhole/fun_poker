@@ -2,15 +2,16 @@ import { useEffect, useRef, useState } from "react";
 import PokerTable3d from "../poker_table_3d/poker-table-3d";
 import ApiService from "../../services/api.service";
 import BetHistory from "../../types/bet-history";
-import { ActionType, Card, Player, PlayerPayload } from "../../types";
+import { Card, Player } from "../../types";
 import GameStateService from "../../services/game-state.service";
 import GameControls from "../game-controls/game-controls";
 import "./game.css";
 import { useWebSocket } from "../../providers/web-socket-provider";
 import { ResponseMessageType } from "../../types/responses";
 import { ClientState } from "../../types/client_state";
-import { SpawnBotRequest } from "../../types/requests";
+import { PlayerActionRequest, SpawnBotRequest } from "../../types/requests";
 import { BotModel } from "../../types/ai_bot_player";
+import { ActionType } from "../../types/game_state";
 
 function Game() {
     // const canvasRef: RefObject<HTMLCanvasElement> = useRef(null);
@@ -48,8 +49,8 @@ function Game() {
     };
 
     const betClickHandler = (value: number, type: ActionType) => {
-        let payload = PlayerPayload.create({ action: { actionType: type, bet: value, playerId: selfPlayer.userId }, lobbyId: gameState?.lobbyId, playerId: selfPlayer.userId });
-        connection?.current?.send(PlayerPayload.toBinary(payload));
+        let payload = PlayerActionRequest.create({ action: { actionType: type, bet: value, playerId: selfPlayer.userId }, lobbyId: gameState?.lobbyId, playerId: selfPlayer.userId });
+        connection?.current?.send(PlayerActionRequest.toBinary(payload));
     };
 
     if (!gameState || !players) {

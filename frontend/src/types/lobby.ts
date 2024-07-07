@@ -27,10 +27,6 @@ export interface Lobby {
      */
     authorId: number;
     /**
-     * @generated from protobuf field: int32 players_registered = 4;
-     */
-    playersRegistered: number;
-    /**
      * @generated from protobuf field: lobby.GameType game_type = 5;
      */
     gameType: GameType;
@@ -77,7 +73,6 @@ class Lobby$Type extends MessageType<Lobby> {
             { no: 1, name: "id", kind: "scalar", opt: true, T: 5 /*ScalarType.INT32*/ },
             { no: 2, name: "name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
             { no: 3, name: "author_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
-            { no: 4, name: "players_registered", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
             { no: 5, name: "game_type", kind: "enum", T: () => ["lobby.GameType", GameType] },
             { no: 6, name: "game_name", kind: "enum", T: () => ["lobby.GameName", GameName] }
         ]);
@@ -86,7 +81,6 @@ class Lobby$Type extends MessageType<Lobby> {
         const message = globalThis.Object.create((this.messagePrototype!));
         message.name = "";
         message.authorId = 0;
-        message.playersRegistered = 0;
         message.gameType = 0;
         message.gameName = 0;
         if (value !== undefined)
@@ -106,9 +100,6 @@ class Lobby$Type extends MessageType<Lobby> {
                     break;
                 case /* int32 author_id */ 3:
                     message.authorId = reader.int32();
-                    break;
-                case /* int32 players_registered */ 4:
-                    message.playersRegistered = reader.int32();
                     break;
                 case /* lobby.GameType game_type */ 5:
                     message.gameType = reader.int32();
@@ -137,9 +128,6 @@ class Lobby$Type extends MessageType<Lobby> {
         /* int32 author_id = 3; */
         if (message.authorId !== 0)
             writer.tag(3, WireType.Varint).int32(message.authorId);
-        /* int32 players_registered = 4; */
-        if (message.playersRegistered !== 0)
-            writer.tag(4, WireType.Varint).int32(message.playersRegistered);
         /* lobby.GameType game_type = 5; */
         if (message.gameType !== 0)
             writer.tag(5, WireType.Varint).int32(message.gameType);

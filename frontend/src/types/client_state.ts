@@ -10,7 +10,7 @@ import { UnknownFieldHandler } from "@protobuf-ts/runtime";
 import type { PartialMessage } from "@protobuf-ts/runtime";
 import { reflectionMergePartial } from "@protobuf-ts/runtime";
 import { MessageType } from "@protobuf-ts/runtime";
-import { Action } from "./player";
+import { Action } from "./game_state";
 import { BoolValue } from "./google/protobuf/wrappers";
 import { ShowdownOutcome } from "./game_state";
 import { Player } from "./player";
@@ -79,7 +79,7 @@ export interface ClientState {
      */
     canRaise?: BoolValue; // Optional because the game might not be started
     /**
-     * @generated from protobuf field: repeated player.Action action_history = 15;
+     * @generated from protobuf field: repeated game_state.Action action_history = 15;
      */
     actionHistory: Action[]; // Might be empty if the game hasn't started
 }
@@ -162,7 +162,7 @@ class ClientState$Type extends MessageType<ClientState> {
                 case /* google.protobuf.BoolValue can_raise */ 14:
                     message.canRaise = BoolValue.internalBinaryRead(reader, reader.uint32(), options, message.canRaise);
                     break;
-                case /* repeated player.Action action_history */ 15:
+                case /* repeated game_state.Action action_history */ 15:
                     message.actionHistory.push(Action.internalBinaryRead(reader, reader.uint32(), options));
                     break;
                 default:
@@ -219,7 +219,7 @@ class ClientState$Type extends MessageType<ClientState> {
         /* google.protobuf.BoolValue can_raise = 14; */
         if (message.canRaise)
             BoolValue.internalBinaryWrite(message.canRaise, writer.tag(14, WireType.LengthDelimited).fork(), options).join();
-        /* repeated player.Action action_history = 15; */
+        /* repeated game_state.Action action_history = 15; */
         for (let i = 0; i < message.actionHistory.length; i++)
             Action.internalBinaryWrite(message.actionHistory[i], writer.tag(15, WireType.LengthDelimited).fork(), options).join();
         let u = options.writeUnknownFields;

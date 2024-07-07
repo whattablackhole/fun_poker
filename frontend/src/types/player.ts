@@ -10,8 +10,8 @@ import { UnknownFieldHandler } from "@protobuf-ts/runtime";
 import type { PartialMessage } from "@protobuf-ts/runtime";
 import { reflectionMergePartial } from "@protobuf-ts/runtime";
 import { MessageType } from "@protobuf-ts/runtime";
-import { StreetStatus } from "./game_state";
 import { CardPair } from "./card";
+import { Action } from "./game_state";
 /**
  * @generated from protobuf message player.Player
  */
@@ -29,7 +29,7 @@ export interface Player {
      */
     country: string;
     /**
-     * @generated from protobuf field: optional player.Action action = 4;
+     * @generated from protobuf field: optional game_state.Action action = 4;
      */
     action?: Action;
     /**
@@ -54,46 +54,6 @@ export interface Player {
     isBot: boolean;
 }
 /**
- * @generated from protobuf message player.PlayerPayload
- */
-export interface PlayerPayload {
-    /**
-     * @generated from protobuf field: int32 player_id = 1;
-     */
-    playerId: number;
-    /**
-     * @generated from protobuf field: int32 lobby_id = 2;
-     */
-    lobbyId: number;
-    /**
-     * @generated from protobuf field: player.Action action = 3;
-     */
-    action?: Action;
-}
-/**
- * ? INTRODUCE ACTION HISTORY ?
- *
- * @generated from protobuf message player.Action
- */
-export interface Action {
-    /**
-     * @generated from protobuf field: player.ActionType action_type = 1;
-     */
-    actionType: ActionType;
-    /**
-     * @generated from protobuf field: int32 bet = 2;
-     */
-    bet: number;
-    /**
-     * @generated from protobuf field: int32 player_id = 3;
-     */
-    playerId: number;
-    /**
-     * @generated from protobuf field: optional game_state.StreetStatus street_status = 4;
-     */
-    streetStatus?: StreetStatus;
-}
-/**
  * @generated from protobuf enum player.PlayerStatus
  */
 export enum PlayerStatus {
@@ -112,34 +72,11 @@ export enum PlayerStatus {
     /**
      * @generated from protobuf enum value: Disconnected = 3;
      */
-    Disconnected = 3
-}
-/**
- * remove last two??
- *
- * @generated from protobuf enum player.ActionType
- */
-export enum ActionType {
+    Disconnected = 3,
     /**
-     * @generated from protobuf enum value: Fold = 0;
+     * @generated from protobuf enum value: Eliminated = 4;
      */
-    Fold = 0,
-    /**
-     * @generated from protobuf enum value: Call = 1;
-     */
-    Call = 1,
-    /**
-     * @generated from protobuf enum value: Raise = 2;
-     */
-    Raise = 2,
-    /**
-     * @generated from protobuf enum value: Blind = 3;
-     */
-    Blind = 3,
-    /**
-     * @generated from protobuf enum value: Empty = 4;
-     */
-    Empty = 4
+    Eliminated = 4
 }
 // @generated message type with reflection information, may provide speed optimized methods
 class Player$Type extends MessageType<Player> {
@@ -183,7 +120,7 @@ class Player$Type extends MessageType<Player> {
                 case /* string country */ 3:
                     message.country = reader.string();
                     break;
-                case /* optional player.Action action */ 4:
+                case /* optional game_state.Action action */ 4:
                     message.action = Action.internalBinaryRead(reader, reader.uint32(), options, message.action);
                     break;
                 case /* int32 bank */ 5:
@@ -222,7 +159,7 @@ class Player$Type extends MessageType<Player> {
         /* string country = 3; */
         if (message.country !== "")
             writer.tag(3, WireType.LengthDelimited).string(message.country);
-        /* optional player.Action action = 4; */
+        /* optional game_state.Action action = 4; */
         if (message.action)
             Action.internalBinaryWrite(message.action, writer.tag(4, WireType.LengthDelimited).fork(), options).join();
         /* int32 bank = 5; */
@@ -250,135 +187,3 @@ class Player$Type extends MessageType<Player> {
  * @generated MessageType for protobuf message player.Player
  */
 export const Player = new Player$Type();
-// @generated message type with reflection information, may provide speed optimized methods
-class PlayerPayload$Type extends MessageType<PlayerPayload> {
-    constructor() {
-        super("player.PlayerPayload", [
-            { no: 1, name: "player_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
-            { no: 2, name: "lobby_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
-            { no: 3, name: "action", kind: "message", T: () => Action }
-        ]);
-    }
-    create(value?: PartialMessage<PlayerPayload>): PlayerPayload {
-        const message = globalThis.Object.create((this.messagePrototype!));
-        message.playerId = 0;
-        message.lobbyId = 0;
-        if (value !== undefined)
-            reflectionMergePartial<PlayerPayload>(this, message, value);
-        return message;
-    }
-    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: PlayerPayload): PlayerPayload {
-        let message = target ?? this.create(), end = reader.pos + length;
-        while (reader.pos < end) {
-            let [fieldNo, wireType] = reader.tag();
-            switch (fieldNo) {
-                case /* int32 player_id */ 1:
-                    message.playerId = reader.int32();
-                    break;
-                case /* int32 lobby_id */ 2:
-                    message.lobbyId = reader.int32();
-                    break;
-                case /* player.Action action */ 3:
-                    message.action = Action.internalBinaryRead(reader, reader.uint32(), options, message.action);
-                    break;
-                default:
-                    let u = options.readUnknownField;
-                    if (u === "throw")
-                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
-                    let d = reader.skip(wireType);
-                    if (u !== false)
-                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
-            }
-        }
-        return message;
-    }
-    internalBinaryWrite(message: PlayerPayload, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
-        /* int32 player_id = 1; */
-        if (message.playerId !== 0)
-            writer.tag(1, WireType.Varint).int32(message.playerId);
-        /* int32 lobby_id = 2; */
-        if (message.lobbyId !== 0)
-            writer.tag(2, WireType.Varint).int32(message.lobbyId);
-        /* player.Action action = 3; */
-        if (message.action)
-            Action.internalBinaryWrite(message.action, writer.tag(3, WireType.LengthDelimited).fork(), options).join();
-        let u = options.writeUnknownFields;
-        if (u !== false)
-            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
-        return writer;
-    }
-}
-/**
- * @generated MessageType for protobuf message player.PlayerPayload
- */
-export const PlayerPayload = new PlayerPayload$Type();
-// @generated message type with reflection information, may provide speed optimized methods
-class Action$Type extends MessageType<Action> {
-    constructor() {
-        super("player.Action", [
-            { no: 1, name: "action_type", kind: "enum", T: () => ["player.ActionType", ActionType] },
-            { no: 2, name: "bet", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
-            { no: 3, name: "player_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
-            { no: 4, name: "street_status", kind: "enum", opt: true, T: () => ["game_state.StreetStatus", StreetStatus] }
-        ]);
-    }
-    create(value?: PartialMessage<Action>): Action {
-        const message = globalThis.Object.create((this.messagePrototype!));
-        message.actionType = 0;
-        message.bet = 0;
-        message.playerId = 0;
-        if (value !== undefined)
-            reflectionMergePartial<Action>(this, message, value);
-        return message;
-    }
-    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: Action): Action {
-        let message = target ?? this.create(), end = reader.pos + length;
-        while (reader.pos < end) {
-            let [fieldNo, wireType] = reader.tag();
-            switch (fieldNo) {
-                case /* player.ActionType action_type */ 1:
-                    message.actionType = reader.int32();
-                    break;
-                case /* int32 bet */ 2:
-                    message.bet = reader.int32();
-                    break;
-                case /* int32 player_id */ 3:
-                    message.playerId = reader.int32();
-                    break;
-                case /* optional game_state.StreetStatus street_status */ 4:
-                    message.streetStatus = reader.int32();
-                    break;
-                default:
-                    let u = options.readUnknownField;
-                    if (u === "throw")
-                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
-                    let d = reader.skip(wireType);
-                    if (u !== false)
-                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
-            }
-        }
-        return message;
-    }
-    internalBinaryWrite(message: Action, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
-        /* player.ActionType action_type = 1; */
-        if (message.actionType !== 0)
-            writer.tag(1, WireType.Varint).int32(message.actionType);
-        /* int32 bet = 2; */
-        if (message.bet !== 0)
-            writer.tag(2, WireType.Varint).int32(message.bet);
-        /* int32 player_id = 3; */
-        if (message.playerId !== 0)
-            writer.tag(3, WireType.Varint).int32(message.playerId);
-        /* optional game_state.StreetStatus street_status = 4; */
-        if (message.streetStatus !== undefined)
-            writer.tag(4, WireType.Varint).int32(message.streetStatus);
-        let u = options.writeUnknownFields;
-        if (u !== false)
-            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
-        return writer;
-    }
-}
-/**
- * @generated MessageType for protobuf message player.Action
- */
-export const Action = new Action$Type();

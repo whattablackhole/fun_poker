@@ -1,8 +1,11 @@
 import { LobbyList } from "../types/lobby";
 import { CreateLobbyRequest, JoinLobbyRequest, SpawnBotRequest, StartGameRequest } from "../types/requests";
 
+const in_docker = import.meta.env.VITE_RUN_IN_DOCKER;
 
-const apiUrl = import.meta.env.VITE_API_URL;
+const default_url = import.meta.env.VITE_API_URL;
+
+const apiUrl = !!in_docker ? "/api" : default_url;
 
 class ApiService {
     public static getLobbies(): Promise<LobbyList> {

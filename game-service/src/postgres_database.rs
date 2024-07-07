@@ -3,6 +3,8 @@ use postgres::{Client, NoTls};
 use prost::bytes::{Buf, BytesMut};
 use std::io::BufRead;
 use std::sync::Mutex;
+use std::thread;
+use std::time::{Duration, SystemTime};
 
 use crate::protos::lobby::{GameName, GameType, Lobby, LobbyList};
 use crate::protos::user::User;
@@ -89,11 +91,25 @@ impl FromSql<'_> for GameType {
 
 impl PostgresDatabase {
     pub fn new(url: &str) -> Result<PostgresDatabase, postgres::Error> {
-        let client = Client::connect(url, NoTls)?;
+        let current_time = SystemTime::now();
 
-        Ok(PostgresDatabase {
-            client: Mutex::new(client),
-        })
+        loop {
+            let client = Client::connect(url, NoTls);
+
+            match client {
+                Ok(c) => {
+                    return Ok(PostgresDatabase {
+                        client: Mutex::new(c),
+                    });
+                }
+                Err(err) => {
+                    if current_time.elapsed().unwrap() > Duration::from_secs(10) {
+                        return Err(err);
+                    }
+                    thread::sleep(Duration::from_secs(3))
+                }
+            }
+        }
     }
 
     pub fn get_users_by_lobby_id(&self, lobby_id: i32) -> Vec<User> {

@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { ActionType, ClientState, Player } from "../../types";
+import { ClientState, Player } from "../../types";
 import "./game-controls.css";
 import InputSlider from "./bet-slider";
 import { Button, Grid } from "@mui/material";
+import { ActionType } from "../../types/game_state";
 
 function GameControls({
   gameState,

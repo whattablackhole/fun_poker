@@ -4,10 +4,11 @@ import PokerCard from '../poker_card/poker-card.tsx';
 import { ClientState } from '../../types/client_state.ts';
 import { Card } from '../../types/card.ts';
 import ApiService from '../../services/api.service.ts';
-import { ActionType, Player, PlayerPayload } from '../../types/player.ts';
+import { Player } from '../../types/player.ts';
 import TimerBanner from '../timer_banner/timer-banner.tsx';
 import { StreetStatus } from '../../types/game_state.ts';
 import mockState from '../../mocks/client-state.mock.ts';
+
 
 type PlayerId = number;
 type BetAmount = number;
@@ -50,7 +51,7 @@ function PokerTable(init_state: ClientState) {
     };
     const nextStepHandler = (type: ActionType) => {
         let value = Number.parseInt(!!betInputRef.current?.value.length ? betInputRef.current?.value : "0");
-        let payload = PlayerPayload.create({ action: { actionType: type, bet: value }, lobbyId: state.lobbyId, playerId: state.playerId });
+        let payload = PlayerActionRequest.create({ action: { actionType: type, bet: value }, lobbyId: state.lobbyId, playerId: state.playerId });
 
         ApiService.sendMessage(payload);
     }

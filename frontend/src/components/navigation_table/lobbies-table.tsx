@@ -31,7 +31,6 @@ function LobbiesTable({ joinLobbyHandler }: { joinLobbyHandler: (...args: any) =
         author: el.authorId,
         game: GameName[el.gameName],
         type: GameType[el.gameType],
-        registered: el.playersRegistered.toString(),
         id: el.id!
     }))
 

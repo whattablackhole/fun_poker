@@ -109,7 +109,8 @@ const useAuth = () => {
 
   useEffect(() => {
     const authenticate = (): { id: number } | undefined => {
-      return undefined;
+      // return undefined;
+      return {id: 1};
     };
 
     const user = authenticate();

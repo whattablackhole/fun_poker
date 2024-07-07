@@ -73,6 +73,27 @@ export interface ShowdownOutcome {
     processFlopAutomatically: boolean;
 }
 /**
+ * @generated from protobuf message game_state.Action
+ */
+export interface Action {
+    /**
+     * @generated from protobuf field: game_state.ActionType action_type = 1;
+     */
+    actionType: ActionType;
+    /**
+     * @generated from protobuf field: int32 bet = 2;
+     */
+    bet: number;
+    /**
+     * @generated from protobuf field: int32 player_id = 3;
+     */
+    playerId: number;
+    /**
+     * @generated from protobuf field: optional game_state.StreetStatus street_status = 4;
+     */
+    streetStatus?: StreetStatus;
+}
+/**
  * @generated from protobuf enum game_state.StreetStatus
  */
 export enum StreetStatus {
@@ -113,6 +134,31 @@ export enum GameStatus {
      * @generated from protobuf enum value: WaitingForPlayers = 3;
      */
     WaitingForPlayers = 3
+}
+/**
+ * @generated from protobuf enum game_state.ActionType
+ */
+export enum ActionType {
+    /**
+     * @generated from protobuf enum value: Fold = 0;
+     */
+    Fold = 0,
+    /**
+     * @generated from protobuf enum value: Call = 1;
+     */
+    Call = 1,
+    /**
+     * @generated from protobuf enum value: Raise = 2;
+     */
+    Raise = 2,
+    /**
+     * @generated from protobuf enum value: Check = 3;
+     */
+    Check = 3,
+    /**
+     * @generated from protobuf enum value: Blind = 4;
+     */
+    Blind = 4
 }
 // @generated message type with reflection information, may provide speed optimized methods
 class Street$Type extends MessageType<Street> {
@@ -348,3 +394,73 @@ class ShowdownOutcome$Type extends MessageType<ShowdownOutcome> {
  * @generated MessageType for protobuf message game_state.ShowdownOutcome
  */
 export const ShowdownOutcome = new ShowdownOutcome$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class Action$Type extends MessageType<Action> {
+    constructor() {
+        super("game_state.Action", [
+            { no: 1, name: "action_type", kind: "enum", T: () => ["game_state.ActionType", ActionType] },
+            { no: 2, name: "bet", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 3, name: "player_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 4, name: "street_status", kind: "enum", opt: true, T: () => ["game_state.StreetStatus", StreetStatus] }
+        ]);
+    }
+    create(value?: PartialMessage<Action>): Action {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.actionType = 0;
+        message.bet = 0;
+        message.playerId = 0;
+        if (value !== undefined)
+            reflectionMergePartial<Action>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: Action): Action {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* game_state.ActionType action_type */ 1:
+                    message.actionType = reader.int32();
+                    break;
+                case /* int32 bet */ 2:
+                    message.bet = reader.int32();
+                    break;
+                case /* int32 player_id */ 3:
+                    message.playerId = reader.int32();
+                    break;
+                case /* optional game_state.StreetStatus street_status */ 4:
+                    message.streetStatus = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: Action, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* game_state.ActionType action_type = 1; */
+        if (message.actionType !== 0)
+            writer.tag(1, WireType.Varint).int32(message.actionType);
+        /* int32 bet = 2; */
+        if (message.bet !== 0)
+            writer.tag(2, WireType.Varint).int32(message.bet);
+        /* int32 player_id = 3; */
+        if (message.playerId !== 0)
+            writer.tag(3, WireType.Varint).int32(message.playerId);
+        /* optional game_state.StreetStatus street_status = 4; */
+        if (message.streetStatus !== undefined)
+            writer.tag(4, WireType.Varint).int32(message.streetStatus);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message game_state.Action
+ */
+export const Action = new Action$Type();

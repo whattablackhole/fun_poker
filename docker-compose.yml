@@ -38,7 +38,7 @@ services:
     ports:
       - "5434:5434"
     volumes: 
-      - ./docker/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+      - ./game-service/docker/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
       - pgdata2:/var/lib/postgresql/data
   game-service:
     container_name: game-service
@@ -103,10 +103,12 @@ services:
     environment:
       - VITE_CERT_PATH=/app/localhost.crt
       - VITE_PRIVATE_KEY_PATH=/app/localhost.key
-      - VITE_API_URL=load-balancer
+      - VITE_API_URL=https://load-balancer:8082
       - VITE_AUTH_URL=auth-service
+      - VITE_RUN_IN_DOCKER=true
       # - VITE_WS_URL
     volumes:
+      - ./frontend/src:/app/src
       - ./localhost.crt:/app/localhost.crt
       - ./localhost.key:/app/localhost.key
 volumes:

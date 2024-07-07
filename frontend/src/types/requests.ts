@@ -10,6 +10,7 @@ import { UnknownFieldHandler } from "@protobuf-ts/runtime";
 import type { PartialMessage } from "@protobuf-ts/runtime";
 import { reflectionMergePartial } from "@protobuf-ts/runtime";
 import { MessageType } from "@protobuf-ts/runtime";
+import { Action } from "./game_state";
 import { BotModel } from "./ai_bot_player";
 import { Lobby } from "./lobby";
 /**
@@ -72,6 +73,23 @@ export interface SpawnBotRequest {
      * @generated from protobuf field: ai_bot_player.BotModel model = 2;
      */
     model: BotModel;
+}
+/**
+ * @generated from protobuf message requests.PlayerActionRequest
+ */
+export interface PlayerActionRequest {
+    /**
+     * @generated from protobuf field: int32 player_id = 1;
+     */
+    playerId: number;
+    /**
+     * @generated from protobuf field: int32 lobby_id = 2;
+     */
+    lobbyId: number;
+    /**
+     * @generated from protobuf field: game_state.Action action = 3;
+     */
+    action?: Action;
 }
 // @generated message type with reflection information, may provide speed optimized methods
 class JoinLobbyRequest$Type extends MessageType<JoinLobbyRequest> {
@@ -339,3 +357,65 @@ class SpawnBotRequest$Type extends MessageType<SpawnBotRequest> {
  * @generated MessageType for protobuf message requests.SpawnBotRequest
  */
 export const SpawnBotRequest = new SpawnBotRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class PlayerActionRequest$Type extends MessageType<PlayerActionRequest> {
+    constructor() {
+        super("requests.PlayerActionRequest", [
+            { no: 1, name: "player_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "lobby_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 3, name: "action", kind: "message", T: () => Action }
+        ]);
+    }
+    create(value?: PartialMessage<PlayerActionRequest>): PlayerActionRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.playerId = 0;
+        message.lobbyId = 0;
+        if (value !== undefined)
+            reflectionMergePartial<PlayerActionRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: PlayerActionRequest): PlayerActionRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 player_id */ 1:
+                    message.playerId = reader.int32();
+                    break;
+                case /* int32 lobby_id */ 2:
+                    message.lobbyId = reader.int32();
+                    break;
+                case /* game_state.Action action */ 3:
+                    message.action = Action.internalBinaryRead(reader, reader.uint32(), options, message.action);
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: PlayerActionRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 player_id = 1; */
+        if (message.playerId !== 0)
+            writer.tag(1, WireType.Varint).int32(message.playerId);
+        /* int32 lobby_id = 2; */
+        if (message.lobbyId !== 0)
+            writer.tag(2, WireType.Varint).int32(message.lobbyId);
+        /* game_state.Action action = 3; */
+        if (message.action)
+            Action.internalBinaryWrite(message.action, writer.tag(3, WireType.LengthDelimited).fork(), options).join();
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message requests.PlayerActionRequest
+ */
+export const PlayerActionRequest = new PlayerActionRequest$Type();
