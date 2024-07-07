@@ -12,8 +12,14 @@ import {
 } from "./types/responses";
 import { ClientState } from "./types/client_state";
 import { UserContext } from "./providers/user-provider";
+import NavigationHeader from "./components/navigation_header/navigation-header";
+import { Container } from "@mui/material";
+import CreateLobbyDialog from "./components/popups/create-lobby-dialog";
+import GoogleSignIn from "./providers/google-signin-provider";
+import ApiService from "./services/api.service";
+import { User } from "./types/user";
 
-const wsUrl = import.meta.env.VITE_WS_URL
+const wsUrl = import.meta.env.VITE_WS_URL;
 
 const initSocket = (url: string, skipConnecitonEstablishment = false) => {
   const ws = useRef<WebSocket | null>(null);
@@ -105,30 +111,39 @@ const initSocket = (url: string, skipConnecitonEstablishment = false) => {
 };
 
 const useAuth = () => {
-  const [user, setUser] = useState<{ id: number } | undefined>(undefined);
+  const [user, setUser] = useState<User | undefined>(undefined);
 
   useEffect(() => {
-    const authenticate = (): { id: number } | undefined => {
-      // return undefined;
-      return {id: 1};
-    };
-
-    const user = authenticate();
-    setUser(user);
+    // const loggedInUser = fetchUser();
+    // if (loggedInUser) setUser(loggedInUser);
   }, []);
 
-  return user;
+  const login = (user: User) => {
+    console.log(user);
+    setUser(user);
+  };
+
+  const logout = async () => {
+    setUser(undefined);
+    await ApiService.logout();
+  };
+
+  return { user, login, logout };
 };
 
 function App() {
-  const user = useAuth();
+  const { user, login, logout } = useAuth();
 
-  const wsRootUrl = wsUrl+"/ws";
+  const wsRootUrl = wsUrl + "/ws";
 
   const { addEventListener, removeEventListener, ws, reconnect } = initSocket(
     wsRootUrl,
     !user
   );
+
+  const signInByGoogleHandler = async (user: User) => {
+    login(user);
+  };
 
   const router = createBrowserRouter([
     {
@@ -149,18 +164,47 @@ function App() {
     },
   ]);
   return (
-    <WebSocketContext.Provider
-      value={{
-        addEventListener,
-        removeEventListener,
-        connection: ws,
-        reconnect,
-      }}
-    >
-      <UserContext.Provider value={{ user }}>
-        <RouterProvider router={router}></RouterProvider>
-      </UserContext.Provider>
-    </WebSocketContext.Provider>
+    <div style={{ background: "linear-gradient(to bottom, #290133, white)" }}>
+      <NavigationHeader>
+        <Container
+          sx={{
+            flexDirection: "row",
+            display: "flex",
+            justifyContent: "space-between",
+          }}
+        >
+          <CreateLobbyDialog></CreateLobbyDialog>
+          <div style={{ display: "flex", alignItems: "flex-end" }}>
+            {user ? (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "15px",
+                }}
+              >
+                <div>{user.name}</div>
+                <button onClick={logout}>Logout</button>
+              </div>
+            ) : (
+              <GoogleSignIn signInHandler={signInByGoogleHandler} />
+            )}
+          </div>
+        </Container>
+      </NavigationHeader>
+      <WebSocketContext.Provider
+        value={{
+          addEventListener,
+          removeEventListener,
+          connection: ws,
+          reconnect,
+        }}
+      >
+        <UserContext.Provider value={{ user }}>
+          <RouterProvider router={router}></RouterProvider>
+        </UserContext.Provider>
+      </WebSocketContext.Provider>
+    </div>
   );
 }
 export default App;

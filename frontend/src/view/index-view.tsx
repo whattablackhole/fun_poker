@@ -1,9 +1,6 @@
-import NavigationHeader from "../components/navigation_header/navigation-header.tsx";
 import LobbiesTable from "../components/navigation_table/lobbies-table.tsx";
 import { useNavigate } from "react-router-dom";
-import CreateLobbyDialog from "../components/popups/create-lobby-dialog.tsx";
 import { Container } from "@mui/material";
-import GoogleSignIn from "../providers/google-signin-provider.tsx";
 import { useWebSocket } from "../providers/web-socket-provider.tsx";
 import CreateTempUserDialog from "../components/popups/temporal-user-creation-dialog.tsx";
 import { useState } from "react";
@@ -55,29 +52,15 @@ function IndexView() {
         display: "flex",
         flexDirection: "column",
         gap: "100px",
-        background: "linear-gradient(to bottom, #290133, white)",
       }}
     >
-      <NavigationHeader>
-        <Container
-          sx={{
-            flexDirection: "row",
-            display: "flex",
-            justifyContent: "space-between",
-          }}
-        >
-          <CreateLobbyDialog></CreateLobbyDialog>
-          <div style={{ display: "flex", alignItems: "flex-end" }}>
-            <GoogleSignIn />
-          </div>
-        </Container>
-      </NavigationHeader>
+     
       <Container
         sx={{ flexDirection: "column", display: "flex", alignItems: "center" }}
       >
         <div>
           <img
-            src={"./src/assets/logo_no_background.svg"}
+            src={"/src/assets/logo_no_background.svg"}
             width={500}
             height={500}
             style={{ alignSelf: "center" }}

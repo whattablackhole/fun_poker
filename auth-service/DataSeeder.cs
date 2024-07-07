@@ -17,9 +17,9 @@ public class DataSeeder
             return;
         }
         var users = new List<User>{
-            new User {UserName = "user1", Email = "user1@gmail.com", CreatedAt = DateTime.UtcNow, Password = BC.HashPassword("my password1"), Uuid = Guid.NewGuid(), CountryCode = "UA"},
-            new User {UserName = "user2", Email = "user2@gmail.com", CreatedAt = DateTime.UtcNow, Password = BC.HashPassword("my password2"), Uuid = Guid.NewGuid(), CountryCode = "UA"},
-            new User {UserName = "user3", Email = "user3@gmail.com", CreatedAt = DateTime.UtcNow, Password = BC.HashPassword("my password3"), Uuid = Guid.NewGuid(), CountryCode = "UA"}
+            new User {Name = "user1", Email = "user1@gmail.com", CreatedAt = DateTime.UtcNow, Password = BC.HashPassword("my password1"), CountryCode = "UA"},
+            new User {Name = "user2", Email = "user2@gmail.com", CreatedAt = DateTime.UtcNow, Password = BC.HashPassword("my password2"), CountryCode = "UA"},
+            new User {Name = "user3", Email = "user3@gmail.com", CreatedAt = DateTime.UtcNow, Password = BC.HashPassword("my password3"), CountryCode = "UA"}
         };
         try
         {

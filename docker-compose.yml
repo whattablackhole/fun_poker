@@ -17,8 +17,10 @@ services:
       dockerfile: Dockerfile.dev
     ports:
       - "5004:5004"
-    # volumes:
-    #   - ./auth-service:/src/auth-service
+    volumes:
+      - ./auth-service/Controllers:/src/auth-service/Controllers
+      - ./auth-service/Services:/src/auth-service/Services
+      - ./auth-service/Program.cs:/src/auth-service/Program.cs
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - DOTNET_USE_POLLING_FILE_WATCHER=1
@@ -104,7 +106,7 @@ services:
       - VITE_CERT_PATH=/app/localhost.crt
       - VITE_PRIVATE_KEY_PATH=/app/localhost.key
       - VITE_API_URL=https://load-balancer:8082
-      - VITE_AUTH_URL=auth-service
+      - VITE_AUTH_URL=https://auth-service:5004
       - VITE_RUN_IN_DOCKER=true
       # - VITE_WS_URL
     volumes:

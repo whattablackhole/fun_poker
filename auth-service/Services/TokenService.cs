@@ -22,17 +22,41 @@ public class TokenService
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity([
-                new Claim(ClaimTypes.Name, user.UserName),
+                new Claim(ClaimTypes.Name, user.Name),
                 new Claim(ClaimTypes.Email, user.Email),
                 new Claim(ClaimTypes.SerialNumber, user.Id.ToString())
             ]),
-            Expires = DateTime.UtcNow.AddHours(1),
+            Expires = DateTime.UtcNow.AddHours(3),
             SigningCredentials = new SigningCredentials(new RsaSecurityKey(_secretKey), SecurityAlgorithms.RsaSha256),
         };
 
         var token = tokenHandler.CreateToken(tokenDescriptor);
         return tokenHandler.WriteToken(token);
     }
+
+    public RefreshToken GenerateRefreshTokenEntity(int userId)
+    {
+        var refreshToken = GenerateRandomToken();
+
+        return new RefreshToken
+        {
+            Token = refreshToken,
+            Expires = DateTime.UtcNow.AddDays(7),
+            Created = DateTime.UtcNow,
+            UserId = userId
+        };
+    }
+
+    public string GenerateRandomToken()
+    {
+        var randomNumber = new byte[32];
+        using (var rng = RandomNumberGenerator.Create())
+        {
+            rng.GetBytes(randomNumber);
+            return Convert.ToBase64String(randomNumber);
+        }
+    }
+
 
     public string GenerateUnauthorizedToken(IEnumerable<Claim> claims)
     {

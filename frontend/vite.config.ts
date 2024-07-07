@@ -4,7 +4,15 @@ import react from "@vitejs/plugin-react-swc";
 export default defineConfig(({ mode }) => {
   process.env = { ...process.env, ...loadEnv(mode, process.cwd()) };
 
-  const usePolling = !!process.env.VITE_RUN_IN_DOCKER;
+  const run_in_docker = !!process.env.VITE_RUN_IN_DOCKER;
+
+  const api_url_target = process.env.VITE_API_URL;
+  const auth_url_target = process.env.VITE_AUTH_URL;
+
+  if (run_in_docker) {
+    process.env.VITE_API_URL = "/api";
+    process.env.VITE_AUTH_URL = "/authApi";
+  }
 
   return {
     plugins: [react()],
@@ -14,16 +22,22 @@ export default defineConfig(({ mode }) => {
         key: `${process.env.VITE_PRIVATE_KEY_PATH}`,
       },
       watch: {
-        usePolling: usePolling,
+        usePolling: run_in_docker,
       },
       proxy:
-        mode === "development"
+        mode === "development" && run_in_docker
           ? {
               "/api": {
-                target: process.env.VITE_API_URL,
+                target: api_url_target,
                 changeOrigin: true,
                 rewrite: (path) => path.replace(/^\/api/, ""),
                 secure: false,
+              },
+              "/authApi": {
+                target: auth_url_target,
+                changeOrigin: true,
+                rewrite: (path) => path.replace(/^\/authApi/, ""),
+                secure: false
               },
             }
           : undefined,

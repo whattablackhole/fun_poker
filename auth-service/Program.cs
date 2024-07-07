@@ -45,12 +45,17 @@ builder.Services.AddScoped(_ =>
     return new TokenService(privateKeyParams);
 });
 
+builder.Services.AddScoped(_ =>
+{
+    return new CookieService();
+});
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowOriginDevelopment",
         builder =>
         {
-            builder.WithOrigins("https://localhost:5173")
+            builder.WithOrigins(["https://localhost:5173", "https://localhost:5174"])
                    .AllowAnyHeader()
                    .AllowAnyMethod()
                    .AllowCredentials();
