@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Google.Apis.Auth;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -90,20 +91,19 @@ public class AuthController : ControllerBase
             await _dbContext.SaveChangesAsync();
             user = newUser;
         };
-
         var token = _tokenService.GenerateToken(user);
         var refreshTokenEntity = _tokenService.GenerateRefreshTokenEntity(user.Id);
 
         await _dbContext.RefreshTokens.AddAsync(refreshTokenEntity);
 
-        _cookieService.SetCookie(Response, "access_token", token, SameSiteMode.None, true, true, TimeSpan.FromHours(3));
+        _cookieService.SetCookie(Response, "access_token", token, SameSiteMode.Strict, true, true, TimeSpan.FromHours(3));
         _cookieService.SetCookie(Response, "refresh_token", refreshTokenEntity.Token, SameSiteMode.Strict, true, true, TimeSpan.FromDays(7), "refresh_token");
 
         return Ok(new { User = user });
     }
 
 
-    [HttpGet("refresh_token")]
+    [HttpGet("refresh-token")]
     public async Task<IActionResult> RefreshAccessToken()
     {
         string? refreshToken;
@@ -125,7 +125,6 @@ public class AuthController : ControllerBase
             {
                 return Unauthorized();
             }
-
             var token = _tokenService.GenerateToken(user);
             var refreshTokenEntity = _tokenService.GenerateRefreshTokenEntity(user.Id);
 
@@ -166,9 +165,88 @@ public class AuthController : ControllerBase
         }
     }
 
+
+    [HttpGet("get-user")]
+    public async Task<IActionResult> getUser()
+    {
+        string? accessToken;
+
+        var accessTokenExists = Request.Cookies.TryGetValue("access_token", out accessToken);
+
+        if (!accessTokenExists || accessToken == null)
+        {
+            return Unauthorized("Access token not found or invalid.");
+        }
+
+        var tokenValidationResult = await _tokenService.ValidateTokenAsync(accessToken);
+
+        if (!tokenValidationResult.IsValid)
+        {
+            return Unauthorized("Access token validation failed.");
+        }
+
+        var userId = tokenValidationResult.ClaimsIdentity.FindFirst(ClaimTypes.SerialNumber);
+
+        if (userId == null)
+        {
+            return Unauthorized("User ID not found in token claims.");
+        }
+
+        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id.ToString() == userId.Value);
+
+        if (user == null)
+        {
+            return NotFound("User not found.");
+        }
+        // TODO: filter user fields
+        return Ok(new { User = user });
+    }
+
+
+     public class UserDto
+    {
+        public required string UserName { get; set; }
+        public required string CountryCode { get; set; }
+    }
+
+    [HttpPost("unauthorized_session_token")]
+    public IActionResult UnauthorizedSessionToken([FromBody] UserDto user)
+    {
+        string? existingToken = Request.Cookies["access_token"];
+
+        if (existingToken != null)
+        {
+            return BadRequest("Invalid Payload");
+        }
+
+        Random random = new Random();
+
+        var id = random.Next(int.MinValue, -1);
+
+        IEnumerable<Claim> claims = [
+                new Claim(ClaimTypes.Anonymous, "true"),
+                new Claim(ClaimTypes.NameIdentifier, id.ToString()),
+                new Claim(ClaimTypes.Country, user.CountryCode),
+                new Claim(ClaimTypes.Name, user.UserName),
+        ];
+        var token = _tokenService.GenerateUnauthorizedToken(claims);
+
+        Response.Cookies.Append("access_token", token, new CookieOptions
+        {
+            SameSite = SameSiteMode.Strict,
+            HttpOnly = true,
+            Secure = true,
+            MaxAge = TimeSpan.FromDays(1)
+        });
+
+        return Ok(new { Message = "Ok" });
+    }
+
+
     [HttpGet("logout")]
     public IActionResult Logout()
     {
+        // TODO: remove refresh_token from db
         _cookieService.SetCookie(Response, "access_token", "logout", SameSiteMode.None, true, true, TimeSpan.FromSeconds(-1));
         _cookieService.SetCookie(Response, "refresh_token", "logout", SameSiteMode.Strict, true, true, TimeSpan.FromSeconds(-1), "refresh_token");
 

@@ -7,11 +7,9 @@ export default defineConfig(({ mode }) => {
   const run_in_docker = !!process.env.VITE_RUN_IN_DOCKER;
 
   const api_url_target = process.env.VITE_API_URL;
-  const auth_url_target = process.env.VITE_AUTH_URL;
 
   if (run_in_docker) {
     process.env.VITE_API_URL = "/api";
-    process.env.VITE_AUTH_URL = "/authApi";
   }
 
   return {
@@ -32,12 +30,6 @@ export default defineConfig(({ mode }) => {
                 changeOrigin: true,
                 rewrite: (path) => path.replace(/^\/api/, ""),
                 secure: false,
-              },
-              "/authApi": {
-                target: auth_url_target,
-                changeOrigin: true,
-                rewrite: (path) => path.replace(/^\/authApi/, ""),
-                secure: false
               },
             }
           : undefined,

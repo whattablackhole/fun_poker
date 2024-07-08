@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using dotenv.net;
 using System.Security.Cryptography;
+using Microsoft.AspNetCore.HttpOverrides;
 
 
 DotEnv.Load(options: new DotEnvOptions(envFilePaths: ["../.env"]));
@@ -15,6 +16,13 @@ static RSAParameters DecodeRSAPrivateKey(string privateKeyBytes, string password
 }
 
 var builder = WebApplication.CreateBuilder(args);
+
+
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders =
+        ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+});
 
 
 builder.Services.AddEndpointsApiExplorer();
@@ -52,6 +60,7 @@ builder.Services.AddScoped(_ =>
 
 builder.Services.AddCors(options =>
 {
+
     options.AddPolicy("AllowOriginDevelopment",
         builder =>
         {
@@ -64,6 +73,8 @@ builder.Services.AddCors(options =>
 
 
 var app = builder.Build();
+
+app.UseForwardedHeaders();
 
 if (app.Environment.IsDevelopment())
 {
@@ -79,7 +90,6 @@ if (app.Environment.IsDevelopment())
 
     app.UseCors("AllowOriginDevelopment");
 }
-
 app.UseHttpsRedirection();
 app.UseRouting();
 

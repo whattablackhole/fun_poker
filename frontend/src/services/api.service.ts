@@ -8,7 +8,16 @@ import {
 import { User } from "../types/user";
 
 const apiUrl = import.meta.env.VITE_API_URL;
-const authUrl = import.meta.env.VITE_AUTH_URL;
+
+export class ResponseError extends Error {
+  statusCode?: number;
+
+  constructor(message: string, statusCode?: number) {
+    super(message);
+    this.name = 'ResponseError';
+    this.statusCode = statusCode;
+  }
+}
 
 class ApiService {
   public static getLobbies(): Promise<LobbyList> {
@@ -59,7 +68,7 @@ class ApiService {
   }
 
   public static signInByGoogle(token: string): Promise<User | undefined> {
-    return fetch(`${authUrl}/auth/signin-google`, {
+    return fetch(`${apiUrl}/auth/signin-google`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -77,7 +86,48 @@ class ApiService {
   }
 
   public static logout(): Promise<void> {
-    return fetch(`${authUrl}/auth/logout`, { credentials: "include" }).then();
+    return fetch(`${apiUrl}/auth/logout`, { credentials: "include" }).then();
+  }
+
+  public static fetchUser(): Promise<User> {
+    return fetch(`${apiUrl}/auth/get-user`, { credentials: "include" })
+      .then((response) => {
+        if (!response.ok) {
+          throw new ResponseError(response.statusText, response.status);
+        }
+        return response.json();
+      })
+      .then((data) => {
+        return data.user as User;
+      })
+      .catch((error) => {
+        throw new ResponseError(error.message);
+      });
+  }
+
+  public static refreshToken(): Promise<User> {
+    return fetch(`${apiUrl}/auth/refresh-token`, { credentials: "include" })
+      .then((response) => {
+        if (!response.ok) {
+          throw new ResponseError(response.statusText, response.status);
+        }
+        return response.json();
+      })
+      .then((data) => {
+        return data.user as User;
+      })
+      .catch((error) => {
+        throw new ResponseError(error.message);
+      });
+  }
+
+  public static fetchTempAccessToken(userName: string, countryCode: string): Promise<Response> {
+    return fetch(`${apiUrl}/auth/unauthorized_session_token`, {
+      credentials: "include",
+      headers: [["Content-Type", "application/json"]],
+      body: JSON.stringify({ UserName: userName, CountryCode: countryCode }),
+      method: "POST",
+    })
   }
 }
 

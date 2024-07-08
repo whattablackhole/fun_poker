@@ -1,18 +1,16 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
-using System.Text;
 using Microsoft.IdentityModel.Tokens;
 
 
 public class TokenService
 {
-    private readonly RSAParameters _secretKey;
-
+    private readonly RSAParameters _signingKey;
 
     public TokenService(RSAParameters secretKey)
     {
-        _secretKey = secretKey;
+        _signingKey = secretKey;
     }
 
     public string GenerateToken(User user)
@@ -24,10 +22,13 @@ public class TokenService
             Subject = new ClaimsIdentity([
                 new Claim(ClaimTypes.Name, user.Name),
                 new Claim(ClaimTypes.Email, user.Email),
-                new Claim(ClaimTypes.SerialNumber, user.Id.ToString())
+                new Claim(ClaimTypes.SerialNumber, user.Id.ToString()),
+                new Claim(ClaimTypes.Role, "user")
             ]),
+            Issuer = "https://auth.funpoker.com",
+            Audience = "https://api.funpoker.com",
             Expires = DateTime.UtcNow.AddHours(3),
-            SigningCredentials = new SigningCredentials(new RsaSecurityKey(_secretKey), SecurityAlgorithms.RsaSha256),
+            SigningCredentials = new SigningCredentials(new RsaSecurityKey(_signingKey), SecurityAlgorithms.RsaSha256),
         };
 
         var token = tokenHandler.CreateToken(tokenDescriptor);
@@ -66,11 +67,30 @@ public class TokenService
         {
             Subject = new ClaimsIdentity(claims),
             Expires = DateTime.UtcNow.AddDays(1),
-            SigningCredentials = new SigningCredentials(new RsaSecurityKey(_secretKey), SecurityAlgorithms.RsaSha256),
+            SigningCredentials = new SigningCredentials(new RsaSecurityKey(_signingKey), SecurityAlgorithms.RsaSha256),
         };
 
         var token = tokenHandler.CreateToken(tokenDescriptor);
         return tokenHandler.WriteToken(token);
+    }
+
+    public async Task<TokenValidationResult> ValidateTokenAsync(string token)
+    {
+        var tokenHandler = new JwtSecurityTokenHandler();
+
+        var validationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new RsaSecurityKey(_signingKey),
+            ValidateLifetime = true,
+            LifetimeValidator = ValidateLifetime,
+            ValidateIssuer = true,
+            ValidIssuer = "https://auth.funpoker.com",
+            ValidateAudience = true,
+            ValidAudience = "https://api.funpoker.com",
+        };
+
+        return await tokenHandler.ValidateTokenAsync(token, validationParameters);
     }
 
     public ClaimsPrincipal ValidateTokenIssuer(string token)
@@ -80,7 +100,7 @@ public class TokenService
         var validationParameters = new TokenValidationParameters
         {
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new RsaSecurityKey(this._secretKey),
+            IssuerSigningKey = new RsaSecurityKey(_signingKey),
         };
 
         return tokenHandler.ValidateToken(token, validationParameters, out _);
@@ -94,7 +114,7 @@ public class TokenService
         var validationParameters = new TokenValidationParameters
         {
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new RsaSecurityKey(this._secretKey),
+            IssuerSigningKey = new RsaSecurityKey(_signingKey),
 
             ValidateLifetime = true,
             LifetimeValidator = ValidateLifetime

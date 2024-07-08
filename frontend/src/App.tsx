@@ -11,13 +11,13 @@ import {
   StartGameResponse,
 } from "./types/responses";
 import { ClientState } from "./types/client_state";
-import { UserContext } from "./providers/user-provider";
 import NavigationHeader from "./components/navigation_header/navigation-header";
 import { Container } from "@mui/material";
 import CreateLobbyDialog from "./components/popups/create-lobby-dialog";
 import GoogleSignIn from "./providers/google-signin-provider";
-import ApiService from "./services/api.service";
+import ApiService, { ResponseError } from "./services/api.service";
 import { User } from "./types/user";
+import { UserContext } from "./providers/user-provider";
 
 const wsUrl = import.meta.env.VITE_WS_URL;
 
@@ -114,12 +114,33 @@ const useAuth = () => {
   const [user, setUser] = useState<User | undefined>(undefined);
 
   useEffect(() => {
-    // const loggedInUser = fetchUser();
-    // if (loggedInUser) setUser(loggedInUser);
+    ApiService.fetchUser()
+      .then((user) => {
+        setUser(user);
+      })
+      .catch((error) => {
+        if (error instanceof ResponseError) {
+          return ApiService.refreshToken();
+        } else {
+          throw error;
+        }
+      })
+      .then((user) => {
+        if (user) {
+          setUser(user);
+        }
+      })
+      .catch((error) => {
+        if (!(error instanceof ResponseError)) {
+          console.error(
+            "Unexpected error while fetching or refreshing user:",
+            error
+          );
+        }
+      });
   }, []);
 
   const login = (user: User) => {
-    console.log(user);
     setUser(user);
   };
 
@@ -165,6 +186,7 @@ function App() {
   ]);
   return (
     <div style={{ background: "linear-gradient(to bottom, #290133, white)" }}>
+      <UserContext.Provider value={{ user }}>
       <NavigationHeader>
         <Container
           sx={{
@@ -200,10 +222,9 @@ function App() {
           reconnect,
         }}
       >
-        <UserContext.Provider value={{ user }}>
           <RouterProvider router={router}></RouterProvider>
-        </UserContext.Provider>
       </WebSocketContext.Provider>
+      </UserContext.Provider>
     </div>
   );
 }

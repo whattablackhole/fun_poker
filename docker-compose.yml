@@ -10,6 +10,8 @@ services:
       - "5433:5432" 
     volumes:
       - pgdata1:/var/lib/postgresql/data
+    networks:
+      - auth-network
   auth-service:
     container_name: auth-service
     build:
@@ -30,6 +32,8 @@ services:
       - PostgresConnection=Host=auth-db;Database=$POSTGRES_AUTH_DB_NAME;Username=$POSTGRES_AUTH_USER_NAME;Password=$POSTGRES_AUTH_USER_PASSWORD
     depends_on:
       - auth-db
+    networks:
+      - auth-network
   game-service-db:
     image: postgres:16-alpine
     container_name: game-service-db
@@ -42,13 +46,17 @@ services:
     volumes: 
       - ./game-service/docker/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
       - pgdata2:/var/lib/postgresql/data
+    networks:
+      - backend-network
   game-service:
     container_name: game-service
     build:
       context: ./game-service
       dockerfile: Dockerfile.dev
-    ports:
-      - "7878:7878"
+    # ports:
+      # - "7878:7878"
+    networks:
+      - backend-network
     environment:
       RUN_IN_DOCKER: true
       IP_PORT: 0.0.0.0:7878
@@ -68,6 +76,8 @@ services:
       - "6380:6379"
     volumes:
       - redis-data:/data
+    networks:
+      - backend-network
   bot-player-service:
     build:
       context: ./bot-player-service
@@ -96,6 +106,10 @@ services:
       - REDIS_PORT=6379
     depends_on:
       - game-cordinator-service
+    networks:
+      - backend-network
+      - frontend-network
+      - auth-network
   frontend:
     build: 
       context: ./frontend
@@ -106,13 +120,13 @@ services:
       - VITE_CERT_PATH=/app/localhost.crt
       - VITE_PRIVATE_KEY_PATH=/app/localhost.key
       - VITE_API_URL=https://load-balancer:8082
-      - VITE_AUTH_URL=https://auth-service:5004
       - VITE_RUN_IN_DOCKER=true
-      # - VITE_WS_URL
     volumes:
       - ./frontend/src:/app/src
       - ./localhost.crt:/app/localhost.crt
       - ./localhost.key:/app/localhost.key
+    networks:
+      - frontend-network
 volumes:
   cargo-cache:
   pgdata1:
@@ -120,7 +134,10 @@ volumes:
   target-cache:
   redis-data:
 
-# todo: configure restrictions using networks
 networks:
-  mynetwork:
+  backend-network:
+    driver: bridge
+  frontend-network:
+    driver: bridge
+  auth-network:
     driver: bridge

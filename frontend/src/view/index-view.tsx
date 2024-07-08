@@ -5,9 +5,9 @@ import { useWebSocket } from "../providers/web-socket-provider.tsx";
 import CreateTempUserDialog from "../components/popups/temporal-user-creation-dialog.tsx";
 import { useState } from "react";
 import { useUser } from "../providers/user-provider.tsx";
+import ApiService from "../services/api.service.ts";
 
-const wsUrl = import.meta.env.VITE_WS_URL
-const authUrl = import.meta.env.VITE_AUTH_URL
+const wsUrl = import.meta.env.VITE_WS_URL;
 
 function IndexView() {
   let { user } = useUser();
@@ -32,16 +32,13 @@ function IndexView() {
 
   const createTempUserHandler = (userName: string, countryCode: string) => {
     setOpenCreateUser(false);
- 
+
     if (pendingLobbyId) {
-      fetch(`${authUrl}/session/unauthorized_session_token`, {
-        credentials: "include",
-        headers: [["Content-Type", "application/json"]],
-        body: JSON.stringify({ UserName: userName, CountryCode: countryCode }),
-        method: "POST",
-      }).then(() => {
-        reconnect(`${wsUrl}/join_lobby?lobby_id=${pendingLobbyId}`);
-        navigate("/table");
+      ApiService.fetchTempAccessToken(userName, countryCode).then((r) => {
+        if (r.ok) {
+          reconnect(`${wsUrl}/join_lobby?lobby_id=${pendingLobbyId}`);
+          navigate("/table");
+        }
       });
     }
   };
@@ -54,7 +51,6 @@ function IndexView() {
         gap: "100px",
       }}
     >
-     
       <Container
         sx={{ flexDirection: "column", display: "flex", alignItems: "center" }}
       >
