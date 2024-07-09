@@ -12,9 +12,12 @@ public class AuthController : ControllerBase
     private readonly ILogger<AuthController> _logger;
     private readonly TokenService _tokenService;
     private readonly CookieService _cookieService;
-
     private readonly string _client_id = "355255212720-fcovem0bl4uo6au8qpcmc6f6kjbs6mhv.apps.googleusercontent.com";
 
+    public class GoogleSignInRequest
+    {
+        public required string Credential { get; set; }
+    }
 
     public AuthController(PostgresDbContext dbContext, TokenService tokenService, CookieService cookieService, ILogger<AuthController> logger)
     {
@@ -26,7 +29,7 @@ public class AuthController : ControllerBase
 
 
     [HttpPost("signin")]
-    public async Task<IActionResult> SignIn([FromBody] User user)
+    public async Task<IActionResult> SignIn([FromBody] UserRegistrationDto user)
     {
         if (user == null)
         {
@@ -36,8 +39,9 @@ public class AuthController : ControllerBase
 
         try
         {
-            user.Password = BC.HashPassword(user.Password);
-            await _dbContext.Users.AddAsync(user);
+            var newUser = new User { Email = user.Email, Password = BC.HashPassword(user.Password), Name = user.Password, CountryCode = user.CountryCode };
+
+            await _dbContext.Users.AddAsync(newUser);
             await _dbContext.SaveChangesAsync();
             return Created("/signin", "User created successfully");
         }
@@ -46,11 +50,6 @@ public class AuthController : ControllerBase
             _logger.LogError(err, "Error saving new user in database");
             return StatusCode(500, "Internal server error");
         }
-    }
-
-    public class GoogleSignInRequest
-    {
-        public required string Credential { get; set; }
     }
 
     [HttpPost("signin-google")]
@@ -96,10 +95,15 @@ public class AuthController : ControllerBase
 
         await _dbContext.RefreshTokens.AddAsync(refreshTokenEntity);
 
+        await _dbContext.SaveChangesAsync();
+
         _cookieService.SetCookie(Response, "access_token", token, SameSiteMode.Strict, true, true, TimeSpan.FromHours(3));
         _cookieService.SetCookie(Response, "refresh_token", refreshTokenEntity.Token, SameSiteMode.Strict, true, true, TimeSpan.FromDays(7), "refresh_token");
 
-        return Ok(new { User = user });
+        var AccessTokenExpireTime = ((DateTimeOffset)DateTime.UtcNow.AddHours(3)).ToUnixTimeSeconds();
+        var RefreshTokenExpireTime = ((DateTimeOffset)DateTime.UtcNow.AddDays(7)).ToUnixTimeSeconds();
+
+        return Ok(new { User = new UserDto(user), AccessTokenExpireTime, RefreshTokenExpireTime });
     }
 
 
@@ -109,11 +113,12 @@ public class AuthController : ControllerBase
         string? refreshToken;
 
         var refreshTokenExists = Request.Cookies.TryGetValue("refresh_token", out refreshToken);
-
         if (!refreshTokenExists || refreshToken == null)
         {
             return Unauthorized();
         }
+
+        var tokens = _dbContext.RefreshTokens.Count();
 
         var dbRefreshToken = await _dbContext.RefreshTokens.FirstOrDefaultAsync(t => t.Token == refreshToken);
 
@@ -128,12 +133,16 @@ public class AuthController : ControllerBase
             var token = _tokenService.GenerateToken(user);
             var refreshTokenEntity = _tokenService.GenerateRefreshTokenEntity(user.Id);
 
+            await _dbContext.RefreshTokens.AddAsync(refreshTokenEntity);
+            await _dbContext.SaveChangesAsync();
+
             _cookieService.SetCookie(Response, "access_token", token, SameSiteMode.None, true, true, TimeSpan.FromHours(3));
             _cookieService.SetCookie(Response, "refresh_token", refreshTokenEntity.Token, SameSiteMode.Strict, true, true, TimeSpan.FromDays(7), "refresh_token");
 
-            return Ok(new { User = user });
+            var AccessTokenExpireTime = ((DateTimeOffset)DateTime.UtcNow.AddHours(3)).ToUnixTimeSeconds();
+            var RefreshTokenExpireTime = ((DateTimeOffset)DateTime.UtcNow.AddDays(7)).ToUnixTimeSeconds();
 
-
+            return Ok(new { User = new UserDto(user), AccessTokenExpireTime, RefreshTokenExpireTime });
         }
         else
         {
@@ -142,22 +151,25 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
-    public async Task<IActionResult> Login([FromBody] User user)
+    public async Task<IActionResult> Login([FromBody] UserRegistrationDto user)
     {
         var userFromDb = await _dbContext.Users.FirstOrDefaultAsync(u => u.Email == user.Email);
 
         if (userFromDb?.Password != null && BC.Verify(user.Password, userFromDb.Password))
         {
             var token = _tokenService.GenerateToken(userFromDb);
-            var refreshTokenEntity = _tokenService.GenerateRefreshTokenEntity(user.Id);
+            var refreshTokenEntity = _tokenService.GenerateRefreshTokenEntity(userFromDb.Id);
 
             await _dbContext.RefreshTokens.AddAsync(refreshTokenEntity);
+            await _dbContext.SaveChangesAsync();
 
             _cookieService.SetCookie(Response, "access_token", token, SameSiteMode.None, true, true, TimeSpan.FromHours(3));
             _cookieService.SetCookie(Response, "refresh_token", refreshTokenEntity.Token, SameSiteMode.Strict, true, true, TimeSpan.FromDays(7), "refresh_token");
 
-            return Ok(new { User = user });
+            var AccessTokenExpireTime = ((DateTimeOffset)DateTime.UtcNow.AddHours(3)).ToUnixTimeSeconds();
+            var RefreshTokenExpireTime = ((DateTimeOffset)DateTime.UtcNow.AddDays(7)).ToUnixTimeSeconds();
 
+            return Ok(new { User = new UserDto(userFromDb), AccessTokenExpireTime, RefreshTokenExpireTime });
         }
         else
         {
@@ -192,25 +204,23 @@ public class AuthController : ControllerBase
             return Unauthorized("User ID not found in token claims.");
         }
 
-        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id.ToString() == userId.Value);
+        var user = await _dbContext.Users
+        .Where(u => u.Id.ToString() == userId.Value)
+        .FirstOrDefaultAsync();
 
         if (user == null)
         {
             return NotFound("User not found.");
         }
-        // TODO: filter user fields
-        return Ok(new { User = user });
-    }
+        else
+        {
+            return Ok(new { User = new UserDto(user) });
+        }
 
-
-     public class UserDto
-    {
-        public required string UserName { get; set; }
-        public required string CountryCode { get; set; }
     }
 
     [HttpPost("unauthorized_session_token")]
-    public IActionResult UnauthorizedSessionToken([FromBody] UserDto user)
+    public IActionResult UnauthorizedSessionToken([FromBody] TempUserDto user)
     {
         string? existingToken = Request.Cookies["access_token"];
 
@@ -227,7 +237,7 @@ public class AuthController : ControllerBase
                 new Claim(ClaimTypes.Anonymous, "true"),
                 new Claim(ClaimTypes.NameIdentifier, id.ToString()),
                 new Claim(ClaimTypes.Country, user.CountryCode),
-                new Claim(ClaimTypes.Name, user.UserName),
+                new Claim(ClaimTypes.Name, user.Name),
         ];
         var token = _tokenService.GenerateUnauthorizedToken(claims);
 

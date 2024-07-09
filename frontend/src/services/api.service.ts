@@ -14,9 +14,15 @@ export class ResponseError extends Error {
 
   constructor(message: string, statusCode?: number) {
     super(message);
-    this.name = 'ResponseError';
+    this.name = "ResponseError";
     this.statusCode = statusCode;
   }
+}
+
+export interface AuthData {
+  user: User;
+  accessTokenExpireTime: number;
+  refreshTokenExpireTime: number;
 }
 
 class ApiService {
@@ -67,22 +73,27 @@ class ApiService {
     }).then();
   }
 
-  public static signInByGoogle(token: string): Promise<User | undefined> {
+  public static signInByGoogle(token: string): Promise<AuthData> {
     return fetch(`${apiUrl}/auth/signin-google`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ Credential: token }),
-    }).then((response) => {
-      if (response.ok) {
-        return response.json().then((data: { user: User }) => {
-          return data.user;
-        });
-      } else {
-        return undefined;
-      }
-    });
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new ResponseError(response.statusText, response.status);
+        }
+
+        return response.json();
+      })
+      .then((data: AuthData) => {
+        return data;
+      })
+      .catch((error) => {
+        throw new ResponseError(error.message);
+      });
   }
 
   public static logout(): Promise<void> {
@@ -105,7 +116,7 @@ class ApiService {
       });
   }
 
-  public static refreshToken(): Promise<User> {
+  public static refreshToken(): Promise<AuthData> {
     return fetch(`${apiUrl}/auth/refresh-token`, { credentials: "include" })
       .then((response) => {
         if (!response.ok) {
@@ -114,20 +125,23 @@ class ApiService {
         return response.json();
       })
       .then((data) => {
-        return data.user as User;
+        return data;
       })
       .catch((error) => {
         throw new ResponseError(error.message);
       });
   }
 
-  public static fetchTempAccessToken(userName: string, countryCode: string): Promise<Response> {
+  public static fetchTempAccessToken(
+    userName: string,
+    countryCode: string
+  ): Promise<Response> {
     return fetch(`${apiUrl}/auth/unauthorized_session_token`, {
       credentials: "include",
       headers: [["Content-Type", "application/json"]],
       body: JSON.stringify({ UserName: userName, CountryCode: countryCode }),
       method: "POST",
-    })
+    });
   }
 }
 

@@ -1,6 +1,6 @@
-import React, { useEffect } from "react";
-import ApiService from "../services/api.service";
-import { User } from "../types/user";
+import { useEffect } from "react";
+import { User } from "../../types/user";
+import AuthService from "../../services/auth.service";
 
 function GoogleSignIn({
   signInHandler,
@@ -9,14 +9,15 @@ function GoogleSignIn({
 }) {
   useEffect(() => {
     const handleCredentialResponse = async (response: any) => {
-      let user = await ApiService.signInByGoogle(response.credential);
-      if (user) {
-        await signInHandler(user);
+      let data = await AuthService.signinByGoogle(response.credential);
+      
+      if (data?.user) {
+        await signInHandler(data.user);
       } else {
         console.log("show notification about signin error");
       }
     };
-
+    
     const initializeGoogleSignIn = () => {
       if (window.google) {
         window.google.accounts.id.initialize({

@@ -13,7 +13,7 @@ import {
 import { CreateLobbyRequest } from "../../types/requests";
 import { GameName, GameType } from "../../types";
 import ApiService from "../../services/api.service";
-import { useUser } from "../../providers/user-provider";
+import { useUserContext } from "../../contexts/user-context";
 
 export default function CreateLobbyDialog() {
   const [open, setOpen] = React.useState(false);
@@ -22,7 +22,7 @@ export default function CreateLobbyDialog() {
   const [gameName, setGameName] = React.useState("");
   const [gameStructure, setGameStructure] = React.useState("Cash");
   const [gameType, setGameType] = React.useState("Holdem");
-  const { user } = useUser();
+  const { user } = useUserContext();
   const handleSubmit = () => {
     if (user) {
       let request = CreateLobbyRequest.create({

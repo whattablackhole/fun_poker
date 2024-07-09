@@ -1,17 +1,17 @@
 import LobbiesTable from "../components/navigation_table/lobbies-table.tsx";
 import { useNavigate } from "react-router-dom";
 import { Container } from "@mui/material";
-import { useWebSocket } from "../providers/web-socket-provider.tsx";
+import { useWebSocketContext } from "../contexts/websocket-context.tsx";
 import CreateTempUserDialog from "../components/popups/temporal-user-creation-dialog.tsx";
 import { useState } from "react";
-import { useUser } from "../providers/user-provider.tsx";
+import { useUserContext } from "../contexts/user-context.tsx";
 import ApiService from "../services/api.service.ts";
 
 const wsUrl = import.meta.env.VITE_WS_URL;
 
 function IndexView() {
-  let { user } = useUser();
-  let { reconnect } = useWebSocket();
+  let { user } = useUserContext();
+  let { reconnect } = useWebSocketContext();
   let navigate = useNavigate();
   let [openCreateUser, setOpenCreateUser] = useState(false);
   const [pendingLobbyId, setPendingLobbyId] = useState<number | null>(null);

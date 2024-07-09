@@ -6,7 +6,7 @@ import { Card, Player } from "../../types";
 import GameStateService from "../../services/game-state.service";
 import GameControls from "../game-controls/game-controls";
 import "./game.css";
-import { useWebSocket } from "../../providers/web-socket-provider";
+import { useWebSocketContext } from "../../contexts/websocket-context";
 import { ResponseMessageType } from "../../types/responses";
 import { ClientState } from "../../types/client_state";
 import { PlayerActionRequest, SpawnBotRequest } from "../../types/requests";
@@ -24,7 +24,7 @@ function Game() {
     let prevStateCopy = gameState;
     const queueRef = useRef(Promise.resolve());
 
-    let { addEventListener, removeEventListener, connection } = useWebSocket();
+    let { addEventListener, removeEventListener, connection } = useWebSocketContext();
 
     const stateUpdateHandler = async (state: ClientState) => {
         queueRef.current = queueRef.current.then(async () => {
