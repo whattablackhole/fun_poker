@@ -21,9 +21,8 @@ export default class AuthService {
         this.refreshTokenExpireTimeKey,
         authData.refreshTokenExpireTime.toString()
       );
-
       this.setRefreshTimer(
-        Date.now() / 1000 - authData.accessTokenExpireTime - 60
+        (authData.accessTokenExpireTime - Date.now() / 1000 - 60) * 1000
       );
 
       return authData;
@@ -85,6 +84,11 @@ export default class AuthService {
   }
 
   public static async logout() {
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
+    }
+
     localStorage.removeItem(this.accessTokenExpireTimeKey);
     localStorage.removeItem(this.refreshTokenExpireTimeKey);
     await ApiService.logout();
@@ -119,9 +123,8 @@ export default class AuthService {
         this.refreshTokenExpireTimeKey,
         authData.refreshTokenExpireTime.toString()
       );
-
       this.setRefreshTimer(
-        Date.now() / 1000 - authData.accessTokenExpireTime - 60
+        (authData.accessTokenExpireTime - Date.now() / 1000 - 60) * 1000
       );
 
       return authData.user;
