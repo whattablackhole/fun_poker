@@ -1,3 +1,4 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Google.Apis.Auth;
 using Microsoft.AspNetCore.Mvc;
@@ -136,7 +137,7 @@ public class AuthController : ControllerBase
             await _dbContext.RefreshTokens.AddAsync(refreshTokenEntity);
             await _dbContext.SaveChangesAsync();
 
-            _cookieService.SetCookie(Response, "access_token", token, SameSiteMode.None, true, true, TimeSpan.FromHours(3));
+            _cookieService.SetCookie(Response, "access_token", token, SameSiteMode.Strict, true, true, TimeSpan.FromHours(3));
             _cookieService.SetCookie(Response, "refresh_token", refreshTokenEntity.Token, SameSiteMode.Strict, true, true, TimeSpan.FromDays(7), "refresh_token");
 
             var AccessTokenExpireTime = ((DateTimeOffset)DateTime.UtcNow.AddHours(3)).ToUnixTimeSeconds();
@@ -163,7 +164,7 @@ public class AuthController : ControllerBase
             await _dbContext.RefreshTokens.AddAsync(refreshTokenEntity);
             await _dbContext.SaveChangesAsync();
 
-            _cookieService.SetCookie(Response, "access_token", token, SameSiteMode.None, true, true, TimeSpan.FromHours(3));
+            _cookieService.SetCookie(Response, "access_token", token, SameSiteMode.Strict, true, true, TimeSpan.FromHours(3));
             _cookieService.SetCookie(Response, "refresh_token", refreshTokenEntity.Token, SameSiteMode.Strict, true, true, TimeSpan.FromDays(7), "refresh_token");
 
             var AccessTokenExpireTime = ((DateTimeOffset)DateTime.UtcNow.AddHours(3)).ToUnixTimeSeconds();
@@ -235,7 +236,7 @@ public class AuthController : ControllerBase
 
         IEnumerable<Claim> claims = [
                 new Claim(ClaimTypes.Anonymous, "true"),
-                new Claim(ClaimTypes.NameIdentifier, id.ToString()),
+                new Claim(JwtRegisteredClaimNames.Sub, id.ToString()),
                 new Claim(ClaimTypes.Country, user.CountryCode),
                 new Claim(ClaimTypes.Name, user.Name),
         ];
@@ -257,7 +258,7 @@ public class AuthController : ControllerBase
     public IActionResult Logout()
     {
         // TODO: remove refresh_token from db
-        _cookieService.SetCookie(Response, "access_token", "logout", SameSiteMode.None, true, true, TimeSpan.FromSeconds(-1));
+        _cookieService.SetCookie(Response, "access_token", "logout", SameSiteMode.Strict, true, true, TimeSpan.FromSeconds(-1));
         _cookieService.SetCookie(Response, "refresh_token", "logout", SameSiteMode.Strict, true, true, TimeSpan.FromSeconds(-1), "refresh_token");
 
         return Ok();

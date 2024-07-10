@@ -139,7 +139,7 @@ class ApiService {
     return fetch(`${apiUrl}/auth/unauthorized_session_token`, {
       credentials: "include",
       headers: [["Content-Type", "application/json"]],
-      body: JSON.stringify({ UserName: userName, CountryCode: countryCode }),
+      body: JSON.stringify({ Name: userName, CountryCode: countryCode }),
       method: "POST",
     });
   }

@@ -61,6 +61,7 @@ enum ClaimTypesEnum {
     Anonymous,
     NameIdentifier,
     UniqueName,
+    Sub
 }
 
 impl ClaimTypesEnum {
@@ -74,6 +75,7 @@ impl ClaimTypesEnum {
             }
             ClaimTypesEnum::NameIdentifier => "nameid",
             ClaimTypesEnum::UniqueName => "unique_name",
+            ClaimTypesEnum::Sub => "sub"
         }
     }
 }
@@ -231,14 +233,14 @@ fn parse_user_from_claims(claims: Value) -> User {
     let mut user = User::default();
     user.country = claims[ClaimTypesEnum::Country.as_str()]
         .as_str()
-        .unwrap()
+        .unwrap_or_default()
         .to_string();
     user.name = claims[ClaimTypesEnum::UniqueName.as_str()]
         .as_str()
         .unwrap()
         .to_string();
     user.id = str::parse::<i32>(
-        claims[ClaimTypesEnum::NameIdentifier.as_str()]
+        claims[ClaimTypesEnum::Sub.as_str()]
             .as_str()
             .unwrap(),
     )

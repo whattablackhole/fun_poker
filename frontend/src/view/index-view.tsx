@@ -35,10 +35,10 @@ function IndexView() {
 
     if (pendingLobbyId) {
       ApiService.fetchTempAccessToken(userName, countryCode).then((r) => {
-        if (r.ok) {
-          reconnect(`${wsUrl}/join_lobby?lobby_id=${pendingLobbyId}`);
-          navigate("/table");
-        }
+        reconnect(
+          `${wsUrl}/join_lobby?lobby_id=${pendingLobbyId}`
+        );
+        navigate("/table");
       });
     }
   };

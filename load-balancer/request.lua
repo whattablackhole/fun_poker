@@ -5,7 +5,7 @@ local _M = {}
 function _M.fetch_game_server(lobby_id)
     local httpc = http.new()
     
-    local res, err = httpc:request_uri("http://127.0.0.1:8081/assign_server", {
+    local res, err = httpc:request_uri("http://game-cordinator-service:8081/assign_server", {
         method = "GET",
         query = {
             lobby_id = lobby_id

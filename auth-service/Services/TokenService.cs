@@ -22,7 +22,8 @@ public class TokenService
             Subject = new ClaimsIdentity([
                 new Claim(ClaimTypes.Name, user.Name),
                 new Claim(ClaimTypes.Email, user.Email),
-                new Claim(ClaimTypes.SerialNumber, user.Id.ToString()),
+                new Claim(ClaimTypes.Country, user.CountryCode ?? ""),
+                new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
                 new Claim(ClaimTypes.Role, "user")
             ]),
             Issuer = "https://auth.funpoker.com",

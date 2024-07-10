@@ -9,7 +9,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-var servers = []string{"127.0.0.1:7878"}
+var servers = []string{"game-service:7878"}
 
 // var servers = []string{"127.0.0.1:7878", "127.0.0.1:7879"}
 
@@ -23,7 +23,7 @@ type GameServer struct {
 
 func main() {
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     "127.0.0.1:6380",
+		Addr:     "game-cordinator-service:6379",
 		Password: "",
 		DB:       0,
 	})

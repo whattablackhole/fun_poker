@@ -65,6 +65,7 @@ services:
       - target-cache:/app/target
       - cargo-cache:/usr/local/cargo/registry 
       - ./protos:/protos/
+      # TODO: bind app src volume
     depends_on:
       - game-service-db
   game-cordinator-service:
@@ -101,7 +102,7 @@ services:
       - ./public_key.pem:/etc/nginx/ssl/public_key.pem
       - ./load-balancer/request.lua:/request.lua
     environment:
-      - jwt_public_key_file_path=/etc/nginx/ssl/public_key.pem
+      - JWT_PUBLIC_KEY_FILE_PATH=/etc/nginx/ssl/public_key.pem
       - REDIS_HOST=game-cordinator-service
       - REDIS_PORT=6379
     depends_on:
@@ -119,7 +120,9 @@ services:
     environment:
       - VITE_CERT_PATH=/app/localhost.crt
       - VITE_PRIVATE_KEY_PATH=/app/localhost.key
+      # TODO: add allowed origins in config
       - VITE_API_URL=https://load-balancer:8082
+      - VITE_WS_URL=wss://localhost:8082
       - VITE_RUN_IN_DOCKER=true
     volumes:
       - ./frontend/src:/app/src
