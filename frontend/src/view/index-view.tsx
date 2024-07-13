@@ -1,25 +1,20 @@
 import LobbiesTable from "../components/navigation_table/lobbies-table.tsx";
 import { useNavigate } from "react-router-dom";
 import { Container } from "@mui/material";
-import { useWebSocketContext } from "../contexts/websocket-context.tsx";
 import CreateTempUserDialog from "../components/popups/temporal-user-creation-dialog.tsx";
 import { useState } from "react";
 import { useUserContext } from "../contexts/user-context.tsx";
 import ApiService from "../services/api.service.ts";
 
-const wsUrl = import.meta.env.VITE_WS_URL;
-
 function IndexView() {
   let { user } = useUserContext();
-  let { reconnect } = useWebSocketContext();
   let navigate = useNavigate();
   let [openCreateUser, setOpenCreateUser] = useState(false);
   const [pendingLobbyId, setPendingLobbyId] = useState<number | null>(null);
 
   const onJoinLobbyHandler = (lobbyId: number) => {
     if (user?.id) {
-      reconnect(`${wsUrl}/join_lobby?lobby_id=${lobbyId}`);
-      navigate("/table");
+      navigate(`/table?lobby_id=${lobbyId}`);
     } else {
       setPendingLobbyId(lobbyId);
       setOpenCreateUser(true);
@@ -35,10 +30,9 @@ function IndexView() {
 
     if (pendingLobbyId) {
       ApiService.fetchTempAccessToken(userName, countryCode).then((r) => {
-        reconnect(
-          `${wsUrl}/join_lobby?lobby_id=${pendingLobbyId}`
-        );
-        navigate("/table");
+        if (r.ok) {
+          navigate("/table");
+        }
       });
     }
   };

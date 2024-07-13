@@ -180,11 +180,13 @@ function PokerTable3d({
                   )
                 }
               >
-                <FlagIcon
-                  code={player.country as FlagIconCode}
-                  size={34}
-                  style={{ position: "absolute", top: "116px" }}
-                />
+                {player.country ? (
+                  <FlagIcon
+                    code={player.country as FlagIconCode}
+                    size={34}
+                    style={{ position: "absolute", top: "116px" }}
+                  />
+                ) : null}
                 <div
                   className="player_info trapezium"
                   style={{ alignSelf: "center", textAlign: "center" }}

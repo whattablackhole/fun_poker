@@ -4,7 +4,7 @@ interface WebSocketContextProps {
     connection: MutableRefObject<WebSocket | null> | null;
     addEventListener: (eventName: string, listener: (...args: any[]) => void) => void;
     removeEventListener: (eventName: string, listener: (...args: any[]) => void) => void;
-    reconnect: (url: string) => void;
+    connect: (url: string) => void;
   }
   
 export const WebSocketContext = createContext<WebSocketContextProps | undefined>(undefined);
