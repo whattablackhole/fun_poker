@@ -202,7 +202,7 @@ public class AuthController : ControllerBase
             return Unauthorized("Access token validation failed.");
         }
 
-        var userId = tokenValidationResult.ClaimsIdentity.FindFirst(ClaimTypes.SerialNumber);
+        var userId = tokenValidationResult.ClaimsIdentity.FindFirst(JwtRegisteredClaimNames.Sub);
 
         if (userId == null)
         {

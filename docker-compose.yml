@@ -65,7 +65,7 @@ services:
       - target-cache:/app/target
       - cargo-cache:/usr/local/cargo/registry 
       - ./protos:/protos/
-      # TODO: bind app src volume
+      - ./game-service/src:/app/src
     depends_on:
       - game-service-db
   game-cordinator-service:

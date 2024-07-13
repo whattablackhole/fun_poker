@@ -13,16 +13,10 @@ export const useWebSocket = () => {
   const emitter = useRef<EventEmitter | null>(null);
 
   const connect = async (url: string) => {
-    if (ws.current) {
-      let curr = ws.current;
-      if (curr.readyState === curr.OPEN) {
-        curr.close();
-      } else {
-        curr.addEventListener("open", () => {
-          curr.close();
-        });
-      }
+    if (ws.current && ws.current.readyState === ws.current.OPEN) {
+      ws.current.close();
     }
+    
     emitter.current = new EventEmitter();
 
     ws.current = new WebSocket(url);

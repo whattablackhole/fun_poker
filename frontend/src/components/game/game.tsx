@@ -62,6 +62,7 @@ function Game() {
   const queueRef = useRef(Promise.resolve());
 
   const stateUpdateHandler = async (state: ClientState) => {
+    console.log(state);
     setLoading(false);
     queueRef.current = queueRef.current.then(async () => {
       const newState = await GameStateService.processNewState(

@@ -189,9 +189,6 @@ impl Game {
             Some(p) => {
                 if self.game_state.status == GameStatus::Active {
                     p.status = PlayerStatus::Ready.into();
-                    let mut action = Action::default();
-                    action.set_action_type(ActionType::Fold);
-                    p.action = Some(action);
                 } else {
                     p.status = PlayerStatus::WaitingForPlayers.into();
                 }
