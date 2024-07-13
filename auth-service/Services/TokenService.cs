@@ -15,8 +15,10 @@ public class TokenService
 
     public string GenerateToken(User user)
     {
-        var tokenHandler = new JwtSecurityTokenHandler();
-
+        var tokenHandler = new JwtSecurityTokenHandler
+        {
+            MapInboundClaims = false
+        };
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity([
@@ -77,7 +79,10 @@ public class TokenService
 
     public async Task<TokenValidationResult> ValidateTokenAsync(string token)
     {
-        var tokenHandler = new JwtSecurityTokenHandler();
+        var tokenHandler = new JwtSecurityTokenHandler
+        {
+            MapInboundClaims = false
+        };
 
         var validationParameters = new TokenValidationParameters
         {
@@ -96,7 +101,10 @@ public class TokenService
 
     public ClaimsPrincipal ValidateTokenIssuer(string token)
     {
-        var tokenHandler = new JwtSecurityTokenHandler();
+        var tokenHandler = new JwtSecurityTokenHandler
+        {
+            MapInboundClaims = false
+        };
 
         var validationParameters = new TokenValidationParameters
         {
@@ -109,7 +117,10 @@ public class TokenService
 
     public ClaimsPrincipal ValidateTokenExpiration(string token)
     {
-        var tokenHandler = new JwtSecurityTokenHandler();
+        var tokenHandler = new JwtSecurityTokenHandler
+        {
+            MapInboundClaims = false
+        };
         SecurityToken validatedToken;
 
         var validationParameters = new TokenValidationParameters

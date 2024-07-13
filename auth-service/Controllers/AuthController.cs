@@ -73,10 +73,14 @@ public class AuthController : ControllerBase
 
         var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Email == payload.Email);
 
-        if (user != null && user.GoogleId != payload.Subject)
+        if (user != null)
         {
-            user.GoogleId = payload.Subject;
-            _dbContext.Users.Update(user);
+            if (user.GoogleId != payload.Subject)
+            {
+                user.GoogleId = payload.Subject;
+                _dbContext.Users.Update(user);
+                await _dbContext.SaveChangesAsync();
+            }
         }
         else
         {

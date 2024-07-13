@@ -31,7 +31,7 @@ function IndexView() {
     if (pendingLobbyId) {
       ApiService.fetchTempAccessToken(userName, countryCode).then((r) => {
         if (r.ok) {
-          navigate("/table");
+          navigate(`/table?lobby_id=${pendingLobbyId}`);
         }
       });
     }
