@@ -20,35 +20,35 @@ const wsUrl = import.meta.env.VITE_WS_URL;
 function Game() {
   const query = useQuery();
   const navigate = useNavigate();
-  let { addEventListener, removeEventListener, connection, connect } =
-    useWebSocketContext();
+
+  let websocketService = useWebSocketContext();
 
   let [loading, setLoading] = useState(true);
-  const effectRan = useRef(false);
 
   let onConnectionClose = () => {
     navigate("/");
   };
 
   useEffect(() => {
-    if (effectRan.current) return;
-
-    effectRan.current = true;
-
     const lobbyId = query.get("lobby_id");
 
     if (lobbyId) {
-      connect(`${wsUrl}/join_lobby?lobby_id=${lobbyId}`).then(() => {
-        addEventListener(
-          ResponseMessageType.ClientState.toString(),
-          stateUpdateHandler
-        );
-        addEventListener(CloseEvent.name, onConnectionClose);
-      });
+      websocketService
+        .connect(`${wsUrl}/join_lobby?lobby_id=${lobbyId}`)
+        .then(() => {
+          websocketService.addEventListener(
+            ResponseMessageType.ClientState.toString(),
+            stateUpdateHandler
+          );
+          websocketService.addEventListener(CloseEvent.name, onConnectionClose);
+        });
 
       return () => {
-        removeEventListener(CloseEvent.name, onConnectionClose);
-        removeEventListener(
+        websocketService.removeEventListener(
+          CloseEvent.name,
+          onConnectionClose
+        );
+        websocketService.removeEventListener(
           ResponseMessageType.ClientState.toString(),
           stateUpdateHandler
         );
@@ -98,7 +98,7 @@ function Game() {
       lobbyId: gameState?.lobbyId,
       playerId: selfPlayer.userId,
     });
-    connection?.current?.send(PlayerActionRequest.toBinary(payload));
+    websocketService.sendMessage(PlayerActionRequest.toBinary(payload));
   };
 
   if (loading) {

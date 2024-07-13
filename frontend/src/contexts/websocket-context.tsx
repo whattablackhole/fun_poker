@@ -1,13 +1,8 @@
-import { MutableRefObject, createContext, useContext } from 'react';
+import { createContext, useContext } from 'react';
+import WebSocketService from '../services/websocket.service';
 
-interface WebSocketContextProps {
-    connection: MutableRefObject<WebSocket | null> | null;
-    addEventListener: (eventName: string, listener: (...args: any[]) => void) => void;
-    removeEventListener: (eventName: string, listener: (...args: any[]) => void) => void;
-    connect: (url: string) => Promise<void>;
-  }
   
-export const WebSocketContext = createContext<WebSocketContextProps | undefined>(undefined);
+export const WebSocketContext = createContext<WebSocketService | undefined>(undefined);
 
 export const useWebSocketContext = () => {
     const context = useContext(WebSocketContext)

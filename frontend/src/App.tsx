@@ -4,13 +4,13 @@ import Game from "./components/game/game";
 import { WebSocketContext } from "./contexts/websocket-context";
 import { UserContext } from "./contexts/user-context";
 import { useAuth } from "./hooks/useAuth";
-import { useWebSocket } from "./hooks/useWebSocket";
 import Layout from "./components/layout/layout";
+import WebSocketService from "./services/websocket.service";
 
 function App() {
   const { user, login, logout } = useAuth();
-
-  const { addEventListener, removeEventListener, ws, connect } = useWebSocket();
+  
+  const websocketService = new WebSocketService();
 
   const router = createBrowserRouter([
     {
@@ -32,12 +32,7 @@ function App() {
     <div style={{ background: "linear-gradient(to bottom, #290133, white)" }}>
       <UserContext.Provider value={{ user }}>
         <WebSocketContext.Provider
-          value={{
-            addEventListener,
-            removeEventListener,
-            connection: ws,
-            connect,
-          }}
+          value={websocketService}
         >
           <RouterProvider router={router}></RouterProvider>
         </WebSocketContext.Provider>
