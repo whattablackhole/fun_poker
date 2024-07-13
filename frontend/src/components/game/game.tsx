@@ -24,32 +24,37 @@ function Game() {
     useWebSocketContext();
 
   let [loading, setLoading] = useState(true);
+  const effectRan = useRef(false);
 
-  let onConnectionClose = (reason: string) => {
-    setLoading(true);
+  let onConnectionClose = () => {
+    navigate("/");
   };
 
   useEffect(() => {
-    const lobbyId = query.get("lobby_id");
-    if (lobbyId && loading) {
-        connect(`${wsUrl}/join_lobby?lobby_id=${lobbyId}`);
+    if (effectRan.current) return;
 
+    effectRan.current = true;
+
+    const lobbyId = query.get("lobby_id");
+
+    if (lobbyId) {
+      connect(`${wsUrl}/join_lobby?lobby_id=${lobbyId}`).then(() => {
         addEventListener(
           ResponseMessageType.ClientState.toString(),
           stateUpdateHandler
         );
-
         addEventListener(CloseEvent.name, onConnectionClose);
+      });
 
-        return () => {
-          removeEventListener(CloseEvent.name, onConnectionClose);
-          removeEventListener(
-            ResponseMessageType.ClientState.toString(),
-            stateUpdateHandler
-          );
-        };
+      return () => {
+        removeEventListener(CloseEvent.name, onConnectionClose);
+        removeEventListener(
+          ResponseMessageType.ClientState.toString(),
+          stateUpdateHandler
+        );
+      };
     } else {
-        navigate("/");
+      navigate("/");
     }
   }, []);
 

@@ -16,7 +16,7 @@ export const useWebSocket = () => {
     if (ws.current && ws.current.readyState === ws.current.OPEN) {
       ws.current.close();
     }
-    
+
     emitter.current = new EventEmitter();
 
     ws.current = new WebSocket(url);
@@ -59,6 +59,8 @@ export const useWebSocket = () => {
         }
       });
     };
+
+    return Promise.resolve();
   };
 
   const addEventListener = (

@@ -4,7 +4,7 @@ use rand::Rng;
 use std::collections::{BTreeMap, HashMap};
 
 use crate::{
-    game::{DeckState, GameState, KeyPositions, PlayerState},
+    game::{DeckState, Game, GameState, KeyPositions, PlayerState},
     protos::{
         card::CardPair,
         client_state::ClientState,
@@ -371,13 +371,13 @@ impl Dealer {
         init_button_index: usize,
         players_amount: i32,
     ) -> KeyPositions {
-        if players_amount < 2 || init_button_index as i32 > players_amount  {
+        if players_amount < 2 || init_button_index as i32 > players_amount {
             return KeyPositions {
                 small_blind_index: None,
                 big_blind_index: None,
                 curr_player_index: None,
                 button_index: None,
-            }
+            };
         }
         let is_heads_up = self.is_heads_up(players_amount);
 
@@ -481,7 +481,10 @@ impl Dealer {
         let filtered_players = self.get_filtered_players(game_state, player_state);
 
         // TODO: think about using optional fields in game_state instead
-        if game_state.status == GameStatus::WaitingForPlayers {
+        if game_state.status == GameStatus::WaitingForPlayers
+            || game_state.status == GameStatus::None
+        {
+            println!("game status debug info: {:?}", game_state.status);
             return ClientState {
                 player_id: p.user_id,
                 cards: None,
@@ -1002,7 +1005,6 @@ impl Dealer {
     fn get_loop_incremented_index(&self, index: usize, range: i32) -> usize {
         return (index + 1) % range as usize;
     }
-
 
     fn setup_blinds(
         &self,

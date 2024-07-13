@@ -227,12 +227,13 @@ public class AuthController : ControllerBase
     [HttpPost("unauthorized_session_token")]
     public IActionResult UnauthorizedSessionToken([FromBody] TempUserDto user)
     {
-        string? existingToken = Request.Cookies["access_token"];
+        // TODO: change flow so that user be able to reuse existing token
+        // string? existingToken = Request.Cookies["access_token"];
 
-        if (existingToken != null)
-        {
-            return BadRequest("Invalid Payload");
-        }
+        // if (existingToken != null )
+        // {
+        //     return Ok();
+        // }
 
         Random random = new Random();
 
