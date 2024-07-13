@@ -41,17 +41,13 @@ function Game() {
             stateUpdateHandler
           );
           websocketService.addEventListener(CloseEvent.name, onConnectionClose);
+        })
+        .catch(() => {
+          navigate("/");
         });
 
       return () => {
-        websocketService.removeEventListener(
-          CloseEvent.name,
-          onConnectionClose
-        );
-        websocketService.removeEventListener(
-          ResponseMessageType.ClientState.toString(),
-          stateUpdateHandler
-        );
+        websocketService.disconnect();
       };
     } else {
       navigate("/");

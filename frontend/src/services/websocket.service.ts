@@ -10,12 +10,22 @@ export default class WebSocketService {
   private ws: WebSocket | null = null;
   private emitter: EventEmitter | null = null;
   private wsPromise: Promise<void> | null = null;
+  private url: string | null = null;
 
-  public reconnect(url: string): Promise<void> {
+  public reconnect(): Promise<void> {
+    if (!this.url) {
+        throw new Error("Websocket is not connected!");
+    }
+
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.close();
     }
-    return this.connect(url);
+
+    if (this.wsPromise) {
+        return this.wsPromise;
+    }
+
+    return this.connect(this.url);
   }
 
   public disconnect() {
@@ -37,7 +47,7 @@ export default class WebSocketService {
     if (this.ws) {
       this.ws.send(message);
     } else {
-      throw Error("websocket is not initialized");
+      throw Error("Websocket is not initialized");
     }
   }
 
@@ -66,10 +76,12 @@ export default class WebSocketService {
       };
 
       this.ws.onerror = (error) => {
-        console.log("WebSocket error:", error);
+        if (!this.wsPromise) {
+            reject(error);
+        }
+
         this.wsPromise = null;
         this.ws = null;
-        reject(error);
       };
 
       this.ws.onmessage = async (event) => {
