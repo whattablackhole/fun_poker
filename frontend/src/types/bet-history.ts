@@ -24,11 +24,11 @@ class BetHistory implements IBetHistory {
         this._betHistoryMap.clear();
 
         this._bank_on_prev_street = 0;
-
+        // TODO: simplify to only take the last bet for each player
         newState.actionHistory.forEach((action) => {
             if (action.streetStatus !== undefined) {
                 let history = this._betHistoryMap.get(action.playerId) || { 0: 0, 1: 0, 2: 0, 3: 0 };
-                history[action.streetStatus] += action.bet;
+                history[action.streetStatus] = action.bet;
                 this._betHistoryMap.set(action.playerId, history);
             }
         });

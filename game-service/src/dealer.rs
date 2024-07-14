@@ -439,19 +439,10 @@ impl Dealer {
     }
 
     fn calculate_min_raise(&self, _p: &Player, game_state: &GameState) -> i32 {
-        // do we need to return player's bank if he cannot afford min raise?
-        // 1. his bank < min raise && his bank < curr_biggest_bet = it's not a raise but allin  call
-        // 2. his bank < min raise && his bank > curr_biggest_bet = valid raise all in
-        // let min_raise = game_state.biggest_bet_on_curr_street + game_state.raise_amount;
-        // if min_raise > p.bank { p.bank } else { min_raise }
         if game_state.raiser_index.is_some() {
             return game_state.biggest_bet_on_curr_street + game_state.raise_amount;
         } else {
-            return if game_state.street.street_status() == StreetStatus::Preflop {
-                game_state.big_blind * 2 // FIX: or the biggest bank on the table except self
-            } else {
-                game_state.big_blind
-            };
+            game_state.biggest_bet_on_curr_street + game_state.big_blind
         }
     }
 
@@ -977,14 +968,19 @@ impl Dealer {
 
             game_state.raiser_index = Some(index);
 
-            player.bet_in_current_seed += bet_amount;
-            player.bank -= bet_amount;
-            game_state.game_bank += bet_amount;
+            let add_amount = if let Some(bet) =
+                self.get_player_bet_on_current_street(player, &game_state.street.street_status())
+            {
+                bet_amount - bet
+            } else {
+                bet_amount
+            };
 
-            if bet_amount > game_state.biggest_bet_on_curr_street {
-                game_state.raise_amount = bet_amount - game_state.biggest_bet_on_curr_street;
-                game_state.biggest_bet_on_curr_street = bet_amount;
-            }
+            player.bet_in_current_seed += add_amount;
+            player.bank -= add_amount;
+            game_state.game_bank += add_amount;
+            game_state.raise_amount = bet_amount - game_state.biggest_bet_on_curr_street;
+            game_state.biggest_bet_on_curr_street = bet_amount;
 
             let action = Action {
                 action_type: ActionType::Raise.into(),
@@ -997,6 +993,22 @@ impl Dealer {
             game_state.action_history.push(action);
         } else {
             println!("the player with the given ID is not found");
+        }
+    }
+
+    fn get_player_bet_on_current_street(
+        &self,
+        p: &Player,
+        street_status: &StreetStatus,
+    ) -> Option<i32> {
+        if let Some(a) = p.action.as_ref() {
+            if &a.street_status() == street_status {
+                Some(a.bet)
+            } else {
+                None
+            }
+        } else {
+            None
         }
     }
 
