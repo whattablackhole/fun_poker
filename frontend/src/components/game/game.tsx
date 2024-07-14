@@ -47,7 +47,7 @@ function Game() {
         .catch(() => {
           navigate("/");
         });
-        websocketService.addEventListener(CloseEvent.name, onConnectionClose);
+      websocketService.addEventListener(CloseEvent.name, onConnectionClose);
 
       return () => {
         websocketService.disconnect();
@@ -91,11 +91,50 @@ function Game() {
   };
 
   const betClickHandler = (value: number, type: ActionType) => {
+    let bet = 0;
+    switch (type) {
+      case ActionType.Check: {
+        if (gameState?.amountToCall?.value !== 0) {
+          console.log("Invalid validation on check");
+          return;
+        }
+        break;
+      }
+
+      case ActionType.Call: {
+        if (gameState!.amountToCall!.value > value) {
+          console.log("Invalid validation on call");
+          return;
+        }
+        bet = gameState!.amountToCall!.value;
+        break;
+      }
+
+      case ActionType.Raise: {
+        if (gameState!.minAmountToRaise!.value > value) {
+          console.log("Invalid validation on raise");
+          return;
+        }
+        bet = value;
+        break;
+      }
+      case ActionType.Fold: {
+        if (gameState!.minAmountToRaise!.value === 0) {
+          console.log("Invalid validation on fold");
+          return;
+        }
+        break;
+      }
+      default:
+        break;
+    }
+
     let payload = PlayerActionRequest.create({
-      action: { actionType: type, bet: value, playerId: selfPlayer.userId },
+      action: { actionType: type, bet, playerId: selfPlayer.userId },
       lobbyId: gameState?.lobbyId,
       playerId: selfPlayer.userId,
     });
+
     websocketService.sendMessage(PlayerActionRequest.toBinary(payload));
   };
 

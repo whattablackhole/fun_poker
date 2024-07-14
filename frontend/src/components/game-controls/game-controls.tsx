@@ -1,9 +1,10 @@
-import { useState } from "react";
-import { ClientState, Player } from "../../types";
+import { useEffect, useState } from "react";
 import "./game-controls.css";
 import InputSlider from "./bet-slider";
 import { Button, Grid } from "@mui/material";
 import { ActionType } from "../../types/game_state";
+import { ClientState } from "../../types/client_state";
+import { Player } from "../../types/player";
 
 function GameControls({
   gameState,
@@ -16,7 +17,30 @@ function GameControls({
   betClickHandler: (value: number, type: ActionType) => void;
   spawnBotClickHandler: () => void;
 }) {
-  const [betSizeInputValue, setBetSizeInputValue] = useState<number>(0);
+  const [minRaiseValue, setMinRaiseValue] = useState(
+    gameState.minAmountToRaise?.value ?? 0
+  );
+
+  const [betSizeInputValue, setBetSizeInputValue] =
+    useState<number>(minRaiseValue);
+
+  useEffect(() => {
+    if (gameState.minAmountToRaise?.value !== undefined) {
+      setMinRaiseValue(gameState.minAmountToRaise?.value);
+    }
+  }, [gameState.minAmountToRaise?.value]);
+
+  useEffect(() => {
+    setBetSizeInputValue(minRaiseValue);
+  }, [minRaiseValue]);
+
+  const handleBetSizeChange = (amount: number) => {
+    setBetSizeInputValue(amount);
+  };
+
+  const minRaiseHandler = () => {
+    setBetSizeInputValue(gameState.minAmountToRaise?.value ?? 0);
+  };
 
   return (
     <Grid
@@ -51,12 +75,12 @@ function GameControls({
               boxShadow: "0 0 0 1px black, 0 0 0 2px grey",
             }}
             className="control-button"
-            // get min size size
+            onClick={() => minRaiseHandler()}
+            // get min raise
             disabled={
-              gameState?.currPlayerId?.value !== player.userId ||
+              gameState.currPlayerId?.value !== player.userId ||
               player.action?.actionType === ActionType.Fold ||
-              50 > player.bank ||
-              (gameState.amountToCall?.value ?? 0) > 50
+              minRaiseValue > player.bank
             }
           >
             Min
@@ -71,7 +95,7 @@ function GameControls({
             className="control-button"
             // get half blind size
             disabled={
-              gameState?.currPlayerId?.value !== player.userId ||
+              gameState.currPlayerId?.value !== player.userId ||
               player.action?.actionType === ActionType.Fold ||
               50 > player.bank ||
               (gameState.amountToCall?.value ?? 0) > 50
@@ -89,7 +113,7 @@ function GameControls({
             className="control-button"
             // get pot size
             disabled={
-              gameState?.currPlayerId?.value !== player.userId ||
+              gameState.currPlayerId?.value !== player.userId ||
               player.action?.actionType === ActionType.Fold ||
               player.bank < 100
             }
@@ -113,11 +137,11 @@ function GameControls({
             Max
           </Button>
         </div>
-
         <InputSlider
-          defaultValue={gameState.amountToCall?.value ?? 0}
+          value={betSizeInputValue}
+          minValue={minRaiseValue}
           maxValue={player.bank}
-          onValueChange={setBetSizeInputValue}
+          onValueChange={handleBetSizeChange}
         ></InputSlider>
       </Grid>
       <Grid item sx={{ gap: "20px", display: "flex" }}>
@@ -139,7 +163,8 @@ function GameControls({
           className="fold_button control-button"
           disabled={
             gameState?.currPlayerId?.value !== player.userId ||
-            player.action?.actionType === ActionType.Fold
+            player.action?.actionType === ActionType.Fold ||
+            gameState.amountToCall?.value === 0
           }
           onClick={() => betClickHandler(0, ActionType.Fold)}
         >
@@ -160,9 +185,16 @@ function GameControls({
             player.action?.actionType === ActionType.Fold ||
             player.bank < (gameState.amountToCall?.value ?? 0)
           }
-          onClick={() => betClickHandler(betSizeInputValue, ActionType.Call)}
+          onClick={() =>
+            betClickHandler(
+              betSizeInputValue,
+              gameState.amountToCall?.value === 0
+                ? ActionType.Check
+                : ActionType.Call
+            )
+          }
         >
-          Call
+          {gameState.amountToCall?.value === 0 ? "Check" : "Call"}
         </Button>
         <Button
           size="large"
@@ -177,8 +209,8 @@ function GameControls({
           disabled={
             gameState?.currPlayerId?.value !== gameState.playerId ||
             player.action?.actionType === ActionType.Fold ||
-            player.bank < (gameState.minAmountToRaise?.value ?? 0) ||
-            betSizeInputValue < (gameState.minAmountToRaise?.value ?? 0)
+            player.bank < minRaiseValue ||
+            betSizeInputValue < minRaiseValue
           }
           onClick={() => betClickHandler(betSizeInputValue, ActionType.Raise)}
         >

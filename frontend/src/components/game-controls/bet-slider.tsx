@@ -1,4 +1,3 @@
-import * as React from 'react';
 import { styled } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
@@ -39,17 +38,12 @@ const CustomSlider = styled(Slider)(({ theme }) => ({
   },
 }));
 
-export default function InputSlider({ defaultValue, maxValue, onValueChange } : { defaultValue: number, maxValue:number, onValueChange : React.Dispatch<React.SetStateAction<number>>}) {
-  const [value, setValue] = React.useState(defaultValue);
-
+export default function InputSlider({ value, minValue, maxValue, onValueChange } : {value: number, minValue: number, maxValue:number, onValueChange : (...args: any)=>any}) {
   const handleSliderChange = (event: Event, newValue: number | number[]) => {
-    setValue(newValue as number);
     onValueChange(Number(newValue));
   };
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setValue(event.target.value === '' ? 0 : Number(event.target.value));
-
     onValueChange(Number(event.target.value));
   };
 
@@ -76,7 +70,7 @@ export default function InputSlider({ defaultValue, maxValue, onValueChange } : 
             }}
             inputProps={{
               step: 50,
-              min: defaultValue,
+              min: minValue,
               max: maxValue,
               type: 'number',
               'aria-labelledby': 'input-slider',
@@ -88,7 +82,7 @@ export default function InputSlider({ defaultValue, maxValue, onValueChange } : 
         <Grid item xs alignItems="center" display="flex">
           <CustomSlider
             value={value}
-            min={defaultValue}
+            min={minValue}
             max={maxValue}
             onChange={handleSliderChange}
             aria-labelledby="input-slider"
