@@ -4,7 +4,7 @@ import {
   ResponseMessageType,
   StartGameResponse,
 } from "../types/responses";
-import { ClientState } from "../types";
+import { ClientState } from "../types/client_state";
 
 export default class WebSocketService {
   private ws: WebSocket | null = null;
@@ -14,7 +14,7 @@ export default class WebSocketService {
 
   public reconnect(): Promise<void> {
     if (!this.url) {
-        throw new Error("Websocket is not connected!");
+      throw new Error("Websocket is not connected!");
     }
 
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
@@ -22,13 +22,13 @@ export default class WebSocketService {
     }
 
     if (this.wsPromise) {
-        return this.wsPromise;
+      return this.wsPromise;
     }
 
     return this.connect(this.url);
   }
 
-  public disconnect() {
+  public async disconnect() {
     if (this.ws) {
       this.ws.onclose = null;
       this.ws.close();
@@ -37,6 +37,7 @@ export default class WebSocketService {
 
     if (this.emitter) {
       this.emitter.emit("Disconnecting");
+      this.emitter.removeAllListeners();
       this.emitter = null;
     }
 
@@ -53,10 +54,12 @@ export default class WebSocketService {
 
   public connect(url: string): Promise<void> {
     if (this.wsPromise) {
-      return this.wsPromise;
+      throw Error(
+        "An attempt to establish a new connection while connection is being processed"
+      );
     }
 
-    this.wsPromise = new Promise((resolve, reject) => {
+    this.wsPromise = new Promise((resolve) => {
       this.emitter = new EventEmitter();
       this.ws = new WebSocket(url);
 
@@ -73,15 +76,6 @@ export default class WebSocketService {
         if (this.emitter) {
           this.emitter.emit("close", e.reason);
         }
-      };
-
-      this.ws.onerror = (error) => {
-        if (!this.wsPromise) {
-            reject(error);
-        }
-
-        this.wsPromise = null;
-        this.ws = null;
       };
 
       this.ws.onmessage = async (event) => {

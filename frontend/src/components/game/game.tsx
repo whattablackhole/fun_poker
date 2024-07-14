@@ -2,10 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import PokerTable3d from "../poker_table_3d/poker-table-3d";
 import ApiService from "../../services/api.service";
 import BetHistory from "../../types/bet-history";
-import { Card, Player } from "../../types";
 import GameStateService from "../../services/game-state.service";
 import GameControls from "../game-controls/game-controls";
-import "./game.css";
 import { useWebSocketContext } from "../../contexts/websocket-context";
 import { ResponseMessageType } from "../../types/responses";
 import { ClientState } from "../../types/client_state";
@@ -14,6 +12,10 @@ import { BotModel } from "../../types/ai_bot_player";
 import { ActionType } from "../../types/game_state";
 import useQuery from "../../hooks/useQuery";
 import { useNavigate } from "react-router-dom";
+import "./game.css";
+import { Card } from "../../types/card";
+import { Player } from "../../types/player";
+import { CircularProgress, Typography } from "@mui/material";
 
 const wsUrl = import.meta.env.VITE_WS_URL;
 
@@ -41,6 +43,7 @@ function Game() {
             stateUpdateHandler
           );
           websocketService.addEventListener(CloseEvent.name, onConnectionClose);
+          setLoading(false);
         })
         .catch(() => {
           navigate("/");
@@ -64,7 +67,6 @@ function Game() {
 
   const stateUpdateHandler = async (state: ClientState) => {
     console.log(state);
-    setLoading(false);
     queueRef.current = queueRef.current.then(async () => {
       const newState = await GameStateService.processNewState(
         state,
@@ -98,11 +100,21 @@ function Game() {
   };
 
   if (loading) {
-    return <div>Loading ...</div>;
+    return (
+      <div className="game-connecting">
+        <CircularProgress variant="indeterminate" thickness={5} size={100} />
+        <Typography variant="h4">Connecting...</Typography>
+      </div>
+    );
   }
 
   if (!gameState || !players) {
-    return <div>Game is not ready: Bad state</div>;
+    return (
+      <div className="game-connecting">
+        <CircularProgress variant="indeterminate" thickness={5} size={100} />
+        <Typography variant="h4">Loading game state...</Typography>
+      </div>
+    );
   }
 
   return (

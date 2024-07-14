@@ -11,9 +11,9 @@ import {
   TextField,
 } from "@mui/material";
 import { CreateLobbyRequest } from "../../types/requests";
-import { GameName, GameType } from "../../types";
 import ApiService from "../../services/api.service";
 import { useUserContext } from "../../contexts/user-context";
+import { GameName, GameType } from "../../types/lobby";
 
 export default function CreateLobbyDialog() {
   const [open, setOpen] = React.useState(false);

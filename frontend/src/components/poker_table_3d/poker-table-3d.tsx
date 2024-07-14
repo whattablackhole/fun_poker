@@ -3,7 +3,6 @@ import { OrbitControls } from "@react-three/drei";
 import { Html } from "@react-three/drei";
 import { TextureLoader, Vector3 } from "three";
 import Card3d from "./card3d";
-import { Player, PlayerStatus } from "../../types";
 import "./poker-table3d.css";
 import { FlagIcon, FlagIconCode } from "react-flag-kit";
 import PokerCard from "../poker_card/poker-card";
@@ -13,6 +12,7 @@ import TimerBanner from "../timer_banner/timer-banner";
 import BetHistory from "../../types/bet-history";
 import { GameStatus, Street } from "../../types/game_state";
 import React from "react";
+import { Player, PlayerStatus } from "../../types/player";
 
 const LogCameraSettings = () => {
   const { camera } = useThree();
