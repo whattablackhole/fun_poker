@@ -42,12 +42,12 @@ function Game() {
             ResponseMessageType.ClientState.toString(),
             stateUpdateHandler
           );
-          websocketService.addEventListener(CloseEvent.name, onConnectionClose);
           setLoading(false);
         })
         .catch(() => {
           navigate("/");
         });
+        websocketService.addEventListener(CloseEvent.name, onConnectionClose);
 
       return () => {
         websocketService.disconnect();

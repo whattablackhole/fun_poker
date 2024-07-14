@@ -85,10 +85,10 @@ function PokerTable3d({
   let buttonPos;
 
   if (buttonPlayer) {
-    buttonPos = offsetXY(buttonPlayer.position.x, buttonPlayer.position.y, 4);
+    buttonPos = offsetXY(buttonPlayer.position.x, buttonPlayer.position.y, 1.5);
   }
 
-  // TODO: should be cached, but still maybe be preload
+  // TODO: should be cached, but still maybe need to preload
   const borderTexture = useLoader(TextureLoader, "./src/assets/rubber.avif");
   const deskTexture = useLoader(TextureLoader, "./src/assets/desk-texture.jpg");
 
@@ -118,19 +118,22 @@ function PokerTable3d({
 
       <group>
         <mesh scale={[1.5, 1, 1]}>
-          <torusGeometry args={[5, 0.15, 10, 100]} />
+          <torusGeometry args={[radius, 0.15, 10, 100]} />
           <meshBasicMaterial map={borderTexture} />
         </mesh>
 
         {buttonPos ? (
-          <PokerButton
-            x={buttonPos.x - 0.2}
-            y={buttonPos.y + 0.5}
-          ></PokerButton>
+          <PokerButton x={buttonPos.x} y={buttonPos.y}></PokerButton>
         ) : null}
 
-        {/* TODO: */}
-        <Html position={[-3, 2, 0]} style={{ display: "flex" }}>
+        <Chips amount={betHistory.getBankOnPrevStreet()} x={0} y={-0.5} />
+        {betHistory.getBankOnPrevStreet() > 0 ? (
+          <Html style={{ color: "green" }} position={[0, 0, 0.1]}>
+            {betHistory.getBankOnPrevStreet()}
+          </Html>
+        ) : null}
+
+        <Html position={[-3, 3, 0]} style={{ display: "flex" }}>
           {street?.cards?.map((card, index) => {
             return (
               <PokerCard
@@ -140,16 +143,14 @@ function PokerTable3d({
               />
             );
           })}
-          {/* <Card3d cards={player.cards} position={position} key={index} index={index} />
-        <Card3d cards={player.cards} position={position} key={index} index={index} />
-        <Card3d cards={player.cards} position={position} key={index} index={index} /> */}
         </Html>
         {playersAndPosition.map(({ player, position }, index) => {
           let chipsCords = offsetXY(position.x, position.y, 2);
+          let playerBlockCordsOffseted = offsetXY(position.x, position.y, -1);
           let playerBlockCords = {
-            x: position.x - offsetX,
-            y: position.y - offsetY,
-            z: position.z,
+            x: playerBlockCordsOffseted.x - offsetX,
+            y: playerBlockCordsOffseted.y - offsetY + 1,
+            z: 1,
           };
 
           return (
@@ -162,12 +163,28 @@ function PokerTable3d({
                 x={chipsCords.x}
                 y={chipsCords.y}
               />
+              {betHistory.getPlayerBetAmount(
+                player.userId,
+                street?.streetStatus
+              ) > 0 ? (
+                <Html
+                  style={{ color: "green" }}
+                  position={new Vector3(chipsCords.x, chipsCords.y, 0)}
+                >
+                  {betHistory.getPlayerBetAmount(
+                    player.userId,
+                    street?.streetStatus
+                  )}
+                </Html>
+              ) : null}
+
               {player.status === PlayerStatus.Ready &&
               gameStatus === GameStatus.Active ? (
                 <Card3d
                   cards={player.cards}
                   position={playerBlockCords}
                   index={index}
+                  buttonId={buttonId}
                 />
               ) : null}
 
@@ -213,7 +230,7 @@ function PokerTable3d({
           );
         })}
         <mesh rotation={[Math.PI / 2, 0, 0]} scale={[1.5, 1, 1]}>
-          <cylinderGeometry args={[5, 5, 0.1, 100]} />
+          <cylinderGeometry args={[radius, radius, 0.1, 100]} />
           <meshBasicMaterial map={deskTexture} />
         </mesh>
       </group>

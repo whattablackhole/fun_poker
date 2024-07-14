@@ -114,7 +114,7 @@ function ChipsCanvas({
         <mesh
           key={index + i}
           rotation={[Math.PI / 2, Math.PI / 2, 0]}
-          position={[x + index * 0.3, y, 0.05 + i * 0.051]}
+          position={[x + index * 0.3, y, 0.025 + i * 0.051]}
         >
           <cylinderGeometry args={[0.15, 0.15, 0.05, 32]} />
           <meshBasicMaterial

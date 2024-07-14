@@ -71,12 +71,19 @@ export default class WebSocketService {
 
       this.ws.onclose = (e) => {
         console.log("WebSocket connection closed");
+        if (this.emitter) {
+          this.emitter.emit(CloseEvent.name, e.reason);
+          this.emitter.removeAllListeners();
+        }
+        this.emitter = null;
         this.wsPromise = null;
         this.ws = null;
-        if (this.emitter) {
-          this.emitter.emit("close", e.reason);
-        }
       };
+
+      // TODO: refactor to create new instance of socket because its
+      // not possible to correctly unmount singleton websocket without errors...
+      // https://github.com/facebook/create-react-app/issues/10387
+      // this.ws.onerror
 
       this.ws.onmessage = async (event) => {
         try {

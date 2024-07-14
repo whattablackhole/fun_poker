@@ -20,7 +20,7 @@ function PokerButton({ x, y }: { x: number, y: number }) {
 
     return (
         <mesh rotation={[Math.PI / 2, Math.PI / 2, 0]} position={[x, y, 0.1]}>
-            <cylinderGeometry args={[0.3, 0.3, 0.2, 32]} />
+            <cylinderGeometry args={[0.2, 0.2, 0.1, 32]} />
             <meshBasicMaterial key="0" attach="material-0" color={'#8B8000'} />
             <meshBasicMaterial key="1" attach="material-1" map={texture} />
             <meshBasicMaterial key="2" attach="material-2" color={'green'} />
