@@ -71,7 +71,15 @@ function PokerTable3d({
   const cardScaleRadiusY = 1.2;
 
   for (let i = 0; i < players.length; i++) {
-    const angle = (i / players.length) * Math.PI * 2 - Math.PI / 2;
+    let angle;
+    if (i === 0) {
+      angle = -Math.PI / 2;
+    } else {
+      angle =
+        ((players.length - i) / players.length) * Math.PI * 2 - Math.PI / 2;
+    }
+
+    console.log(angle);
     const x = Math.cos(angle) * cardScaleRadiusX * radius;
     const y = Math.sin(angle) * cardScaleRadiusY * radius;
     const z = 1;
