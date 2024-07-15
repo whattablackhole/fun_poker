@@ -1,5 +1,5 @@
 import { ClientState } from "./client_state";
-import { StreetStatus } from "./game_state";
+import { ActionType, StreetStatus } from "./game_state";
 type PlayerId = number;
 type BetAmount = number;
 
@@ -25,7 +25,7 @@ class BetHistory implements IBetHistory {
 
         this._bank_on_prev_street = 0;
         // TODO: simplify to only take the last bet for each player
-        newState.actionHistory.forEach((action) => {
+        newState.actionHistory.filter((a) => a.actionType !== ActionType.Fold && a.actionType !== ActionType.Check).forEach((action) => {
             if (action.streetStatus !== undefined) {
                 let history = this._betHistoryMap.get(action.playerId) || { 0: 0, 1: 0, 2: 0, 3: 0 };
                 history[action.streetStatus] = action.bet;

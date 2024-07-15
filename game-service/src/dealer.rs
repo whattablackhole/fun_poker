@@ -896,12 +896,21 @@ impl Dealer {
 
         // winners contains non-updated field bet_in_current_seed
         // it may be fixed in winner calculation stage
+
+        let new_bet_amount = if let Some(bet) =
+            self.get_player_bet_on_current_street(player, &game_state.street.street_status())
+        {
+            bet_amount + bet
+        } else {
+            bet_amount
+        };
+
         player.bet_in_current_seed += bet_amount;
         player.bank -= bet_amount;
 
         let action = Action {
             action_type: ActionType::Call.into(),
-            bet: bet_amount,
+            bet: new_bet_amount,
             player_id: player.user_id,
             street_status: game_state.street.street_status.into(),
         };

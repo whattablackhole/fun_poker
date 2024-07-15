@@ -1,6 +1,8 @@
 import GameStateProcessHelper from "../helpers/game-state-helper";
-import { Card, ClientState, Player } from "../types";
 import BetHistory from "../types/bet-history";
+import { Card } from "../types/card";
+import { ClientState } from "../types/client_state";
+import { Player } from "../types/player";
 
 class GameStateService {
     static async processNewState(newState: ClientState, prevState: ClientState | undefined, betHistory: BetHistory, setBoardCards: React.Dispatch<React.SetStateAction<Card[] | undefined>>, setBetHistory: React.Dispatch<React.SetStateAction<BetHistory>>, setPlayers: React.Dispatch<React.SetStateAction<Player[] | undefined>>) {

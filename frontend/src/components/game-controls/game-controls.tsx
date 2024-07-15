@@ -76,7 +76,6 @@ function GameControls({
             }}
             className="control-button"
             onClick={() => minRaiseHandler()}
-            // get min raise
             disabled={
               gameState.currPlayerId?.value !== player.userId ||
               player.action?.actionType === ActionType.Fold ||
@@ -93,7 +92,6 @@ function GameControls({
               boxShadow: "0 0 0 1px black, 0 0 0 2px grey",
             }}
             className="control-button"
-            // get half blind size
             disabled={
               gameState.currPlayerId?.value !== player.userId ||
               player.action?.actionType === ActionType.Fold ||

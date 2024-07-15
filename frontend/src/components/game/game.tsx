@@ -23,7 +23,7 @@ function Game() {
   const query = useQuery();
   const navigate = useNavigate();
 
-  let websocketService = useWebSocketContext();
+  let websocketService = useRef(useWebSocketContext());
 
   let [loading, setLoading] = useState(true);
 
@@ -35,10 +35,10 @@ function Game() {
     const lobbyId = query.get("lobby_id");
 
     if (lobbyId) {
-      websocketService
+      websocketService.current
         .connect(`${wsUrl}/join_lobby?lobby_id=${lobbyId}`)
         .then(() => {
-          websocketService.addEventListener(
+          websocketService.current.addEventListener(
             ResponseMessageType.ClientState.toString(),
             stateUpdateHandler
           );
@@ -47,10 +47,13 @@ function Game() {
         .catch(() => {
           navigate("/");
         });
-      websocketService.addEventListener(CloseEvent.name, onConnectionClose);
+      websocketService.current.addEventListener(
+        CloseEvent.name,
+        onConnectionClose
+      );
 
       return () => {
-        websocketService.disconnect();
+        websocketService.current.disconnect();
       };
     } else {
       navigate("/");
@@ -135,7 +138,7 @@ function Game() {
       playerId: selfPlayer.userId,
     });
 
-    websocketService.sendMessage(PlayerActionRequest.toBinary(payload));
+    websocketService.current.sendMessage(PlayerActionRequest.toBinary(payload));
   };
 
   if (loading) {
