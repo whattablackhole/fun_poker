@@ -10,7 +10,7 @@ import PokerButton from "./poker-button";
 import Chips from "./chips3d";
 import TimerBanner from "../timer_banner/timer-banner";
 import BetHistory from "../../types/bet-history";
-import { GameStatus, Street } from "../../types/game_state";
+import { ActionType, GameStatus, Street } from "../../types/game_state";
 import React from "react";
 import { Player, PlayerStatus } from "../../types/player";
 
@@ -154,7 +154,7 @@ function PokerTable3d({
           };
 
           return (
-            <React.Fragment key={index}>
+            <React.Fragment key={player.userId}>
               <Chips
                 amount={betHistory.getPlayerBetAmount(
                   player.userId,
@@ -178,16 +178,17 @@ function PokerTable3d({
                 </Html>
               ) : null}
 
-              {player.status === PlayerStatus.Ready &&
-              gameStatus === GameStatus.Active ? (
-                <Card3d
-                  cards={player.cards}
-                  position={playerBlockCords}
-                  index={index}
-                  buttonId={buttonId}
-                />
-              ) : null}
-
+              <Card3d
+                cards={player.cards}
+                position={playerBlockCords}
+                index={index}
+                buttonId={buttonId}
+                isVisible={
+                  player.status === PlayerStatus.Ready &&
+                  player.action?.actionType !== ActionType.Fold &&
+                  gameStatus === GameStatus.Active
+                }
+              />
               <Html
                 position={
                   new Vector3(

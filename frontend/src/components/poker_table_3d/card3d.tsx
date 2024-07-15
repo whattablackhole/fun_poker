@@ -9,11 +9,13 @@ const Card3d = ({
   position,
   index,
   buttonId,
+  isVisible,
 }: {
   cards: CardPair | undefined;
   position: { x: number; y: number; z: number };
-  index: any;
+  index: number;
   buttonId?: number;
+  isVisible: boolean;
 }) => {
   const { x, y, z } = position;
 
@@ -34,11 +36,21 @@ const Card3d = ({
   );
 
   useEffect(() => {
+    api1.start({ position: [x, y, z], immediate: true });
+    api2.start({ position: [x, y, z], immediate: true });
+  }, [x, y, z]);
+
+  useEffect(() => {
     api1.start({ position: [0, 0, 0], immediate: true });
     api2.start({ position: [0, 0, 0], immediate: true });
     api1.start({ position: [x, y, z], delay: index * 100 });
     api2.start({ position: [x, y, z], delay: index * 200 });
   }, [buttonId]);
+
+  if (!isVisible) {
+    return null;
+  }
+
   return (
     <>
       <animated.mesh position={spring1.position.to((x, y, z) => [x, y, z])}>

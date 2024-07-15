@@ -81,7 +81,9 @@ impl SocketPool {
                 TError::Tls(_) => todo!(),
                 TError::Capacity(_) => todo!(),
                 TError::Protocol(e) => {
-                    todo!()
+                    println!("{e}");
+                    self.remove_connection(&client_id);
+                    return Err(ReadMessageError::Disconnected);
                 },
                 TError::WriteBufferFull(_) => todo!(),
                 TError::Utf8 => todo!(),
