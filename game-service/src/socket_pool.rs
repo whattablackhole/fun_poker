@@ -78,19 +78,24 @@ impl SocketPool {
                     return Err(ReadMessageError::Disconnected);
                 }
                 TError::Io(_) => return Err(ReadMessageError::Iddle),
-                TError::Tls(_) => todo!(),
-                TError::Capacity(_) => todo!(),
                 TError::Protocol(e) => {
                     println!("{e}");
                     self.remove_connection(&client_id);
                     return Err(ReadMessageError::Disconnected);
-                },
-                TError::WriteBufferFull(_) => todo!(),
-                TError::Utf8 => todo!(),
-                TError::AttackAttempt => todo!(),
-                TError::Url(_) => todo!(),
-                TError::Http(_) => todo!(),
-                TError::HttpFormat(_) => todo!(),
+                }
+                e => {
+                    println!("Unhandled TError error type: {e}");
+                    self.remove_connection(&client_id);
+                    return Err(ReadMessageError::Disconnected);
+                }
+                // TError::Tls(_) => todo!(),
+                // TError::Capacity(_) => todo!(),
+                // TError::WriteBufferFull(_) => todo!(),
+                // TError::Utf8 => todo!(),
+                // TError::AttackAttempt => todo!(),
+                // TError::Url(_) => todo!(),
+                // TError::Http(_) => todo!(),
+                // TError::HttpFormat(_) => todo!(),
             },
             Ok(r) => r,
         };
@@ -104,7 +109,11 @@ impl SocketPool {
                 }
                 return Err(ReadMessageError::Disconnected);
             }
-            _ => panic!("Expected binary message"),
+            m => {
+                println!("Error: expected binary message, but got: {m}");
+                self.remove_connection(&client_id);
+                return Err(ReadMessageError::Disconnected);
+            }
         };
 
         let mut reader = std::io::Cursor::new(bytes);
@@ -193,60 +202,59 @@ impl SocketPool {
         connected
     }
 
-
     // DEPRECATED:
     // pub fn check_connection_health(&self, connection_id: i32) -> bool {
-        // let connected = match pool.get(&connection_id) {
-        //     Some(socket) => {
-        //         let mut socket_guard = socket.lock().unwrap();
-        //         let mut connected = false;
-        //         thread::sleep(Duration::from_millis(1000));
-        //         SocketPool::ping(&mut socket_guard.socket);
-        //         let time = SystemTime::now();
+    // let connected = match pool.get(&connection_id) {
+    //     Some(socket) => {
+    //         let mut socket_guard = socket.lock().unwrap();
+    //         let mut connected = false;
+    //         thread::sleep(Duration::from_millis(1000));
+    //         SocketPool::ping(&mut socket_guard.socket);
+    //         let time = SystemTime::now();
 
-        //         loop {
-        //             // println!("______________________________________");
-        //             match socket_guard.socket.read() {
-        //                 Ok(r) => match r {
-        //                     TMessage::Pong(_) => {
-        //                         println!("hellow");
-        //                         connected = true;
-        //                         break;
-        //                     }
-        //                     TMessage::Close(_) => {
-        //                         println!("hellowg");
-        //                         connected = false;
-        //                         break;
-        //                     }
-        //                     _ => {
-        //                         if time.elapsed().unwrap() > Duration::from_millis(10000) {
-        //                             break;
-        //                         }
-        //                         thread::sleep(Duration::from_millis(10));
-        //                     }
-        //                 },
-        //                 Err(_) => {
-        //                     if time.elapsed().unwrap() > Duration::from_millis(10000) {
-        //                         break;
-        //                     }
-        //                     thread::sleep(Duration::from_millis(10));
-        //                 }
-        //             }
-        //         }
-        //         connected
-        //     }
-        //     None => {
-        //         println!("connection with id {} is already removed", &connection_id);
-        //         false
-        //     }
-        // };
+    //         loop {
+    //             // println!("______________________________________");
+    //             match socket_guard.socket.read() {
+    //                 Ok(r) => match r {
+    //                     TMessage::Pong(_) => {
+    //                         println!("hellow");
+    //                         connected = true;
+    //                         break;
+    //                     }
+    //                     TMessage::Close(_) => {
+    //                         println!("hellowg");
+    //                         connected = false;
+    //                         break;
+    //                     }
+    //                     _ => {
+    //                         if time.elapsed().unwrap() > Duration::from_millis(10000) {
+    //                             break;
+    //                         }
+    //                         thread::sleep(Duration::from_millis(10));
+    //                     }
+    //                 },
+    //                 Err(_) => {
+    //                     if time.elapsed().unwrap() > Duration::from_millis(10000) {
+    //                         break;
+    //                     }
+    //                     thread::sleep(Duration::from_millis(10));
+    //                 }
+    //             }
+    //         }
+    //         connected
+    //     }
+    //     None => {
+    //         println!("connection with id {} is already removed", &connection_id);
+    //         false
+    //     }
+    // };
 
-        // if !connected {
-        //     drop(pool);
-        //     self.pool.write().unwrap().remove(&connection_id);
-        // }
+    // if !connected {
+    //     drop(pool);
+    //     self.pool.write().unwrap().remove(&connection_id);
+    // }
 
-        // connected
+    // connected
     // }
 
     pub fn spawn_health_checker(

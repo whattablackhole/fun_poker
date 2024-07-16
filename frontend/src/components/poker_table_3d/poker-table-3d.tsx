@@ -1,6 +1,6 @@
 import { Canvas, useFrame, useThree, useLoader } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
-import { Html } from "@react-three/drei";
+import { Html, Text, Image } from "@react-three/drei";
 import { TextureLoader, Vector3 } from "three";
 import Card3d from "./card3d";
 import "./poker-table3d.css";
@@ -13,6 +13,7 @@ import BetHistory from "../../types/bet-history";
 import { ActionType, GameStatus, Street } from "../../types/game_state";
 import React from "react";
 import { Player, PlayerStatus } from "../../types/player";
+import * as THREE from "three";
 
 const LogCameraSettings = () => {
   const { camera } = useThree();
@@ -98,7 +99,25 @@ function PokerTable3d({
 
   // TODO: should be cached, but still maybe need to preload
   const borderTexture = useLoader(TextureLoader, "./src/assets/rubber.avif");
-  const deskTexture = useLoader(TextureLoader, "./src/assets/desk-texture.jpg");
+  // const deskTexture = useLoader(TextureLoader, "./src/assets/desk-texture.jpg");
+
+  const material = new THREE.ShaderMaterial({
+    vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+    fragmentShader: `
+   varying vec2 vUv;
+      void main() {
+        vec2 uv = vUv - 0.5;
+        float dist = length(uv);
+        vec3 color = mix(vec3(0, 0.0, 1.0), vec3(0.0, 0.0, 0), dist * 1.0);
+        gl_FragColor = vec4(color, 1.5);
+      }`,
+  });
 
   return (
     <Canvas
@@ -110,7 +129,7 @@ function PokerTable3d({
         backgroundSize: "cover",
       }}
       camera={{
-        position: [2.7, -16, 48],
+        position: [0, -36, 38],
         fov: 15,
       }}
       shadows
@@ -153,11 +172,11 @@ function PokerTable3d({
           })}
         </Html>
         {playersAndPosition.map(({ player, position }, index) => {
-          let chipsCords = offsetXY(position.x, position.y, 2);
+          let chipsCords = offsetXY(position.x, position.y, 2.5);
           let playerBlockCordsOffseted = offsetXY(position.x, position.y, -1);
           let playerBlockCords = {
             x: playerBlockCordsOffseted.x - offsetX,
-            y: playerBlockCordsOffseted.y - offsetY + 1,
+            y: playerBlockCordsOffseted.y - offsetY + 1.5,
             z: 1,
           };
 
@@ -238,13 +257,39 @@ function PokerTable3d({
             </React.Fragment>
           );
         })}
-        <mesh rotation={[Math.PI / 2, 0, 0]} scale={[1.5, 1, 1]}>
+        <mesh
+          rotation={[Math.PI / 2, 0, 0]}
+          scale={[1.5, 1, 1]}
+          material={material}
+        >
           <cylinderGeometry args={[radius, radius, 0.1, 100]} />
-          <meshBasicMaterial map={deskTexture} />
         </mesh>
+        <Text
+          color="black"
+          anchorX="center"
+          anchorY="middle"
+          position={[0, 0, 0.11]}
+          fillOpacity={0.1}
+          scale={[1.5, 1, 1]}
+        >
+          Fun Poker
+        </Text>
+        <Image
+          url="/src/assets/logo_no_background.svg"
+          position={[0, 1.5, 0.12]}
+          transparent={true}
+          zoom={1.5}
+          scale={[2, 2]}
+          opacity={0.1}
+        ></Image>
       </group>
 
-      <OrbitControls />
+      <OrbitControls
+        minAzimuthAngle={0}
+        maxAzimuthAngle={0}
+        minDistance={30}
+        maxDistance={70}
+      />
       {/* <LogCameraSettings></LogCameraSettings> */}
     </Canvas>
   );
