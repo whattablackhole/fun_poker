@@ -68,6 +68,7 @@ pub struct GameState {
     pub biggest_bet_on_curr_street: i32,
     pub action_history: Vec<Action>,
     pub showdown_outcome: Option<ShowdownOutcome>,
+    pub active_players_amount: usize
 }
 
 impl GameState {
@@ -86,6 +87,7 @@ impl GameState {
             positions: KeyPositions::new(),
             action_history: Vec::new(),
             showdown_outcome: None,
+            active_players_amount: 0
         }
     }
 }

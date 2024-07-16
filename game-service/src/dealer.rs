@@ -70,17 +70,19 @@ impl Dealer {
     }
 
     // PUBLIC --------------------------------------------------
-
+    // TODO: merge with setup next cycle
     pub fn start_new_game(
         &self,
         game_state: &mut GameState,
         player_state: &mut PlayerState,
         deck_state: &mut DeckState,
     ) -> Result<Vec<ClientState>, &str> {
-        let button_index = rand::thread_rng().gen_range(0..player_state.players.len());
+        game_state.active_players_amount = player_state.players.len();
+
+        let button_index = rand::thread_rng().gen_range(0..game_state.active_players_amount);
 
         let positions =
-            self.calculate_key_positions(button_index, player_state.players.len() as i32);
+            self.calculate_key_positions(button_index, game_state.active_players_amount as i32);
 
         game_state.positions = positions;
         game_state.status = GameStatus::Active;
@@ -1104,16 +1106,16 @@ impl Dealer {
         player_state: &PlayerState,
         game_state: &GameState,
     ) -> Option<usize> {
-        let mut new_curr =
-            (game_state.positions.button_index.unwrap() + 1) % player_state.players.len();
+        let mut new_curr = (game_state.positions.button_index.unwrap() + 1)
+            % game_state.active_players_amount as usize;
 
-        for _ in 0..player_state.players.len() {
+        for _ in 0..game_state.active_players_amount {
             let player = &player_state.players[new_curr];
             let action = player.action.as_ref().unwrap();
             if action.action_type != ActionType::Fold as i32 && player.bank != 0 {
                 return Some(new_curr);
             } else {
-                new_curr = (new_curr + 1) % player_state.players.len() as usize;
+                new_curr = (new_curr + 1) % game_state.active_players_amount as usize;
             }
         }
 
@@ -1126,7 +1128,7 @@ impl Dealer {
         game_state: &GameState,
     ) -> usize {
         if game_state.street.street_status() == StreetStatus::Preflop {
-            if self.is_heads_up(player_state.players.len() as i32) {
+            if self.is_heads_up(game_state.active_players_amount as i32) {
                 game_state.positions.button_index.unwrap()
             } else {
                 game_state.positions.big_blind_index.unwrap()
@@ -1141,21 +1143,20 @@ impl Dealer {
         player_state: &PlayerState,
         game_state: &GameState,
     ) -> Option<usize> {
-        // fix: store players amount on street start
         let mut last_player_index = if let Some(raiser_index) = game_state.raiser_index {
-            (raiser_index + player_state.players.len() - 1) % player_state.players.len()
+            (raiser_index + game_state.active_players_amount - 1) % game_state.active_players_amount
         } else {
             self.get_default_last_player_index(player_state, game_state)
         } as usize;
 
-        for _ in 0..player_state.players.len() {
+        for _ in 0..game_state.active_players_amount {
             let player = &player_state.players[last_player_index];
             let action = player.action.as_ref().unwrap();
             if action.action_type != ActionType::Fold as i32 && player.bank != 0 {
                 return Some(last_player_index);
             }
-            last_player_index =
-                (last_player_index + player_state.players.len() - 1) % player_state.players.len();
+            last_player_index = (last_player_index + game_state.active_players_amount - 1)
+                % game_state.active_players_amount;
         }
 
         game_state.positions.curr_player_index
@@ -1213,6 +1214,7 @@ impl Dealer {
         game_state.street = Street::default();
         deck_state.new_random();
         game_state.action_history = Vec::new();
+        game_state.active_players_amount = player_state.players.len();
         self.deal_cards(deck_state, player_state, game_state);
         // TODO: think about taking actual value of player bet for blind instead of big_blind
         game_state.biggest_bet_on_curr_street = game_state.big_blind;
@@ -1223,11 +1225,13 @@ impl Dealer {
             p.action = None;
         });
         game_state.game_bank = 0;
-        let players_amount = player_state.players.len() as i32;
-        let next_button_index = self
-            .get_loop_incremented_index(game_state.positions.button_index.unwrap(), players_amount);
+        let next_button_index = self.get_loop_incremented_index(
+            game_state.positions.button_index.unwrap(),
+            game_state.active_players_amount as i32,
+        );
 
-        game_state.positions = self.calculate_key_positions(next_button_index, players_amount);
+        game_state.positions = self
+            .calculate_key_positions(next_button_index, game_state.active_players_amount as i32);
         self.setup_blinds(
             player_state,
             game_state.positions.small_blind_index.unwrap(),
@@ -1241,8 +1245,8 @@ impl Dealer {
         let mut curr_next = game_state.positions.curr_player_index.unwrap() as usize;
         let mut is_set = false;
 
-        for _ in 0..player_state.players.len() {
-            curr_next = (curr_next + 1) % player_state.players.len();
+        for _ in 0..game_state.active_players_amount {
+            curr_next = (curr_next + 1) % game_state.active_players_amount;
             if let Some(player) = player_state.players.get(curr_next) {
                 if let Some(action) = &player.action {
                     if action.action_type() != ActionType::Fold && player.bank != 0 {
