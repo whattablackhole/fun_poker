@@ -114,10 +114,10 @@ function Game() {
       }
 
       case ActionType.Raise: {
-        if (gameState!.minAmountToRaise!.value > value) {
-          console.log("Invalid validation on raise");
-          return;
-        }
+        // if (gameState!.minAmountToRaise!.value > value ) {
+        // console.log("Invalid validation on raise");
+        // return;
+        // }
         bet = value;
         break;
       }
@@ -172,6 +172,7 @@ function Game() {
       <div className="game-controls">
         <GameControls
           gameState={gameState}
+          betHistory={betHistory}
           player={selfPlayer}
           betClickHandler={betClickHandler}
           spawnBotClickHandler={spawnBotClickHandler}

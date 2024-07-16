@@ -5,15 +5,18 @@ import { Button, Grid } from "@mui/material";
 import { ActionType } from "../../types/game_state";
 import { ClientState } from "../../types/client_state";
 import { Player } from "../../types/player";
+import BetHistory from "../../types/bet-history";
 
 function GameControls({
   gameState,
   player,
+  betHistory,
   betClickHandler,
   spawnBotClickHandler,
 }: {
   gameState: ClientState;
   player: Player;
+  betHistory: BetHistory;
   betClickHandler: (value: number, type: ActionType) => void;
   spawnBotClickHandler: () => void;
 }) {
@@ -21,12 +24,23 @@ function GameControls({
     gameState.minAmountToRaise?.value ?? 0
   );
 
+  const maxValue =
+    player.bank +
+    betHistory.getPlayerBetAmount(
+      player.userId,
+      gameState.street?.streetStatus
+    );
+
   const [betSizeInputValue, setBetSizeInputValue] =
     useState<number>(minRaiseValue);
 
   useEffect(() => {
     if (gameState.minAmountToRaise?.value !== undefined) {
-      setMinRaiseValue(gameState.minAmountToRaise?.value);
+      if (player.bank < gameState.minAmountToRaise?.value) {
+        setMinRaiseValue(maxValue);
+      } else {
+        setMinRaiseValue(gameState.minAmountToRaise?.value);
+      }
     }
   }, [gameState.minAmountToRaise?.value]);
 
@@ -138,17 +152,12 @@ function GameControls({
         <InputSlider
           value={betSizeInputValue}
           minValue={minRaiseValue}
-          maxValue={player.bank}
+          maxValue={maxValue}
           onValueChange={handleBetSizeChange}
+          disable={!gameState.canRaise?.value}
         ></InputSlider>
       </Grid>
       <Grid item sx={{ gap: "20px", display: "flex" }}>
-        {/* <ButtonGroup variant="outlined" aria-label="betting options" sx={{
-                        // backgroundColor: 'green',
-                        // borderRadius: '8px',
-                        // border: '2px solid black',
-                        gap: '20px'
-                    }}> */}
         <Button
           size="large"
           sx={{
@@ -207,8 +216,9 @@ function GameControls({
           disabled={
             gameState?.currPlayerId?.value !== gameState.playerId ||
             player.action?.actionType === ActionType.Fold ||
-            player.bank < minRaiseValue ||
-            betSizeInputValue < minRaiseValue
+            player.bank === 0 ||
+            !gameState.canRaise?.value
+            // maxValue === minRaiseValue
           }
           onClick={() => betClickHandler(betSizeInputValue, ActionType.Raise)}
         >

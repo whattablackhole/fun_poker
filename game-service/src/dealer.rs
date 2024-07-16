@@ -933,7 +933,10 @@ impl Dealer {
     ) -> bool {
         if let Some(index) = game_state.raiser_index {
             let raiser_bank = player_state.players[index as usize].bank;
-            return raiser_bank != 0 || raiser_bank == 0 && player.action.as_ref().is_none();
+            return raiser_bank != 0
+                || raiser_bank == 0
+                    && (player.action.as_ref().is_none()
+                        || player.action.as_ref().unwrap().action_type() == ActionType::Blind);
         }
         player.bank > 0
     }
@@ -956,6 +959,14 @@ impl Dealer {
 
             let bet_is_all_in = self.is_all_in(player, bet_amount);
 
+            let raise_amount = if let Some(bet) =
+                self.get_player_bet_on_current_street(player, &game_state.street.street_status())
+            {
+                bet_amount - bet
+            } else {
+                bet_amount
+            };
+
             if self.can_raise(player, game_state, player_state) == false {
                 println!("Player not eligable to raise");
                 return;
@@ -968,7 +979,7 @@ impl Dealer {
                 return;
             }
 
-            if player.bank < bet_amount {
+            if player.bank < raise_amount {
                 println!("Player does not have enough points!");
                 return;
             }
@@ -977,17 +988,10 @@ impl Dealer {
 
             game_state.raiser_index = Some(index);
 
-            let add_amount = if let Some(bet) =
-                self.get_player_bet_on_current_street(player, &game_state.street.street_status())
-            {
-                bet_amount - bet
-            } else {
-                bet_amount
-            };
+            player.bet_in_current_seed += raise_amount;
+            player.bank -= raise_amount;
 
-            player.bet_in_current_seed += add_amount;
-            player.bank -= add_amount;
-            game_state.game_bank += add_amount;
+            game_state.game_bank += raise_amount;
             game_state.raise_amount = bet_amount - game_state.biggest_bet_on_curr_street;
             game_state.biggest_bet_on_curr_street = bet_amount;
 
@@ -1104,13 +1108,9 @@ impl Dealer {
             (game_state.positions.button_index.unwrap() + 1) % player_state.players.len();
 
         for _ in 0..player_state.players.len() {
-            if player_state.players[new_curr]
-                .action
-                .as_ref()
-                .unwrap()
-                .action_type()
-                != ActionType::Fold
-            {
+            let player = &player_state.players[new_curr];
+            let action = player.action.as_ref().unwrap();
+            if action.action_type != ActionType::Fold as i32 && player.bank != 0 {
                 return Some(new_curr);
             } else {
                 new_curr = (new_curr + 1) % player_state.players.len() as usize;
@@ -1141,6 +1141,7 @@ impl Dealer {
         player_state: &PlayerState,
         game_state: &GameState,
     ) -> Option<usize> {
+        // fix: store players amount on street start
         let mut last_player_index = if let Some(raiser_index) = game_state.raiser_index {
             (raiser_index + player_state.players.len() - 1) % player_state.players.len()
         } else {
@@ -1148,18 +1149,16 @@ impl Dealer {
         } as usize;
 
         for _ in 0..player_state.players.len() {
-            let action = player_state.players[last_player_index]
-                .action
-                .as_ref()
-                .unwrap();
-            if action.action_type != ActionType::Fold as i32 {
+            let player = &player_state.players[last_player_index];
+            let action = player.action.as_ref().unwrap();
+            if action.action_type != ActionType::Fold as i32 && player.bank != 0 {
                 return Some(last_player_index);
             }
             last_player_index =
                 (last_player_index + player_state.players.len() - 1) % player_state.players.len();
         }
 
-        None
+        game_state.positions.curr_player_index
     }
 
     fn next_street(
@@ -1246,7 +1245,7 @@ impl Dealer {
             curr_next = (curr_next + 1) % player_state.players.len();
             if let Some(player) = player_state.players.get(curr_next) {
                 if let Some(action) = &player.action {
-                    if action.action_type() != ActionType::Fold {
+                    if action.action_type() != ActionType::Fold && player.bank != 0 {
                         game_state.positions.curr_player_index = Some(curr_next);
                         is_set = true;
                         break;
