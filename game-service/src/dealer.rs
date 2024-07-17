@@ -4,7 +4,7 @@ use rand::Rng;
 use std::collections::{BTreeMap, HashMap};
 
 use crate::{
-    game::{DeckState, Game, GameState, KeyPositions, PlayerState},
+    game::{DeckState, GameState, KeyPositions, PlayerActionRequestError, PlayerState},
     protos::{
         card::CardPair,
         client_state::ClientState,
@@ -16,7 +16,6 @@ use crate::{
         player::{Player, PlayerStatus},
         requests::PlayerActionRequest,
     },
-    responses::PlayerActionRequestError,
 };
 pub struct Dealer {
     lobby_id: i32,
@@ -56,6 +55,15 @@ impl StreetStatus {
 struct PotWinners {
     rank: i32,
     winners: Vec<i32>,
+}
+
+impl PotWinners {
+    pub fn new() -> Self {
+        PotWinners {
+            rank: 1000000,
+            winners: Vec::new(),
+        }
+    }
 }
 
 struct RankedPlayer<'a> {
@@ -700,7 +708,7 @@ impl Dealer {
         let mut ranked_players = self.calculate_hands_strength(game_state, &mut players_with_bets);
 
         for (index, pot) in pots.iter().enumerate() {
-            let mut pot_winners = PotWinners::default();
+            let mut pot_winners = PotWinners::new();
 
             for &user_id in &pot.1.eligable_players {
                 if let Some(ranked_player) = ranked_players.get(&user_id) {
@@ -708,7 +716,7 @@ impl Dealer {
                         && ranked_player.player.action.as_ref().unwrap().action_type()
                             != ActionType::Fold
                     {
-                        if pot_winners.rank < ranked_player.rank {
+                        if pot_winners.rank > ranked_player.rank {
                             pot_winners = PotWinners {
                                 rank: ranked_player.rank,
                                 winners: vec![ranked_player.player.user_id],

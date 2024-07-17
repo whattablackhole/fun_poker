@@ -9,6 +9,7 @@ pub mod postgres_database;
 pub mod responses;
 pub mod socket_pool;
 pub mod thread_pool;
+pub mod channel_messages;
 
 pub mod protos {
     pub mod client_state {

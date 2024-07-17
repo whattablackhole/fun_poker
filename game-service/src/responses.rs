@@ -2,12 +2,10 @@ use std::error::Error;
 
 use prost::Message;
 
-use crate::{
-    game_orchestrator::JoinGameMessage,
-    protos::{
-        client_state::ClientState, requests::PlayerActionRequest, responses::{ResponseMessageType, StartGameResponse}, user::User
-    },
-    socket_pool::{ConnectionClosedEvent, ReadMessageError},
+use crate::protos::{
+    client_state::ClientState,
+    responses::{ResponseMessageType, StartGameResponse},
+    user::User,
 };
 
 pub struct TMessageResponse {
@@ -30,22 +28,6 @@ impl<M: Message> EncodableMessage for M {
         self.encode(&mut buf).unwrap();
         buf
     }
-}
-
-pub enum SocketSourceMessage {
-    ConnectionClosed(ConnectionClosedEvent),
-    PlayerActionRequest(Result<PlayerActionRequest, ReadMessageError>),
-}
-#[derive(Debug)]
-pub enum PlayerActionRequestError {
-    Disconnected { id: i32, lobby_id: i32 },
-    Iddle { id: i32, lobby_id: i32 },
-}
-
-pub enum GameChannelMessage {
-    HttpRequestSource(JoinGameMessage),
-    SocketSource(SocketSourceMessage),
-    InnerSource(PlayerActionRequest)
 }
 
 pub fn create_message_response<T>(

@@ -9,9 +9,10 @@ use std::{
 use rand::Rng;
 
 use crate::{
-    game::{Game, GameSettings},
+    channel_messages::{GameChannelRequestMessage, GameChannelResponseMessage, JoinGameMessage},
+    game::{Game, GameSettings, JoinGameError},
     protos::{player::Player, user::User},
-    responses::{generate_game_started_responses, GameChannelMessage, SocketSourceMessage},
+    responses::generate_game_started_responses,
     socket_pool::{ConnectionClosedEvent, SocketPool},
     thread_pool::ThreadPool,
 };
@@ -22,11 +23,10 @@ pub struct GameOrchestrator {
 }
 pub struct GameClient {
     game: Arc<RwLock<Game>>,
-    sender: Arc<RwLock<Sender<GameChannelMessage>>>,
-    receiver: Arc<Mutex<Receiver<GameChannelMessage>>>,
-}
-pub struct JoinGameMessage {
-    pub player: Player,
+    request_sender: Arc<RwLock<Sender<GameChannelRequestMessage>>>,
+    request_receiver: Arc<Mutex<Receiver<GameChannelRequestMessage>>>,
+    response_sender: Arc<RwLock<Sender<GameChannelResponseMessage>>>,
+    response_receiver: Arc<Mutex<Receiver<GameChannelResponseMessage>>>,
 }
 
 impl GameOrchestrator {
@@ -58,12 +58,10 @@ impl GameOrchestrator {
                         }
                         Err(_) => {
                             game_client
-                                .sender
+                                .request_sender
                                 .read()
                                 .unwrap()
-                                .send(GameChannelMessage::SocketSource(
-                                    SocketSourceMessage::ConnectionClosed(event.clone()),
-                                ))
+                                .send(GameChannelRequestMessage::ConnectionClosed(event.clone()))
                                 .unwrap();
                         }
                     };
@@ -82,24 +80,32 @@ impl GameOrchestrator {
         let mut pool = self.game_pool.lock().unwrap();
 
         let game = Game::new(lobby_id, settings);
-        let game_mutex = RwLock::new(game);
-        let game_arc = Arc::new(game_mutex);
+        let game_clientutex = RwLock::new(game);
+        let game_arc = Arc::new(game_clientutex);
 
-        let (sender, receiver) = channel();
+        let (request_sender, request_receiver) = channel();
+        let (response_sender, response_receiver) = channel();
 
         pool.insert(
             lobby_id,
             GameClient {
                 game: game_arc,
-                sender: Arc::new(RwLock::new(sender)),
-                receiver: Arc::new(Mutex::new(receiver)),
+                request_sender: Arc::new(RwLock::new(request_sender)),
+                request_receiver: Arc::new(Mutex::new(request_receiver)),
+                response_sender: Arc::new(RwLock::new(response_sender)),
+                response_receiver: Arc::new(Mutex::new(response_receiver)),
             },
         );
 
         true
     }
 
-    pub fn join_game(&self, lobby_id: i32, user: User, socket_pool: &Arc<SocketPool>) {
+    pub fn join_game(
+        &self,
+        lobby_id: i32,
+        user: User,
+        socket_pool: &Arc<SocketPool>,
+    ) -> Result<(), JoinGameError> {
         let id = user.id;
         let player = Player::from_user(user);
 
@@ -110,28 +116,47 @@ impl GameOrchestrator {
             }
         };
 
-        let game_m = pool.get(&lobby_id).unwrap();
+        let game_client = pool.get(&lobby_id).unwrap();
 
-        let mut lock = game_m.game.try_write();
+        let mut lock = game_client.game.try_write();
 
         if let Ok(ref mut mutex) = lock {
-            mutex.add_player(player, socket_pool);
+            return mutex.add_player(player, socket_pool);
         } else {
-            let g = game_m.sender.read().unwrap();
-            g.send(GameChannelMessage::HttpRequestSource(JoinGameMessage {
+            let g: std::sync::RwLockReadGuard<Sender<GameChannelRequestMessage>> =
+                game_client.request_sender.read().unwrap();
+            g.send(GameChannelRequestMessage::JoinGame(JoinGameMessage {
                 player,
             }))
             .unwrap();
+
+            let result = game_client
+                .response_receiver
+                .lock()
+                .unwrap()
+                .recv()
+                .unwrap();
+            match result {
+                GameChannelResponseMessage::JoinGame(r) => {
+                    if r.is_ok() {
+                        self.user_map
+                            .lock()
+                            .unwrap()
+                            .entry(id)
+                            .or_insert_with(HashSet::new)
+                            .insert(lobby_id);
+                    }
+                    return r;
+                }
+            }
         }
-        self.user_map
-            .lock()
-            .unwrap()
-            .entry(id)
-            .or_insert_with(HashSet::new)
-            .insert(lobby_id);
     }
 
-    pub fn spawn_bot(&self, lobby_id: i32, socket_pool: &Arc<SocketPool>) {
+    pub fn spawn_bot(
+        &self,
+        lobby_id: i32,
+        socket_pool: &Arc<SocketPool>,
+    ) -> Result<(), JoinGameError> {
         let mut bot_player = Player::default();
         bot_player.user_name = String::from("Chat gpt");
         bot_player.bank = 10000;
@@ -146,32 +171,43 @@ impl GameOrchestrator {
             }
         };
 
-        let game_m = pool.get(&lobby_id).unwrap();
+        let game_client = pool.get(&lobby_id).unwrap();
 
-        let mut lock = game_m.game.try_write();
+        let mut lock = game_client.game.try_write();
 
         if let Ok(ref mut mutex) = lock {
-            mutex.add_player(bot_player, socket_pool);
+            return mutex.add_player(bot_player, socket_pool);
         } else {
-            let g = game_m.sender.read().unwrap();
-            g.send(GameChannelMessage::HttpRequestSource(JoinGameMessage {
+            let g: std::sync::RwLockReadGuard<Sender<GameChannelRequestMessage>> =
+                game_client.request_sender.read().unwrap();
+            g.send(GameChannelRequestMessage::JoinGame(JoinGameMessage {
                 player: bot_player,
             }))
             .unwrap();
+
+            let result = game_client
+                .response_receiver
+                .lock()
+                .unwrap()
+                .recv()
+                .unwrap();
+            match result {
+                GameChannelResponseMessage::JoinGame(r) => {
+                    return r;
+                }
+            }
         }
     }
 
     pub fn should_start_game(&self, lobby_id: i32) -> bool {
         let pool = self.game_pool.lock().unwrap();
 
-        let game_m = pool.get(&lobby_id).unwrap();
+        let game_client = pool.get(&lobby_id).unwrap();
 
-        match  game_m.game.try_read() {
+        match game_client.game.try_read() {
             Ok(g) => return g.is_ready_to_start(),
-            Err(_) => {
-                return false
-            }
-        } ;        
+            Err(_) => return false,
+        };
     }
 
     pub fn start_game(
@@ -189,15 +225,22 @@ impl GameOrchestrator {
         let game_started_responses = generate_game_started_responses(lobby_id, &Vec::new(), 10);
         socket_pool.update_clients(game_started_responses);
 
-        let receiver_clone = Arc::clone(&game_client.receiver);
-        let sender_clone = Arc::clone(&game_client.sender);
+        let request_receiver_clone = Arc::clone(&game_client.request_receiver);
+        let request_sender_clone = Arc::clone(&game_client.request_sender);
+        let response_sender_clone = Arc::clone(&game_client.response_sender);
 
         thread_pool.execute(move || {
             let ref mut game = game_clone.write().unwrap();
-            
-            match game.run(socket_pool, pool, receiver_clone, sender_clone) {
-                Ok(_) => {},
-                Err(er) => println!("game shutdown abruptly: {}", er)
+
+            match game.run(
+                socket_pool,
+                pool,
+                request_receiver_clone,
+                request_sender_clone,
+                response_sender_clone,
+            ) {
+                Ok(_) => {}
+                Err(er) => println!("game shutdown abruptly: {}", er),
             };
         });
     }

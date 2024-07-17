@@ -61,7 +61,7 @@ enum ClaimTypesEnum {
     Anonymous,
     NameIdentifier,
     UniqueName,
-    Sub
+    Sub,
 }
 
 impl ClaimTypesEnum {
@@ -75,7 +75,7 @@ impl ClaimTypesEnum {
             }
             ClaimTypesEnum::NameIdentifier => "nameid",
             ClaimTypesEnum::UniqueName => "unique_name",
-            ClaimTypesEnum::Sub => "sub"
+            ClaimTypesEnum::Sub => "sub",
         }
     }
 }
@@ -239,12 +239,7 @@ fn parse_user_from_claims(claims: Value) -> User {
         .as_str()
         .unwrap()
         .to_string();
-    user.id = str::parse::<i32>(
-        claims[ClaimTypesEnum::Sub.as_str()]
-            .as_str()
-            .unwrap(),
-    )
-    .unwrap();
+    user.id = str::parse::<i32>(claims[ClaimTypesEnum::Sub.as_str()].as_str().unwrap()).unwrap();
     user
 }
 
@@ -294,26 +289,30 @@ fn handle_web_socket_request(
     let uri = request.uri.split(" ").skip(1).next().unwrap();
     let path = get_path_from_uri(uri);
     let query_params = parse_queries_from_uri(uri);
+    let user_id = user.id;
+
+    socket_pool.add(SocketClient {
+        client_id: user.id,
+        socket: websocket,
+        path: path.to_string(),
+    });
 
     let result = match path {
-        "/ws" => root_socket_connection_handler(user, websocket, socket_pool),
         "/join_lobby" => join_lobby_request_socket_handler(
             user,
             query_params,
-            websocket,
             repo,
             game_orchestrator,
-            socket_pool,
+            Arc::clone(&socket_pool),
             thread_pool,
         ),
-        _ => Err((websocket, STATUS_BAD_REQUEST)),
+        _ => Err(STATUS_BAD_REQUEST),
     };
 
     match result {
         Ok(_) => {}
-        Err(mut e) => {
-            e.0.write(e.1.into()).unwrap();
-            e.0.write(tungstenite::Message::Close(None)).unwrap();
+        Err(e) => {
+            socket_pool.close_client_socket(user_id, e.into());
         }
     }
 }
@@ -376,51 +375,23 @@ fn generate_websocket_accept_headers(request: &Request) -> HashMap<String, Strin
     headers
 }
 
-fn root_socket_connection_handler(
-    user: User,
-    websocket: WebSocket<StreamOwned<ServerConnection, TcpStream>>,
-    socket_pool: Arc<SocketPool>,
-) -> Result<
-    (),
-    (
-        WebSocket<StreamOwned<ServerConnection, TcpStream>>,
-        &'static str,
-    ),
-> {
-    socket_pool.add(SocketClient {
-        client_id: user.id,
-        socket: websocket,
-        path: String::from("ws"),
-    });
-
-    Ok(())
-}
-
 fn join_lobby_request_socket_handler(
     user: User,
     query_params: QueryParams,
-    websocket: WebSocket<StreamOwned<ServerConnection, TcpStream>>,
     repo: Arc<PostgresDatabase>,
     game_orchestrator: Arc<GameOrchestrator>,
     socket_pool: Arc<SocketPool>,
     thread_pool: Arc<ThreadPool>,
-) -> Result<
-    (),
-    (
-        WebSocket<StreamOwned<ServerConnection, TcpStream>>,
-        &'static str,
-    ),
-> {
+) -> Result<(), &'static str> {
     let lobby_id = if let Some(lobby_id) = query_params.lobby_id {
         lobby_id
     } else {
-        return Err((websocket, STATUS_BAD_REQUEST));
+        return Err(STATUS_BAD_REQUEST);
     };
 
-    // TODO: validate lobby id
-    // if !is_temp_user {
-    //     repo.add_user_to_lobby(lobby_id, user.id);
-    // }
+    if let Err(_) = repo.get_lobby_by_id(lobby_id) {
+        return Err(STATUS_BAD_REQUEST);
+    }
 
     let game_created = if !game_orchestrator.is_game_exists(lobby_id) {
         let created = game_orchestrator.create_game(lobby_id, GameSettings { blind_size: 100 });
@@ -430,17 +401,12 @@ fn join_lobby_request_socket_handler(
     };
 
     if !game_created {
-        return Err((websocket, STATUS_INTERNAL_ERROR));
+        return Err(STATUS_INTERNAL_ERROR);
     }
 
-    // TODO: think about sending messages to game_orchestrator...
-    socket_pool.add(SocketClient {
-        client_id: user.id,
-        socket: websocket,
-        path: String::from("join_lobby"),
-    });
-
-    game_orchestrator.join_game(lobby_id, user, &socket_pool);
+    if let Err(_) = game_orchestrator.join_game(lobby_id, user, &socket_pool) {
+        return Err(STATUS_BAD_REQUEST);
+    };
 
     let should_start = game_orchestrator.should_start_game(lobby_id);
 
@@ -503,9 +469,14 @@ fn spawn_ai_bot_handler(
         _ => return (Box::new(EmptyMessage {}), STATUS_BAD_REQUEST),
     };
 
-    game_orchestrator.spawn_bot(request.lobby_id, &socket_pool);
-
-    (Box::new(EmptyMessage {}), STATUS_OK)
+    match game_orchestrator.spawn_bot(request.lobby_id, &socket_pool) {
+        Ok(_) => {
+            return (Box::new(EmptyMessage {}), STATUS_OK);
+        }
+        Err(_) => {
+            return (Box::new(EmptyMessage {}), STATUS_BAD_REQUEST);
+        }
+    };
 }
 
 fn parse_message<T, F>(body: Vec<u8>, decode: F) -> Result<T, DecodeError>
@@ -599,10 +570,19 @@ fn start_game_request_handler(
     (Box::new(EmptyMessage {}), STATUS_OK)
 }
 
-fn parse_request(stream: &mut StreamOwned<ServerConnection, TcpStream>) -> Request {
+fn parse_request(
+    stream: &mut StreamOwned<ServerConnection, TcpStream>,
+) -> Result<Request, std::io::Error> {
     let mut buffer = vec![0; 3000];
 
-    let bytes_read = stream.read(&mut buffer).unwrap();
+    let result = stream.read(&mut buffer);
+
+    let bytes_read = match result {
+        Ok(s) => s,
+        Err(e) => {
+            return Err(e);
+        }
+    };
 
     buffer.resize(bytes_read, 0);
 
@@ -623,7 +603,7 @@ fn parse_request(stream: &mut StreamOwned<ServerConnection, TcpStream>) -> Reque
 
     body.extend_from_slice(&buffer[bodystart..buffer.len()]);
 
-    Request { uri, headers, body }
+    Ok(Request { uri, headers, body })
 }
 
 fn handle_connection(
@@ -634,7 +614,14 @@ fn handle_connection(
     pool: Arc<ThreadPool>,
     game_orchestrator: Arc<GameOrchestrator>,
 ) {
-    let request = parse_request(&mut stream);
+    let request = match parse_request(&mut stream) {
+        Ok(r) => r,
+        Err(e) => {
+            println!("Error during parsing request : {e}");
+            return;
+        }
+    };
+
     let reqest_type = determine_request_type(&request);
 
     match reqest_type {

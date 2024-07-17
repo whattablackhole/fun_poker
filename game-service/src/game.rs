@@ -10,6 +10,7 @@ use prost::Message;
 
 use crate::{
     card::CardDeck,
+    channel_messages::{GameChannelRequestMessage, GameChannelResponseMessage},
     dealer::Dealer,
     protos::{
         client_state::ClientState,
@@ -20,7 +21,7 @@ use crate::{
     },
     responses::{
         create_message_response, generate_client_state_responses, EncodableMessage,
-        GameChannelMessage, PlayerActionRequestError, SocketSourceMessage, TMessageResponse,
+        TMessageResponse,
     },
     socket_pool::{ConnectionClosedEvent, ReadMessageError, SocketPool},
     thread_pool::ThreadPool,
@@ -68,7 +69,8 @@ pub struct GameState {
     pub biggest_bet_on_curr_street: i32,
     pub action_history: Vec<Action>,
     pub showdown_outcome: Option<ShowdownOutcome>,
-    pub active_players_amount: usize
+    pub active_players_amount: usize,
+    pub max_players: i32,
 }
 
 impl GameState {
@@ -87,7 +89,8 @@ impl GameState {
             positions: KeyPositions::new(),
             action_history: Vec::new(),
             showdown_outcome: None,
-            active_players_amount: 0
+            active_players_amount: 0,
+            max_players: 9,
         }
     }
 }
@@ -123,6 +126,16 @@ pub struct Game {
     deck_state: DeckState,
     player_state: PlayerState,
     lobby_id: i32,
+}
+
+#[derive(Debug)]
+pub enum PlayerActionRequestError {
+    Disconnected { id: i32, lobby_id: i32 },
+    Iddle { id: i32, lobby_id: i32 },
+}
+
+pub enum JoinGameError {
+    LobbyIsFull,
 }
 
 impl Game {
@@ -178,7 +191,11 @@ impl Game {
         true
     }
 
-    pub fn add_player(&mut self, mut player: Player, socket_pool: &Arc<SocketPool>) {
+    pub fn add_player(
+        &mut self,
+        mut player: Player,
+        socket_pool: &Arc<SocketPool>,
+    ) -> Result<(), JoinGameError> {
         let user_id = player.user_id;
 
         // TODO: refactor ....
@@ -196,6 +213,10 @@ impl Game {
                 }
             }
             None => {
+                if self.player_state.players.len() == self.game_state.max_players as usize {
+                    return Err(JoinGameError::LobbyIsFull);
+                }
+
                 if self.game_state.status == GameStatus::Active {
                     player.status = PlayerStatus::Ready.into();
                     let mut action = Action::default();
@@ -211,6 +232,8 @@ impl Game {
 
         // TODO: add hash sum for clientstate to check if client received current state or not
         socket_pool.update_clients(generate_client_state_responses(states));
+
+        return Ok(());
     }
 
     fn process_elimated_players(&mut self, socket_pool: &Arc<SocketPool>) {
@@ -360,8 +383,9 @@ impl Game {
         &mut self,
         socket_pool: Arc<SocketPool>,
         thread_pool: Arc<ThreadPool>,
-        rx: Arc<Mutex<Receiver<GameChannelMessage>>>,
-        tx: Arc<RwLock<Sender<GameChannelMessage>>>,
+        request_receiver: Arc<Mutex<Receiver<GameChannelRequestMessage>>>,
+        request_sender: Arc<RwLock<Sender<GameChannelRequestMessage>>>,
+        response_sender: Arc<RwLock<Sender<GameChannelResponseMessage>>>,
     ) -> Result<(), &str> {
         self.verify_connections(&socket_pool);
         self.process_disconnected_players();
@@ -403,7 +427,8 @@ impl Game {
             if is_bot {
                 let lobby_id = self.lobby_id;
                 let id = player.user_id;
-                let clone_tx: Arc<RwLock<Sender<GameChannelMessage>>> = Arc::clone(&tx);
+                let clone_tx: Arc<RwLock<Sender<GameChannelRequestMessage>>> =
+                    Arc::clone(&request_sender);
                 let client_state =
                     self.dealer
                         .get_client_state(&id, &mut self.game_state, &mut self.player_state);
@@ -435,7 +460,7 @@ impl Game {
                                 clone_tx
                                     .read()
                                     .unwrap()
-                                    .send(GameChannelMessage::InnerSource(payload))
+                                    .send(GameChannelRequestMessage::PlayerAction(Ok(payload)))
                                     .unwrap();
                             } else {
                                 eprintln!("Failed to send bot message: {:?}", response.status());
@@ -448,7 +473,8 @@ impl Game {
                 });
             } else {
                 let clone_s_pool = Arc::clone(&socket_pool);
-                let clone_tx: Arc<RwLock<Sender<GameChannelMessage>>> = Arc::clone(&tx);
+                let clone_tx: Arc<RwLock<Sender<GameChannelRequestMessage>>> =
+                    Arc::clone(&request_sender);
 
                 thread_pool.execute(move || {
                     let result: Result<PlayerActionRequest, ReadMessageError> =
@@ -456,73 +482,67 @@ impl Game {
                     clone_tx
                         .read()
                         .unwrap()
-                        .send(GameChannelMessage::SocketSource(
-                            SocketSourceMessage::PlayerActionRequest(result),
-                        ))
+                        .send(GameChannelRequestMessage::PlayerAction(result))
                         .unwrap();
                 });
             }
 
             loop {
-                let message = rx.lock().unwrap().recv().unwrap();
+                let message = request_receiver.lock().unwrap().recv().unwrap();
                 match message {
-                    GameChannelMessage::SocketSource(r) => match r {
-                        SocketSourceMessage::PlayerActionRequest(p) => match p {
-                            Ok(m) => {
-                                let game_status = self.update_game_state(&socket_pool, Ok(m));
-                                if game_status == GameStatus::WaitingForPlayers
-                                    || game_status == GameStatus::None
-                                {
-                                    break 'outer_loop;
-                                } else {
-                                    continue 'outer_loop;
-                                }
+                    // GameChannelRequestMessage::CheckJoinGameEligabality(r) => {
+
+                    // },
+                    GameChannelRequestMessage::ConnectionClosed(e) => {
+                        self.hande_connection_update(&e, &socket_pool);
+                    }
+                    GameChannelRequestMessage::PlayerAction(p) => match p {
+                        Ok(m) => {
+                            let game_status = self.update_game_state(&socket_pool, Ok(m));
+                            if game_status == GameStatus::WaitingForPlayers
+                                || game_status == GameStatus::None
+                            {
+                                break 'outer_loop;
+                            } else {
+                                continue 'outer_loop;
                             }
-                            Err(e) => {
-                                let error: PlayerActionRequestError = match e {
-                                    ReadMessageError::Disconnected => {
-                                        PlayerActionRequestError::Disconnected {
-                                            id: self.dealer.get_next_player_id(
-                                                &mut self.game_state,
-                                                &mut self.player_state,
-                                            ),
-                                            lobby_id: self.lobby_id,
-                                        }
-                                    }
-                                    ReadMessageError::Iddle => PlayerActionRequestError::Iddle {
+                        }
+                        Err(e) => {
+                            let error: PlayerActionRequestError = match e {
+                                ReadMessageError::Disconnected => {
+                                    PlayerActionRequestError::Disconnected {
                                         id: self.dealer.get_next_player_id(
                                             &mut self.game_state,
                                             &mut self.player_state,
                                         ),
                                         lobby_id: self.lobby_id,
-                                    },
-                                };
-                                let game_status = self.update_game_state(&socket_pool, Err(error));
-                                if game_status == GameStatus::WaitingForPlayers
-                                    || game_status == GameStatus::None
-                                {
-                                    break 'outer_loop;
-                                } else {
-                                    continue 'outer_loop;
+                                    }
                                 }
+                                ReadMessageError::Iddle => PlayerActionRequestError::Iddle {
+                                    id: self.dealer.get_next_player_id(
+                                        &mut self.game_state,
+                                        &mut self.player_state,
+                                    ),
+                                    lobby_id: self.lobby_id,
+                                },
+                            };
+                            let game_status = self.update_game_state(&socket_pool, Err(error));
+                            if game_status == GameStatus::WaitingForPlayers
+                                || game_status == GameStatus::None
+                            {
+                                break 'outer_loop;
+                            } else {
+                                continue 'outer_loop;
                             }
-                        },
-                        SocketSourceMessage::ConnectionClosed(e) => {
-                            self.hande_connection_update(&e, &socket_pool);
                         }
                     },
-                    GameChannelMessage::HttpRequestSource(r) => {
-                        self.add_player(r.player, &socket_pool)
-                    }
-                    GameChannelMessage::InnerSource(m) => {
-                        let game_status = self.update_game_state(&socket_pool, Ok(m));
-                        if game_status == GameStatus::WaitingForPlayers
-                            || game_status == GameStatus::None
-                        {
-                            break 'outer_loop;
-                        } else {
-                            continue 'outer_loop;
-                        }
+                    GameChannelRequestMessage::JoinGame(m) => {
+                        let result = self.add_player(m.player, &socket_pool);
+                        response_sender
+                            .read()
+                            .unwrap()
+                            .send(GameChannelResponseMessage::JoinGame(result))
+                            .unwrap();
                     }
                 };
             }

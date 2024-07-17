@@ -188,6 +188,33 @@ impl PostgresDatabase {
         LobbyList { list: lobbies }
     }
 
+    pub fn get_lobby_by_id(&self, lobby_id: i32) -> Result<Lobby, postgres::Error> {
+        let result = self
+            .client
+            .lock()
+            .unwrap()
+            .query_one("SELECT * from lobbies WHERE id = $1", &[&lobby_id]);
+
+        let row = match result {
+            Ok(r) => r,
+            Err(er) => return Err(er),
+        };
+
+        let lobby_id: i32 = row.get("id");
+        let name: String = row.get("name");
+        let author_id: i32 = row.get("author_id");
+        let game_type: GameType = row.get("game_type");
+        let game_name: GameName = row.get("game_name");
+
+        Ok(Lobby {
+            id: Some(lobby_id),
+            name,
+            author_id,
+            game_type: game_type.into(),
+            game_name: game_name.into(),
+        })
+    }
+
     pub fn get_user_by_id(&self, user_id: i32) -> Result<User, postgres::Error> {
         let mut client_lock = self.client.lock().unwrap();
 

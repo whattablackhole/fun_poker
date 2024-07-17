@@ -8,7 +8,10 @@ use std::{
 };
 
 use rustls::{ServerConnection, StreamOwned};
-use tungstenite::{protocol::CloseFrame, Error as TError, Message as TMessage, WebSocket};
+use tungstenite::{
+    protocol::{frame::coding::CloseCode, CloseFrame},
+    Error as TError, Message as TMessage, WebSocket,
+};
 
 use crate::{
     protos::responses::ResponseMessage,
@@ -50,6 +53,17 @@ impl SocketPool {
         println!("LENGTH: {}", pool.len())
     }
 
+    pub fn close_client_socket(&self, client_id: i32, reason: String) {
+        let close_frame = CloseFrame {
+            code: CloseCode::Invalid,
+            reason: std::borrow::Cow::from(reason),
+        };
+
+        if let Some(client) = self.remove_connection(&client_id) {
+            self.close_connection(client, Some(close_frame));
+        };
+    }
+
     pub fn read_client_message<T: prost::Message + Default + 'static>(
         &self,
         client_id: i32,
@@ -87,15 +101,14 @@ impl SocketPool {
                     println!("Unhandled TError error type: {e}");
                     self.remove_connection(&client_id);
                     return Err(ReadMessageError::Disconnected);
-                }
-                // TError::Tls(_) => todo!(),
-                // TError::Capacity(_) => todo!(),
-                // TError::WriteBufferFull(_) => todo!(),
-                // TError::Utf8 => todo!(),
-                // TError::AttackAttempt => todo!(),
-                // TError::Url(_) => todo!(),
-                // TError::Http(_) => todo!(),
-                // TError::HttpFormat(_) => todo!(),
+                } // TError::Tls(_) => todo!(),
+                  // TError::Capacity(_) => todo!(),
+                  // TError::WriteBufferFull(_) => todo!(),
+                  // TError::Utf8 => todo!(),
+                  // TError::AttackAttempt => todo!(),
+                  // TError::Url(_) => todo!(),
+                  // TError::Http(_) => todo!(),
+                  // TError::HttpFormat(_) => todo!(),
             },
             Ok(r) => r,
         };
