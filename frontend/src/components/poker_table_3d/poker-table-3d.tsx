@@ -114,7 +114,7 @@ function PokerTable3d({
       void main() {
         vec2 uv = vUv - 0.5;
         float dist = length(uv);
-        vec3 color = mix(vec3(0, 0.0, 1.0), vec3(0.0, 0.0, 0), dist * 1.0);
+        vec3 color = mix(vec3(48.0 / 255.0, 108.0 / 255.0, 207.0 / 255.0), vec3(0.0, 0.0, 0.0), dist * 1.0);
         gl_FragColor = vec4(color, 1.5);
       }`,
   });
@@ -124,7 +124,7 @@ function PokerTable3d({
       style={{
         height: "100vh",
         width: "100vw",
-        backgroundImage: "url('./src/assets/background.png')",
+        backgroundImage: "url('./src/assets/background.jpg')",
         backgroundRepeat: "no-repeat",
         backgroundSize: "cover",
       }}
@@ -138,7 +138,7 @@ function PokerTable3d({
       <pointLight position={[10, 10, 10]} castShadow />
 
       {gameStatus === GameStatus.WaitingForPlayers ? (
-        <Html position={[-0.5, 1, 1]}>
+        <Html position={[-1, 2, 2]}>
           <h1 className="waiting_for_players"></h1>
         </Html>
       ) : null}

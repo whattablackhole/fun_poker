@@ -47,7 +47,8 @@
     content: 'Waiting For Players';
     animation-name: WaitingForPlayers;
     animation-duration: 3s;
-    color:rgb(25, 118, 210);
+    /* color:rgb(25, 118, 210); */
+    color:cyan;
     animation-iteration-count: infinite;
 }
 
