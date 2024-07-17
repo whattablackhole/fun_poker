@@ -217,6 +217,41 @@ function PokerTable3d({
                 }
               />
               <Html
+                style={{
+                  width: "220px",
+                  display: "flex",
+                  justifyContent: "center",
+                }}
+                zIndexRange={[0, 0]}
+                position={
+                  new Vector3(
+                    playerBlockCords.x,
+                    playerBlockCords.y,
+                    playerBlockCords.z
+                  )
+                }
+              >
+                <div
+                  style={{
+                    width: "170px",
+                    height: "170px",
+                    backgroundColor: "wheat",
+                    opacity: "0.9",
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    border: "2px solid black",
+                    borderRadius: "20%",
+                  }}
+                >
+                  <img
+                    width={150}
+                    height={150}
+                    src="/src/assets/default_avatar.png"
+                  ></img>
+                </div>
+              </Html>
+              <Html
                 position={
                   new Vector3(
                     playerBlockCords.x,
