@@ -65,7 +65,7 @@ function PokerTable3d({
 
   const playersAndPosition = [];
   // depends on playerblock height and width
-  const offsetX = 130 / 100;
+  const offsetX = 150 / 100;
   const offsetY = -75 / 100;
 
   const cardScaleRadiusX = 1.7;
@@ -80,7 +80,6 @@ function PokerTable3d({
         ((players.length - i) / players.length) * Math.PI * 2 - Math.PI / 2;
     }
 
-    console.log(angle);
     const x = Math.cos(angle) * cardScaleRadiusX * radius;
     const y = Math.sin(angle) * cardScaleRadiusY * radius;
     const z = 1;
@@ -145,7 +144,7 @@ function PokerTable3d({
 
       <group>
         <mesh scale={[1.5, 1, 1]}>
-          <torusGeometry args={[radius, 0.15, 10, 100]} />
+          <torusGeometry args={[radius, 0.2, 10, 100]} />
           <meshBasicMaterial map={borderTexture} />
         </mesh>
 

@@ -11,6 +11,11 @@ export default class WebSocketService {
   private emitter: EventEmitter | null = null;
   private wsPromise: Promise<void> | null = null;
   private url: string | null = null;
+  private processingQueue = false;
+  private messageQueue: {
+    event: MessageEvent;
+    resolve: (value: void | PromiseLike<void>) => void;
+  }[] = [];
 
   public reconnect(): Promise<void> {
     if (!this.url) {
@@ -86,22 +91,39 @@ export default class WebSocketService {
       // this.ws.onerror
 
       this.ws.onmessage = async (event) => {
-        try {
-          let message: ResponseMessage;
-          if (typeof event.data === "string") {
-            message = JSON.parse(event.data);
-          } else {
-            const arrayBuffer = await (event.data as Blob).arrayBuffer();
-            message = ResponseMessage.fromBinary(new Uint8Array(arrayBuffer));
-          }
-          this.handleMessage(message);
-        } catch (error) {
-          console.error("Failed to process message:", error);
-        }
+        return new Promise<void>((resolve) => {
+          this.messageQueue.push({ event, resolve });
+          this.processMessageQueue();
+        });
       };
     });
 
     return this.wsPromise;
+  }
+
+  private async processMessageQueue() {
+    if (this.processingQueue) return;
+    this.processingQueue = true;
+
+    while (this.messageQueue.length > 0) {
+      let { event, resolve } = this.messageQueue.shift()!;
+      try {
+        let message: ResponseMessage;
+        if (typeof event.data === "string") {
+          message = JSON.parse(event.data);
+        } else {
+          const arrayBuffer = await (event.data as Blob).arrayBuffer();
+          message = ResponseMessage.fromBinary(new Uint8Array(arrayBuffer));
+        }
+        await this.handleMessage(message);
+      } catch (error) {
+        console.error("Failed to process message:", error);
+      } finally {
+        resolve();
+      }
+    }
+
+    this.processingQueue = false;
   }
 
   private handleMessage(message: ResponseMessage) {

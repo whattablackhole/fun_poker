@@ -1,6 +1,6 @@
 import { animated, useSpring } from "@react-spring/three";
 import { Html } from "@react-three/drei";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import PokerCard from "../poker_card/poker-card";
 import { CardPair } from "../../types/card";
 
@@ -54,8 +54,7 @@ const Card3d = ({
   return (
     <>
       <animated.mesh position={spring1.position.to((x, y, z) => [x, y, z])}>
-        {/* TODO: Learn about ranges */}
-        <Html zIndexRange={[1, 20]}>
+        <Html zIndexRange={[1, 20]} style={{ height: "100%" }}>
           <div
             style={{
               width: "100%",
@@ -68,13 +67,13 @@ const Card3d = ({
             <PokerCard
               cardSuit={cards?.card1?.suit}
               cardValue={cards?.card1?.value}
+              buttonId={buttonId}
             ></PokerCard>
           </div>
         </Html>
       </animated.mesh>
-
       <animated.mesh position={spring2.position.to((x, y, z) => [x, y, z])}>
-        <Html zIndexRange={[1, 20]}>
+        <Html zIndexRange={[1, 20]} style={{ height: "100%" }}>
           <div
             style={{
               marginLeft: "100px",
