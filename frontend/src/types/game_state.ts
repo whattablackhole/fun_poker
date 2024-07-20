@@ -56,9 +56,9 @@ export interface PlayerCards {
  */
 export interface ShowdownOutcome {
     /**
-     * @generated from protobuf field: game_state.Street streetHistory = 1;
+     * @generated from protobuf field: game_state.StreetHistory streetHistory = 1;
      */
-    streetHistory?: Street;
+    streetHistory?: StreetHistory;
     /**
      * @generated from protobuf field: repeated game_state.Winner winners = 2;
      */
@@ -71,6 +71,19 @@ export interface ShowdownOutcome {
      * @generated from protobuf field: bool process_flop_automatically = 4;
      */
     processFlopAutomatically: boolean;
+}
+/**
+ * @generated from protobuf message game_state.StreetHistory
+ */
+export interface StreetHistory {
+    /**
+     * @generated from protobuf field: game_state.Street finalBoard = 1;
+     */
+    finalBoard?: Street;
+    /**
+     * @generated from protobuf field: game_state.StreetStatus startingStreet = 2;
+     */
+    startingStreet: StreetStatus;
 }
 /**
  * @generated from protobuf message game_state.Action
@@ -328,7 +341,7 @@ export const PlayerCards = new PlayerCards$Type();
 class ShowdownOutcome$Type extends MessageType<ShowdownOutcome> {
     constructor() {
         super("game_state.ShowdownOutcome", [
-            { no: 1, name: "streetHistory", kind: "message", T: () => Street },
+            { no: 1, name: "streetHistory", kind: "message", T: () => StreetHistory },
             { no: 2, name: "winners", kind: "message", repeat: 1 /*RepeatType.PACKED*/, T: () => Winner },
             { no: 3, name: "players_cards", kind: "message", repeat: 1 /*RepeatType.PACKED*/, T: () => PlayerCards },
             { no: 4, name: "process_flop_automatically", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
@@ -348,8 +361,8 @@ class ShowdownOutcome$Type extends MessageType<ShowdownOutcome> {
         while (reader.pos < end) {
             let [fieldNo, wireType] = reader.tag();
             switch (fieldNo) {
-                case /* game_state.Street streetHistory */ 1:
-                    message.streetHistory = Street.internalBinaryRead(reader, reader.uint32(), options, message.streetHistory);
+                case /* game_state.StreetHistory streetHistory */ 1:
+                    message.streetHistory = StreetHistory.internalBinaryRead(reader, reader.uint32(), options, message.streetHistory);
                     break;
                 case /* repeated game_state.Winner winners */ 2:
                     message.winners.push(Winner.internalBinaryRead(reader, reader.uint32(), options));
@@ -372,9 +385,9 @@ class ShowdownOutcome$Type extends MessageType<ShowdownOutcome> {
         return message;
     }
     internalBinaryWrite(message: ShowdownOutcome, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
-        /* game_state.Street streetHistory = 1; */
+        /* game_state.StreetHistory streetHistory = 1; */
         if (message.streetHistory)
-            Street.internalBinaryWrite(message.streetHistory, writer.tag(1, WireType.LengthDelimited).fork(), options).join();
+            StreetHistory.internalBinaryWrite(message.streetHistory, writer.tag(1, WireType.LengthDelimited).fork(), options).join();
         /* repeated game_state.Winner winners = 2; */
         for (let i = 0; i < message.winners.length; i++)
             Winner.internalBinaryWrite(message.winners[i], writer.tag(2, WireType.LengthDelimited).fork(), options).join();
@@ -394,6 +407,60 @@ class ShowdownOutcome$Type extends MessageType<ShowdownOutcome> {
  * @generated MessageType for protobuf message game_state.ShowdownOutcome
  */
 export const ShowdownOutcome = new ShowdownOutcome$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class StreetHistory$Type extends MessageType<StreetHistory> {
+    constructor() {
+        super("game_state.StreetHistory", [
+            { no: 1, name: "finalBoard", kind: "message", T: () => Street },
+            { no: 2, name: "startingStreet", kind: "enum", T: () => ["game_state.StreetStatus", StreetStatus] }
+        ]);
+    }
+    create(value?: PartialMessage<StreetHistory>): StreetHistory {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.startingStreet = 0;
+        if (value !== undefined)
+            reflectionMergePartial<StreetHistory>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: StreetHistory): StreetHistory {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* game_state.Street finalBoard */ 1:
+                    message.finalBoard = Street.internalBinaryRead(reader, reader.uint32(), options, message.finalBoard);
+                    break;
+                case /* game_state.StreetStatus startingStreet */ 2:
+                    message.startingStreet = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: StreetHistory, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* game_state.Street finalBoard = 1; */
+        if (message.finalBoard)
+            Street.internalBinaryWrite(message.finalBoard, writer.tag(1, WireType.LengthDelimited).fork(), options).join();
+        /* game_state.StreetStatus startingStreet = 2; */
+        if (message.startingStreet !== 0)
+            writer.tag(2, WireType.Varint).int32(message.startingStreet);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message game_state.StreetHistory
+ */
+export const StreetHistory = new StreetHistory$Type();
 // @generated message type with reflection information, may provide speed optimized methods
 class Action$Type extends MessageType<Action> {
     constructor() {

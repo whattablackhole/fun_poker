@@ -9,7 +9,7 @@ import { ResponseMessageType } from "../../types/responses";
 import { ClientState } from "../../types/client_state";
 import { PlayerActionRequest, SpawnBotRequest } from "../../types/requests";
 import { BotModel } from "../../types/ai_bot_player";
-import { ActionType } from "../../types/game_state";
+import { ActionType, Winner } from "../../types/game_state";
 import useQuery from "../../hooks/useQuery";
 import { useNavigate } from "react-router-dom";
 import "./game.css";
@@ -30,6 +30,15 @@ function Game() {
   let onConnectionClose = () => {
     navigate("/");
   };
+
+  const [gameState, setState] = useState<ClientState | undefined>(undefined);
+  const [betHistory, setBetHistory] = useState<BetHistory>(new BetHistory());
+  const [boardCards, setBoardCards] = useState<Card[] | undefined>();
+  const [players, setPlayers] = useState<Player[]>();
+  const [winners, setWinners] = useState<Winner[]>();
+
+  const selfPlayer = players?.find((p) => p.userId === gameState?.playerId)!;
+  const queueRef = useRef(Promise.resolve());
 
   useEffect(() => {
     const lobbyId = query.get("lobby_id");
@@ -60,26 +69,17 @@ function Game() {
     }
   }, []);
 
-  const [gameState, setState] = useState<ClientState | undefined>(undefined);
-  const [betHistory, setBetHistory] = useState<BetHistory>(new BetHistory());
-  const [boardCards, setBoardCards] = useState<Card[] | undefined>();
-  const [players, setPlayers] = useState<Player[]>();
-  const selfPlayer = players?.find((p) => p.userId === gameState?.playerId)!;
-  let prevStateCopy = gameState;
-  const queueRef = useRef(Promise.resolve());
-
   const stateUpdateHandler = async (state: ClientState) => {
     console.log(state);
     queueRef.current = queueRef.current.then(async () => {
       const newState = await GameStateService.processNewState(
         state,
-        prevStateCopy,
         betHistory,
         setBoardCards,
         setBetHistory,
-        setPlayers
+        setPlayers,
+        setWinners
       );
-      prevStateCopy = newState;
       setState(newState);
     });
     return queueRef.current;
@@ -167,7 +167,9 @@ function Game() {
         betHistory={betHistory}
         buttonId={gameState.currButtonId?.value}
         currPlayerId={gameState.currPlayerId?.value}
+        boardCards={boardCards}
         street={gameState.street}
+        winners={winners}
       />
       <div className="game-controls">
         <GameControls

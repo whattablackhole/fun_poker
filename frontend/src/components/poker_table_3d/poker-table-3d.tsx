@@ -10,10 +10,12 @@ import PokerButton from "./poker-button";
 import Chips from "./chips3d";
 import TimerBanner from "../timer_banner/timer-banner";
 import BetHistory from "../../types/bet-history";
-import { ActionType, GameStatus, Street } from "../../types/game_state";
+import { ActionType, GameStatus, Street, Winner } from "../../types/game_state";
 import React from "react";
 import { Player, PlayerStatus } from "../../types/player";
 import * as THREE from "three";
+import { Card } from "../../types/card";
+import PlayerInfo from "../player-info/player-info";
 
 const LogCameraSettings = () => {
   const { camera } = useThree();
@@ -53,6 +55,8 @@ function PokerTable3d({
   betHistory,
   currPlayerId,
   gameStatus,
+  boardCards,
+  winners,
 }: {
   betHistory: BetHistory;
   players: Player[];
@@ -60,6 +64,8 @@ function PokerTable3d({
   currPlayerId?: number;
   street?: Street;
   gameStatus: GameStatus;
+  boardCards?: Card[];
+  winners?: Winner[];
 }) {
   const radius = 5;
 
@@ -160,12 +166,13 @@ function PokerTable3d({
         ) : null}
 
         <Html position={[-3, 3, 0]} style={{ display: "flex" }}>
-          {street?.cards?.map((card, index) => {
+          {boardCards?.map((card, index) => {
             return (
               <PokerCard
                 cardSuit={card.suit}
                 cardValue={card.value}
                 key={index}
+                highlight={false}
               />
             );
           })}
@@ -178,6 +185,10 @@ function PokerTable3d({
             y: playerBlockCordsOffseted.y - offsetY + 1.5,
             z: 1,
           };
+
+          const winnerIndex = winners?.findIndex((w) => w.playerId === player.userId);
+
+          const isWinner = winnerIndex !== undefined && winnerIndex !== -1;
 
           return (
             <React.Fragment key={player.userId}>
@@ -209,6 +220,7 @@ function PokerTable3d({
                 position={playerBlockCords}
                 index={index}
                 buttonId={buttonId}
+                showWinnerAnimation={isWinner}
                 isVisible={
                   player.status === PlayerStatus.Ready &&
                   player.action?.actionType !== ActionType.Fold &&
@@ -266,27 +278,10 @@ function PokerTable3d({
                     style={{ position: "absolute", top: "116px" }}
                   />
                 ) : null}
-                <div
-                  className="player_info trapezium"
-                  style={{ alignSelf: "center", textAlign: "center" }}
-                >
-                  <div className="player_info__container">
-                    <div className="player_name">
-                      {player.userName +
-                        (player.status === PlayerStatus.SitOut
-                          ? " (Sit Out)"
-                          : "") ?? "NickName"}
-                    </div>
-                    <div className="divider"></div>
-                    <div className="player_bank">
-                      {(player.bank ?? "100 000") + " chips"}
-                    </div>
-                  </div>
-
-                  {player.userId === currPlayerId ? (
-                    <TimerBanner timeLeft={100} />
-                  ) : null}
-                </div>
+                <PlayerInfo player={player} isWinner={isWinner}></PlayerInfo>
+                {/* {player.userId === currPlayerId ? (
+                  <TimerBanner timeLeft={100} />
+                ) : null} */}
               </Html>
             </React.Fragment>
           );

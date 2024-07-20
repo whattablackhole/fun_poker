@@ -35,10 +35,15 @@ message PlayerCards {
 
 
 message ShowdownOutcome {
-    Street streetHistory = 1;
+    StreetHistory streetHistory = 1;
     repeated Winner winners = 2;
     repeated PlayerCards players_cards = 3;
     bool process_flop_automatically = 4;
+}
+
+message StreetHistory {
+  Street finalBoard = 1;
+  StreetStatus startingStreet = 2;
 }
 
 enum ActionType {

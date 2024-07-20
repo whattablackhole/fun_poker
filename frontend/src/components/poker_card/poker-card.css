@@ -39,3 +39,10 @@
   transition-delay: 0.5s;
   transform: rotateY(-180deg);
 }
+
+
+.poker-card--highlight {
+  transition: width 0.5s;
+  width: 105px;
+  box-shadow: 0 0 15px #9ecaed;
+}

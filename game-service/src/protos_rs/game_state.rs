@@ -27,13 +27,21 @@ pub struct PlayerCards {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ShowdownOutcome {
     #[prost(message, optional, tag = "1")]
-    pub street_history: ::core::option::Option<Street>,
+    pub street_history: ::core::option::Option<StreetHistory>,
     #[prost(message, repeated, tag = "2")]
     pub winners: ::prost::alloc::vec::Vec<Winner>,
     #[prost(message, repeated, tag = "3")]
     pub players_cards: ::prost::alloc::vec::Vec<PlayerCards>,
     #[prost(bool, tag = "4")]
     pub process_flop_automatically: bool,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct StreetHistory {
+    #[prost(message, optional, tag = "1")]
+    pub final_board: ::core::option::Option<Street>,
+    #[prost(enumeration = "StreetStatus", tag = "2")]
+    pub starting_street: i32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

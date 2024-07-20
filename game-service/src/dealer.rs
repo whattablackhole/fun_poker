@@ -9,8 +9,8 @@ use crate::{
         card::CardPair,
         client_state::ClientState,
         game_state::{
-            Action, ActionType, GameStatus, PlayerCards, ShowdownOutcome, Street, StreetStatus,
-            Winner,
+            Action, ActionType, GameStatus, PlayerCards, ShowdownOutcome, Street, StreetHistory,
+            StreetStatus, Winner,
         },
         google::protobuf::{BoolValue, Int32Value},
         player::{Player, PlayerStatus},
@@ -64,6 +64,11 @@ impl PotWinners {
             winners: Vec::new(),
         }
     }
+}
+
+struct WinnerResult {
+    pub players_cards: Vec<PlayerCards>,
+    pub winners: Vec<Winner>,
 }
 
 struct RankedPlayer<'a> {
@@ -143,6 +148,8 @@ impl Dealer {
         player_state: &mut PlayerState,
         deck_state: &mut DeckState,
     ) -> UpdatedState {
+        let current_street = game_state.street.street_status;
+
         game_state.street.street_status = StreetStatus::River.into();
         while game_state.street.cards.len() != 5 {
             game_state
@@ -150,9 +157,19 @@ impl Dealer {
                 .cards
                 .push(deck_state.deck.cards.pop_front().unwrap());
         }
-        let showdown_outcome = self.calculate_winner(true, game_state, player_state);
+
+        let street_history = StreetHistory {
+            starting_street: current_street,
+            final_board: Some(game_state.street.clone()),
+        };
+
+        let winner_result = self.calculate_winner(game_state, player_state);
+
+        let showdown = self.create_showdown(Some(street_history), winner_result, true);
+
         self.post_showdown_cleanup(player_state);
-        game_state.showdown_outcome = Some(showdown_outcome);
+
+        game_state.showdown_outcome = Some(showdown);
 
         self.mark_eliminated_players(player_state);
         let states = self.create_client_states(game_state, player_state);
@@ -274,9 +291,10 @@ impl Dealer {
                 self.process_fold_action(payload.player_id, game_state, player_state);
                 let result = self.can_determine_winner(player_state);
                 if result.is_some() && result.unwrap() == true {
-                    let showdown_outcome = self.calculate_winner(false, game_state, player_state);
+                    let winner_result = self.calculate_winner(game_state, player_state);
+                    let showdown = self.create_showdown(None, winner_result, false);
                     self.post_showdown_cleanup(player_state);
-                    game_state.showdown_outcome = Some(showdown_outcome);
+                    game_state.showdown_outcome = Some(showdown);
                     self.mark_eliminated_players(player_state);
                     let states = self.create_client_states(game_state, player_state);
                     return UpdatedState {
@@ -321,11 +339,12 @@ impl Dealer {
             game_state.raiser_index = None;
             let curr_street = game_state.street.street_status;
             if curr_street == StreetStatus::River as i32 {
-                let showdown_outcome = self.calculate_winner(false, game_state, player_state);
+                let winner_result = self.calculate_winner(game_state, player_state);
+                let showdown = self.create_showdown(None, winner_result, false);
                 self.post_showdown_cleanup(player_state);
                 self.mark_eliminated_players(player_state);
                 // TODO: set showdown in seperate fn
-                game_state.showdown_outcome = Some(showdown_outcome);
+                game_state.showdown_outcome = Some(showdown);
                 let states = self.create_client_states(game_state, player_state);
                 return UpdatedState {
                     client_states: states,
@@ -375,6 +394,20 @@ impl Dealer {
     }
 
     // PRIVATE ----------------------------------------------------------------------------------------
+
+    fn create_showdown(
+        &self,
+        street_history: Option<StreetHistory>,
+        winner_result: WinnerResult,
+        automatic_showdown: bool,
+    ) -> ShowdownOutcome {
+        ShowdownOutcome {
+            players_cards: winner_result.players_cards,
+            process_flop_automatically: automatic_showdown,
+            street_history: street_history,
+            winners: winner_result.winners,
+        }
+    }
 
     fn calculate_key_positions(
         &self,
@@ -668,10 +701,9 @@ impl Dealer {
 
     fn calculate_winner(
         &self,
-        is_manual_street: bool,
         game_state: &mut GameState,
         player_state: &mut PlayerState,
-    ) -> ShowdownOutcome {
+    ) -> WinnerResult {
         let mut winners: Vec<Winner> = Vec::new();
         let mut players_cards = Vec::new();
 
@@ -693,13 +725,18 @@ impl Dealer {
                 player_id: winner.user_id,
                 win_amout: game_state.game_bank,
             });
-            return ShowdownOutcome {
+            return WinnerResult {
                 players_cards,
-                street_history: Some(game_state.street.clone()),
                 winners,
-                process_flop_automatically: is_manual_street,
             };
         }
+
+        eligable_players.iter().for_each(|p| {
+            players_cards.push(PlayerCards {
+                player_id: p.user_id,
+                cards: p.cards.clone(),
+            });
+        });
 
         players_with_bets.sort_by_key(|player| player.bet_in_current_seed);
 
@@ -742,19 +779,13 @@ impl Dealer {
                             win_amout: share,
                         });
                     }
-                    players_cards.push(PlayerCards {
-                        player_id: player.player.user_id,
-                        cards: player.player.cards.clone(),
-                    })
                 }
             }
         }
 
-        ShowdownOutcome {
+        WinnerResult {
             players_cards,
-            street_history: Some(game_state.street.clone()),
             winners,
-            process_flop_automatically: is_manual_street,
         }
     }
 

@@ -14,8 +14,10 @@ interface PokerCardProps {
   cardValue: CardValue | undefined;
   cardSuit: CardSuit | undefined;
   buttonId?: number;
+  highlight: boolean;
 }
-function PokerCard({ cardSuit, cardValue, buttonId }: PokerCardProps) {
+function PokerCard({ cardSuit, cardValue, buttonId, highlight }: PokerCardProps) {
+  const hightLightClass = highlight ? "poker-card--highlight" : "";
   const [show, setShow] = useState("poker-card");
 
   useEffect(() => {
@@ -32,7 +34,7 @@ function PokerCard({ cardSuit, cardValue, buttonId }: PokerCardProps) {
 
   return (
     <>
-      <div className={show}>
+      <div className={show + " " + hightLightClass}>
         <div className="card-face card-front">
           {cardSuit !== undefined && (
             <div
