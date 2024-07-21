@@ -17,7 +17,8 @@ import { Card } from "../../types/card";
 import { Player } from "../../types/player";
 import { CircularProgress, Typography } from "@mui/material";
 
-const wsUrl = import.meta.env.VITE_WS_URL;
+const baseUrl = import.meta.env.VITE_API_URL;
+const wsUrl = `wss://${baseUrl}`;
 
 function Game() {
   const query = useQuery();

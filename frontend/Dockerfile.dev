@@ -8,4 +8,6 @@ RUN npm install
 
 COPY . /app
 
+ENV VITE_API_URL=localhost:8082/api
+
 CMD ["npm", "run", "dev","--","--host"]

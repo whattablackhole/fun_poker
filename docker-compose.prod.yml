@@ -1,7 +1,8 @@
+# TODO: use shared image for protos
 services:
   auth-db:
     image: postgres:16-alpine
-    container_name: auth-db
+    container_name: auth-db-prod
     environment:
       POSTGRES_DB: $POSTGRES_AUTH_DB_NAME
       POSTGRES_USER: $POSTGRES_AUTH_USER_NAME
@@ -13,22 +14,14 @@ services:
     networks:
       - auth-network
   auth-service:
-    container_name: auth-service
+    container_name: auth-service-prod
     build:
       context: ./auth-service
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile.prod
     ports:
       - "5004:5004"
-    volumes:
-      - ./auth-service/Controllers:/src/auth-service/Controllers
-      - ./auth-service/Services:/src/auth-service/Services
-      - ./auth-service/Program.cs:/src/auth-service/Program.cs
-      - ./localhost.crt:/src/auth-service/localhost.crt
-      - ./localhost.key:/src/auth-service/localhost.key
-      - ./private_key.pem:/src/auth-service/private_key.pem
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - DOTNET_USE_POLLING_FILE_WATCHER=1
+      - ASPNETCORE_ENVIRONMENT=Production
       - DOTNET_USE_RUNNING_IN_CONTAINER=true
       - JWT_SECRET=$JWT_SECRET
       - ENCRYPTION_PASS=$ENCRYPTION_PASS
@@ -37,9 +30,14 @@ services:
       - auth-db
     networks:
       - auth-network
+    volumes:
+      - ./localhost.crt:/app/localhost.crt
+      - ./localhost.key:/app/localhost.key
+      - ./private_key.pem:/app/private_key.pem
+  
   game-service-db:
     image: postgres:16-alpine
-    container_name: game-service-db
+    container_name: game-service-db-prod
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
@@ -52,32 +50,28 @@ services:
     networks:
       - backend-network
   game-service:
-    container_name: game-service
+    container_name: game-service-prod
     build:
-      context: ./game-service
-      dockerfile: Dockerfile.dev
-    # ports:
-      # - "7878:7878"
+      context: .
+      dockerfile: ./game-service/Dockerfile.prod
+    ports:
+      - "7878:7878"
     networks:
       - backend-network
+    volumes:
+      - ./localhost.crt:/usr/local/bin/app/src/localhost.crt
+      - ./localhost.key:/usr/local/bin/app/src/localhost.key
     environment:
       RUN_IN_DOCKER: true
       IP_PORT: 0.0.0.0:7878
       DATABASE_URL: postgres://$POSTGRES_GAME_SERVICE_USER_NAME:$POSTGRES_GAME_SERVICE_USER_PASSWORD@game-service-db:5434/$POSTGRES_GAME_SERVICE_DB_NAME
-    volumes:
-      - target-cache:/app/target
-      - cargo-cache:/usr/local/cargo/registry 
-      - ./protos:/protos/
-      - ./game-service/src:/app/src
-      - ./localhost.crt:/app/src/localhost.crt
-      - ./localhost.key:/app/src/localhost.key
     depends_on:
       - game-service-db
   game-cordinator-service:
-    container_name: game-cordintator-service
+    container_name: game-cordinator-service-prod
     build:
       context: ./game-cordinator-service
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile.prod
     ports:
       - "8081:8081"
       - "6380:6379"
@@ -86,55 +80,45 @@ services:
     networks:
       - backend-network
   bot-player-service:
-    container_name: bot-player-service
+    container_name: bot-player-service-prod
     build:
-      context: ./bot-player-service
-      dockerfile: Dockerfile.dev
+      context: .
+      dockerfile: ./bot-player-service/Dockerfile.prod
     environment:
       - GROQ_API=$GROQ_API
     ports:
       - "5000:5000"
-    volumes:
-      - ./protos:/app/protos
   load-balancer:
-    container_name: load-balancer
+    container_name: load-balancer-prod
     build:
       context: ./load-balancer
-      dockerfile: openresty.Dockerfile
+      dockerfile: Dockerfile.prod
     ports:
       - "8082:8082"
     volumes:
-      - ./load-balancer/conf.d:/etc/nginx/conf.d/
+      - ./load-balancer/prod/conf.d:/etc/nginx/conf.d/
       - ./localhost.crt:/usr/local/openresty/certs/localhost.crt
       - ./localhost.key:/usr/local/openresty/certs/localhost.key
       - ./public_key.pem:/etc/nginx/ssl/public_key.pem
       - ./load-balancer/request.lua:/request.lua
     environment:
       - JWT_PUBLIC_KEY_FILE_PATH=/etc/nginx/ssl/public_key.pem
-      - REDIS_HOST=game-cordinator-service
+      - REDIS_HOST=game-cordinator-service-prod
       - REDIS_PORT=6379
     depends_on:
       - game-cordinator-service
+      - frontend
     networks:
       - backend-network
       - frontend-network
       - auth-network
   frontend:
-    container_name: frontend
+    container_name: frontend-prod
     build: 
       context: ./frontend
-      dockerfile: Dockerfile.dev
-    ports:
-      - "5174:5173"
-    environment:
-      - VITE_CERT_PATH=/app/localhost.crt
-      - VITE_PRIVATE_KEY_PATH=/app/localhost.key
-      # TODO: add allowed origins in config
-      - VITE_RUN_IN_DOCKER=true
+      dockerfile: Dockerfile.prod
     volumes:
       - ./frontend/src:/app/src
-      - ./localhost.crt:/app/localhost.crt
-      - ./localhost.key:/app/localhost.key
     networks:
       - frontend-network
 volumes:

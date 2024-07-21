@@ -1,0 +1,16 @@
+
+FROM fun_poker-frontend-prod AS html
+
+
+FROM openresty/openresty:1.21.4.1-0-alpine-fat AS nginx
+
+RUN /usr/local/openresty/luajit/bin/luarocks install lua-resty-redis \
+    && /usr/local/openresty/luajit/bin/luarocks install lua-resty-jwt \
+    && /usr/local/openresty/luajit/bin/luarocks install lua-cjson \
+    && /usr/local/openresty/luajit/bin/luarocks install lua-resty-http
+
+COPY ./nginx.conf /usr/local/openresty/nginx/conf/nginx.conf
+
+COPY --from=html /app/dist /usr/share/nginx/html
+
+EXPOSE 8082

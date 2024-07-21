@@ -69,7 +69,18 @@ builder.Services.AddCors(options =>
                    .AllowAnyMethod()
                    .AllowCredentials();
         });
+
+    options.AddPolicy("Production",
+   builder =>
+   {
+       builder.WithOrigins(["https://localhost:8082"])
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+   });
 });
+
+
 
 
 var app = builder.Build();
@@ -89,6 +100,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 
     app.UseCors("AllowOriginDevelopment");
+}
+else
+{
+    app.UseCors("Production");
 }
 app.UseHttpsRedirection();
 app.UseRouting();

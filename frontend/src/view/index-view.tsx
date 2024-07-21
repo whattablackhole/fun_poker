@@ -5,6 +5,7 @@ import CreateTempUserDialog from "../components/popups/temporal-user-creation-di
 import { useState } from "react";
 import { useUserContext } from "../contexts/user-context.tsx";
 import ApiService from "../services/api.service.ts";
+import logo from '/src/assets/logo_no_background.svg';
 
 function IndexView() {
   let { user } = useUserContext();
@@ -50,7 +51,7 @@ function IndexView() {
       >
         <div>
           <img
-            src={"/src/assets/logo_no_background.svg"}
+            src={logo}
             width={500}
             height={500}
             style={{ alignSelf: "center" }}

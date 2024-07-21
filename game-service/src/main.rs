@@ -298,7 +298,7 @@ fn handle_web_socket_request(
     });
 
     let result = match path {
-        "/join_lobby" => join_lobby_request_socket_handler(
+        "/api/join_lobby" => join_lobby_request_socket_handler(
             user,
             query_params,
             repo,
@@ -430,12 +430,12 @@ fn handle_http_request(
     let path = request.uri.split(" ").skip(1).next().unwrap();
 
     let (message, status_line): (Box<dyn EncodableMessage>, &str) = match path {
-        "/createLobby" => create_lobby_handler(request, repo, game_orchestrator),
-        "/getLobbies" => (Box::new(repo.get_lobbies()), &status_line),
-        "/startGame" => {
+        "/api/createLobby" => create_lobby_handler(request, repo, game_orchestrator),
+        "/api/getLobbies" => (Box::new(repo.get_lobbies()), &status_line),
+        "/api/startGame" => {
             start_game_request_handler(request, repo, socket_pool, thread_pool, game_orchestrator)
         }
-        "/spawnAIBot" => spawn_ai_bot_handler(request, game_orchestrator, socket_pool),
+        "/api/spawnAIBot" => spawn_ai_bot_handler(request, game_orchestrator, socket_pool),
         // "/observeLobby" => observe_lobby_request_handler(buff_reader),
         _ => (Box::new(EmptyMessage {}), STATUS_BAD_REQUEST),
     };

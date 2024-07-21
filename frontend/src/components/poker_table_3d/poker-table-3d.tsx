@@ -16,6 +16,10 @@ import { Player, PlayerStatus } from "../../types/player";
 import * as THREE from "three";
 import { Card } from "../../types/card";
 import PlayerInfo from "../player-info/player-info";
+import logo_no_background from "/src/assets/logo_no_background.svg";
+import rubber_texture from "/src/assets/rubber.avif";
+import game_background from "/src/assets/background.jpg";
+import default_avatar from "/src/assets/default_avatar.png";
 
 const LogCameraSettings = () => {
   const { camera } = useThree();
@@ -103,7 +107,7 @@ function PokerTable3d({
   }
 
   // TODO: should be cached, but still maybe need to preload
-  const borderTexture = useLoader(TextureLoader, "./src/assets/rubber.avif");
+  const borderTexture = useLoader(TextureLoader, rubber_texture);
   // const deskTexture = useLoader(TextureLoader, "./src/assets/desk-texture.jpg");
 
   const material = new THREE.ShaderMaterial({
@@ -129,7 +133,7 @@ function PokerTable3d({
       style={{
         height: "100vh",
         width: "100vw",
-        backgroundImage: "url('./src/assets/background.jpg')",
+        backgroundImage: `url('${game_background}')`,
         backgroundRepeat: "no-repeat",
         backgroundSize: "cover",
       }}
@@ -258,7 +262,7 @@ function PokerTable3d({
                   <img
                     width={150}
                     height={150}
-                    src="/src/assets/default_avatar.png"
+                    src={default_avatar}
                   ></img>
                 </div>
               </Html>
@@ -304,7 +308,7 @@ function PokerTable3d({
           Fun Poker
         </Text>
         <Image
-          url="/src/assets/logo_no_background.svg"
+          url={logo_no_background}
           position={[0, 1.5, 0.12]}
           transparent={true}
           zoom={1.5}

@@ -1,6 +1,6 @@
 import { ReactElement } from "react";
-import { HeaderMenuItemsDefinition } from "../types";
 import { Link } from 'react-router-dom';
+import { HeaderMenuItemsDefinition } from "../types/definition-types/header-menu-definition";
 
 export default class NavigationMenuBuilder {
     static buildMenuItems(definition: HeaderMenuItemsDefinition): ReactElement[] {

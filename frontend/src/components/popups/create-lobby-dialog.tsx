@@ -25,12 +25,14 @@ export default function CreateLobbyDialog() {
   const { user } = useUserContext();
   const handleSubmit = () => {
     if (user) {
+      console.log(user);
       let request = CreateLobbyRequest.create({
         payload: {
           gameName: GameName.Holdem,
           gameType: GameType.Cash,
           name: gameName,
-          authorId: user.id,
+          // @ts-ignore
+          authorId: Number.parseInt(user.id),
         },
       });
       ApiService.createLobby(request);

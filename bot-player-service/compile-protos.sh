@@ -22,7 +22,6 @@ done
 echo "All import lines updated in .proto files within $PROTO_DIR"
 
 
-python3 server.py
 
 
 

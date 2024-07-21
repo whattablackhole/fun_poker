@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using BC = BCrypt.Net.BCrypt;
 
 [ApiController]
-[Route("[controller]")]
+[Route("api/auth")]
 public class AuthController : ControllerBase
 {
     private readonly PostgresDbContext _dbContext;

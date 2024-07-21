@@ -7,7 +7,8 @@ import {
 } from "../types/requests";
 import { User } from "../types/user";
 
-const apiUrl = import.meta.env.VITE_API_URL;
+const apiUrlBase = import.meta.env.VITE_API_URL;
+const apiUrl = `https://${apiUrlBase}`;
 
 export class ResponseError extends Error {
   statusCode?: number;

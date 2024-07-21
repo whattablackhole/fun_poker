@@ -8,9 +8,9 @@ RUN apk add --no-cache protobuf-dev
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-
 COPY . /app
 
+RUN chmod +x compile-protos.sh
 
-ENTRYPOINT [ "./start.sh" ]
+CMD sh -c "./compile-protos.sh && python server.py"
 
