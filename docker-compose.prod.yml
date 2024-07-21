@@ -6,9 +6,7 @@ services:
     environment:
       POSTGRES_DB: $POSTGRES_AUTH_DB_NAME
       POSTGRES_USER: $POSTGRES_AUTH_USER_NAME
-      POSTGRES_PASSWORD: $POSTGRES_AUTH_USER_PASSWORD
-    ports:
-      - "5433:5432" 
+      POSTGRES_PASSWORD: $POSTGRES_AUTH_USER_PASSWORD 
     volumes:
       - pgdata1:/var/lib/postgresql/data
     networks:
@@ -18,8 +16,6 @@ services:
     build:
       context: ./auth-service
       dockerfile: Dockerfile.prod
-    ports:
-      - "5004:5004"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - DOTNET_USE_RUNNING_IN_CONTAINER=true
@@ -42,8 +38,6 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
       PGPORT: 5434
-    ports:
-      - "5434:5434"
     volumes: 
       - ./game-service/docker/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
       - pgdata2:/var/lib/postgresql/data
@@ -54,8 +48,6 @@ services:
     build:
       context: .
       dockerfile: ./game-service/Dockerfile.prod
-    ports:
-      - "7878:7878"
     networks:
       - backend-network
     volumes:
@@ -72,9 +64,6 @@ services:
     build:
       context: ./game-cordinator-service
       dockerfile: Dockerfile.prod
-    ports:
-      - "8081:8081"
-      - "6380:6379"
     volumes:
       - redis-data:/data
     networks:
@@ -86,15 +75,13 @@ services:
       dockerfile: ./bot-player-service/Dockerfile.prod
     environment:
       - GROQ_API=$GROQ_API
-    ports:
-      - "5000:5000"
   load-balancer:
     container_name: load-balancer-prod
+    ports:
+      - 8082:8082
     build:
       context: ./load-balancer
       dockerfile: Dockerfile.prod
-    ports:
-      - "8082:8082"
     volumes:
       - ./load-balancer/prod/conf.d:/etc/nginx/conf.d/
       - ./localhost.crt:/usr/local/openresty/certs/localhost.crt
