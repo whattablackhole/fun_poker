@@ -8,7 +8,7 @@ RUN npm install
 
 COPY . ./
 
-ENV VITE_API_URL=localhost:8082/api
+ENV VITE_API_URL=rudolf-hrytseniak.lol/api
 
 RUN npm run build
 

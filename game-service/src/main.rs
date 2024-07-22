@@ -19,7 +19,7 @@ use sha1::{Digest, Sha1};
 
 use rustls_pemfile::{certs, private_key};
 use serde_json::Value;
-use std::{collections::HashMap, env, fs::File};
+use std::{collections::HashMap, env, fs::File, io::Error};
 use std::{
     io::{BufReader, Cursor, Read, Write},
     net::{TcpListener, TcpStream},
@@ -54,6 +54,8 @@ pub struct Request {
 pub struct Configuration {
     address: String,
     db_connection: String,
+    cert_path: String,
+    cert_private_key_path: String,
 }
 
 enum ClaimTypesEnum {
@@ -85,12 +87,17 @@ pub const STATUS_OK: &str = "HTTP/1.1 200 OK";
 pub const STATUS_INTERNAL_ERROR: &str = "HTTP/1.1 500 Internal Server Error";
 
 fn load_tls_config(cert_path: &str, key_path: &str) -> Arc<ServerConfig> {
-    let cert_file =
-        &mut BufReader::new(File::open(cert_path).expect("cannot open certificate file"));
-    let cert_chain = certs(cert_file).map(|i| i.unwrap()).collect();
+    let cert_file = File::open(cert_path).expect("cannot open certificate file");
+    let mut cert_reader = BufReader::new(cert_file);
+    let cert_chain = certs(&mut cert_reader)
+        .collect::<Result<Vec<_>, _>>()
+        .expect("failed to parse certificate");
 
-    let key_file = &mut BufReader::new(File::open(key_path).expect("cannot open private key file"));
-    let private_key = private_key(key_file).unwrap().unwrap();
+    let key_file = File::open(key_path).expect("cannot open private key file");
+    let mut key_reader = BufReader::new(key_file);
+    let private_key = private_key(&mut key_reader)
+        .expect("failed to parse private key")
+        .expect("empty private key");
 
     let config = ServerConfig::builder()
         .with_no_client_auth()
@@ -101,11 +108,12 @@ fn load_tls_config(cert_path: &str, key_path: &str) -> Arc<ServerConfig> {
 
 fn main() {
     dotenv().ok();
-
     let configuration = load_configuration();
 
-    let tls_config: Arc<ServerConfig> =
-        load_tls_config("./src/localhost.crt", "./src/localhost.key");
+    let tls_config: Arc<ServerConfig> = load_tls_config(
+        &configuration.cert_path,
+        &configuration.cert_private_key_path,
+    );
 
     // TODO: add multiple db connections for concurrency
     // r2d2 or deadpool-postgres or self implementation
@@ -154,15 +162,19 @@ fn main() {
 
 fn load_configuration() -> Configuration {
     let is_docker_env = env::var("RUN_IN_DOCKER").is_ok();
+    let cert_path = env::var("CERT_PATH").expect("CERT_PATH must be set in Docker environment");
+    let cert_private_key_path = env::var("CERT_PRIVATE_KEY_PATH")
+        .expect("CERT_PRIVATE_KEY_PATH must be set in Docker environment");
 
     if is_docker_env {
         let address = env::var("IP_PORT").expect("IP_PORT must be set in Docker environment");
         let db_connection =
             env::var("DATABASE_URL").expect("DATABASE_URL must be set in Docker environment");
-
         Configuration {
             address,
             db_connection,
+            cert_path,
+            cert_private_key_path,
         }
     } else {
         let args: Vec<String> = env::args().collect();
@@ -192,6 +204,8 @@ fn load_configuration() -> Configuration {
         Configuration {
             address,
             db_connection,
+            cert_path,
+            cert_private_key_path,
         }
     }
 }
@@ -542,12 +556,11 @@ fn parse_queries_from_uri(uri: &str) -> QueryParams {
     keys_values
 }
 
-fn get_body_buffer_position(buffer: &Vec<u8>) -> usize {
+fn get_body_buffer_position(buffer: &Vec<u8>) -> Option<usize> {
     let headers_end = buffer
         .windows(4)
         .position(|window| window == b"\r\n\r\n")
-        .map(|pos| pos + 4)
-        .expect("Headers not found");
+        .map(|pos| pos + 4);
 
     headers_end
 }
@@ -586,7 +599,11 @@ fn parse_request(
 
     buffer.resize(bytes_read, 0);
 
-    let bodystart = get_body_buffer_position(&buffer);
+    // WARN: not tested at all, fast fix
+    let bodystart = match get_body_buffer_position(&buffer) {
+        Some(v) => v,
+        None => buffer.len(),
+    };
 
     let request_str = String::from_utf8_lossy(&buffer[..bodystart]);
 

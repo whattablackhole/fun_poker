@@ -32,7 +32,7 @@ builder.Services.AddControllers();
 
 builder.Services.AddDbContext<PostgresDbContext>(options =>
     {
-        var connectionString = Environment.GetEnvironmentVariable("PostgresConnection");
+        var connectionString = Environment.GetEnvironmentVariable("POSTGRES_CONNECTION");
         options.UseNpgsql(connectionString);
     });
 
@@ -104,6 +104,17 @@ if (app.Environment.IsDevelopment())
 else
 {
     app.UseCors("Production");
+    // temp solution. have to be done as seperate step at docker level
+    using (var scope = app.Services.CreateScope())
+    {
+        var services = scope.ServiceProvider;
+
+        var context = services.GetRequiredService<PostgresDbContext>();
+        if (context.Database.GetPendingMigrations().Any())
+        {
+            context.Database.Migrate();
+        }
+    }
 }
 app.UseHttpsRedirection();
 app.UseRouting();

@@ -18,8 +18,10 @@ WORKDIR /app
 COPY --from=build /app/out .
 
 # ENV ASPNETCORE_Kestrel__Certificates__Default__Password=
-ENV ASPNETCORE_Kestrel__Certificates__Default__Path=/app/localhost.crt
-ENV ASPNETCORE_Kestrel__Certificates__Default__KeyPath=/app/localhost.key
+ENV ASPNETCORE_Kestrel__Certificates__Default__Path=/app/certs/fullchain.pem
+ENV ASPNETCORE_Kestrel__Certificates__Default__KeyPath=/app/certs/privkey.pem
+ENV ASPNETCORE_ENVIRONMENT=Production
+ENV DOTNET_USE_RUNNING_IN_CONTAINER=true
 
 ENTRYPOINT ["dotnet", "auth-service.dll", "--urls", "https://0.0.0.0:5004"]
 
