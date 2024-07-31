@@ -43,9 +43,10 @@ impl GameOrchestrator {
         event: ConnectionClosedEvent,
         socket_pool: &Arc<SocketPool>,
     ) {
-        let user_map = self.user_map.lock().unwrap();
-
-        match user_map.get(&event.user_id) {
+        let mut user_map = self.user_map.lock().unwrap();
+        let user_servers = user_map.remove(&event.user_id);
+        
+        match user_servers {
             None => return,
             Some(game_ids) => {
                 game_ids.iter().for_each(move |id| {

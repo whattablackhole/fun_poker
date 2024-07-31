@@ -490,9 +490,6 @@ impl Game {
             loop {
                 let message = request_receiver.lock().unwrap().recv().unwrap();
                 match message {
-                    // GameChannelRequestMessage::CheckJoinGameEligabality(r) => {
-
-                    // },
                     GameChannelRequestMessage::ConnectionClosed(e) => {
                         self.hande_connection_update(&e, &socket_pool);
                     }

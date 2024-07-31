@@ -419,6 +419,7 @@ fn join_lobby_request_socket_handler(
     }
 
     if let Err(_) = game_orchestrator.join_game(lobby_id, user, &socket_pool) {
+        println!("lobby is full error");
         return Err(STATUS_BAD_REQUEST);
     };
 
